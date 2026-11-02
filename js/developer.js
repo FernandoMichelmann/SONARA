@@ -398,14 +398,15 @@
 
   $("previewSourceAudio").addEventListener("loadedmetadata", () => {
     const audio = $("previewSourceAudio");
-    const maxStart = Math.max(0, Math.floor(audio.duration - 30));
+    const validDuration = Number.isFinite(audio.duration) && audio.duration >= 30;
+    const maxStart = validDuration ? Math.floor(audio.duration - 30) : 0;
     $("previewStartRange").max = String(maxStart);
-    $("previewStartRange").disabled = !Number.isFinite(audio.duration) || maxStart < 0;
+    $("previewStartRange").disabled = !validDuration;
     $("previewStartRange").value = "0";
     previewStart = 0;
     $("previewStartLabel").textContent = "0:00";
     $("previewEndLabel").textContent = "0:30";
-    setMessage($("previewMessage"), maxStart < 0 ? "O arquivo precisa ter pelo menos 30 segundos." : "Arraste o seletor e aperte play para ouvir o trecho escolhido.", maxStart < 0 ? "error" : "success");
+    setMessage($("previewMessage"), !validDuration ? "O arquivo precisa ter pelo menos 30 segundos." : "Arraste o seletor e aperte play para ouvir o trecho escolhido.", !validDuration ? "error" : "success");
   });
   $("previewStartRange").addEventListener("input", () => {
     previewStart = Number($("previewStartRange").value);
