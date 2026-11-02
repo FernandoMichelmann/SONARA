@@ -566,12 +566,15 @@ async function loadPublicCatalog() {
             }
         });
 
+        // O heroWave antigo foi removido em favor do slideshow.
+        // Mantemos a inicialização protegida para não interromper o restante do app.
         const wave = document.getElementById("heroWave");
-        const heights = [25, 42, 65, 95, 70, 115, 85, 55, 100, 125, 75, 45, 95, 115, 70, 38, 85, 105, 55, 35, 75, 95, 50, 25];
-
-        wave.innerHTML = heights.map((h, i) =>
-            `<span style="height:${h}px;animation-delay:${i * .07}s"></span>`
-        ).join("");
+        if (wave) {
+            const heights = [25, 42, 65, 95, 70, 115, 85, 55, 100, 125, 75, 45, 95, 115, 70, 38, 85, 105, 55, 35, 75, 95, 50, 25];
+            wave.innerHTML = heights.map((h, i) =>
+                `<span style="height:${h}px;animation-delay:${i * .07}s"></span>`
+            ).join("");
+        }
 
         renderAll();
         loadPublicCatalog();
