@@ -271,6 +271,33 @@ async def upload_track(
 
 
 
+@router.delete("/tracks/{track_id}")
+def delete_track(
+    track_id: int,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    track = db.get(Track, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track não encontrada.")
+
+    # Remova somente a pasta exclusiva desta track dentro de uploads/tracks.
+    track_dir = Path(track.stems_path).resolve().parent if track.stems_path else None
+    uploads_root = AUDIO_DIR.resolve()
+    if track_dir is None or track_dir.parent != uploads_root:
+        raise HTTPException(status_code=409, detail="Não foi possível validar a pasta desta track com segurança.")
+
+    cover_path = Path(track.cover_path).resolve() if track.cover_path else None
+    db.delete(track)
+    db.commit()
+
+    shutil.rmtree(track_dir, ignore_errors=True)
+    if cover_path and cover_path.parent == COVER_DIR.resolve():
+        cover_path.unlink(missing_ok=True)
+
+    return {"id": track_id, "deleted": True, "message": "Track excluída com sucesso."}
+
+
 @router.get("/tracks/{track_id}/preview-source")
 def get_track_preview_source(
     track_id: int,
