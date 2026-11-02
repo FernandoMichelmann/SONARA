@@ -61,6 +61,7 @@ def track_payload(track: Track):
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
         "stems": stems,
         "preview_start_seconds": getattr(track, "preview_start_seconds", 0),
+        "preview_ready": bool(track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() and any((Path(track.stems_path).parent / "previews").glob("*.mp3"))),
     }
 
 
@@ -369,6 +370,11 @@ def update_track(
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=422, detail="Categorias inválidas.")
     if is_published is not None:
+        if is_published:
+            preview_dir = Path(track.stems_path).parent / "previews" if track.stems_path else None
+            previews = list(preview_dir.glob("*.mp3")) if preview_dir and preview_dir.is_dir() else []
+            if not previews:
+                raise HTTPException(status_code=409, detail="Antes de publicar, configure e gere a prévia de 30 segundos desta multitrack.")
         track.is_published = is_published
     db.commit()
     db.refresh(track)
