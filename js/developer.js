@@ -472,8 +472,8 @@
         const data = await request("/developer/tracks");
         const track = (data.items || []).find(item => String(item.id) === previewButton.dataset.trackPreview);
         if (!track) throw new Error("Multitrack não encontrada na biblioteca.");
-        previewPublishAfter = false;
-        $("previewPublishToggle").checked = false;
+        previewPublishAfter = Boolean(track.is_published);
+        $("previewPublishToggle").checked = previewPublishAfter;
         await openPreviewEditor(track);
       } catch (error) {
         setGlobalMessage(error.message || "Não foi possível abrir o editor da prévia.", "error");
