@@ -236,7 +236,7 @@ async def upload_track(
         track = Track(
             title=title.strip(), artist=artist.strip(), musical_key=musical_key.strip(),
             bpm=bpm, time_signature=time_signature.strip() or "4/4",
-            category=", ".join(selected) or "Multitrack",
+            category=selected[0] if selected else "Multitrack",
             categories_json=json.dumps(selected, ensure_ascii=False),
             original_filename=archive_name, storage_path=str(main_stem),
             stems_path=str(stems_dir),
@@ -298,7 +298,7 @@ def update_track(
             selected = json.loads(categories)
             if not isinstance(selected, list): raise ValueError()
             track.categories_json = json.dumps(selected, ensure_ascii=False)
-            track.category = ", ".join(selected)
+            track.category = selected[0] if selected else "Multitrack"
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=422, detail="Categorias inválidas.")
     if is_published is not None:
