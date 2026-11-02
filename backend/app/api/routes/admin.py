@@ -311,7 +311,7 @@ def create_track_preview(
             command = [
                 ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", str(start_seconds), "-i", str(source),
-                "-t", "30", "-vn", "-codec:a", "libmp3lame",
+                "-t", "30", "-af", "apad", "-vn", "-codec:a", "libmp3lame",
                 "-b:a", "160k", "-ar", "44100", "-ac", "2",
                 "-metadata", "title=" + track.title, str(output),
             ]
