@@ -256,6 +256,7 @@ let tracks = [];
 
 
         function toggleSolo(index) {
+            if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); }
             if (soloStemIndices.has(index)) soloStemIndices.delete(index);
             else soloStemIndices.add(index);
             document.querySelectorAll(".stem-solo").forEach((button, buttonIndex) => {
