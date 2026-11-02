@@ -4,6 +4,7 @@ let tracks = [];
         let favorites = new Set();
         let currentTrack = null;
         let playing = false;
+        let stemPlayers = [];
         const audioPlayer = new Audio();
         const SONARA_CATALOG_API = "http://127.0.0.1:8000/api/v1";
 
@@ -80,21 +81,158 @@ let tracks = [];
             button.addEventListener("click", () => navigate(button.dataset.page));
         });
 
+        function stopStemPlayers() {
+            stemPlayers.forEach(player => { player.pause(); player.currentTime = 0; });
+            stemPlayers = [];
+            updateAllStemsButton(false);
+        }
+
+        function updateAllStemsButton(isPlaying) {
+            const button = document.getElementById("playAllStems");
+            if (!button) return;
+            button.innerHTML = isPlaying
+                ? '<i data-lucide="pause"></i> Pausar todas'
+                : '<i data-lucide="play"></i> Tocar todas';
+            lucide.createIcons();
+        }
+
         function selectTrack(id) {
-            currentTrack = tracks.find(t => t.id === Number(id));
-            if (!currentTrack) return;
-            if (audioPlayer.src !== currentTrack.audioUrl) {
-                audioPlayer.pause();
-                audioPlayer.src = currentTrack.audioUrl || "";
-                audioPlayer.load();
-            }
+            const selected = tracks.find(t => t.id === Number(id));
+            if (!selected) return;
+            stopStemPlayers();
+            audioPlayer.pause();
+            currentTrack = selected;
             document.getElementById("playerTitle").textContent = currentTrack.title;
             document.getElementById("playerArtist").textContent = currentTrack.artist || "SONARA";
             document.getElementById("progressFill").style.width = "0%";
             document.getElementById("currentTime").textContent = "0:00";
             document.getElementById("durationTime").textContent = "0:00";
-            showToast("Track selecionada.");
+
+            const overlay = document.getElementById("multitrackOverlay");
+            const cover = document.getElementById("multitrackCover");
+            document.getElementById("multitrackTitle").textContent = currentTrack.title;
+            document.getElementById("multitrackMeta").textContent =
+                [currentTrack.artist, currentTrack.key, currentTrack.bpm !== "—" ? currentTrack.bpm + " BPM" : "", currentTrack.timeSignature]
+                    .filter(Boolean).join(" · ");
+            if (currentTrack.coverUrl) {
+                cover.src = currentTrack.coverUrl;
+                cover.hidden = false;
+            } else {
+                cover.removeAttribute("src");
+                cover.hidden = true;
+            }
+
+            const download = document.getElementById("downloadMultitrack");
+            download.onclick = () => {
+                if (!currentTrack?.zipDownloadUrl) {
+                    showToast("O ZIP original não está disponível para esta música.");
+                    return;
+                }
+                const link = document.createElement("a");
+                link.href = currentTrack.zipDownloadUrl;
+                link.download = "";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            };
+
+            const stems = currentTrack.stems || [];
+            document.getElementById("stemCount").textContent = stems.length + (stems.length === 1 ? " track" : " tracks");
+            const list = document.getElementById("stemList");
+            list.innerHTML = stems.length ? stems.map((stem, index) => {
+                const label = stem.name.replace(/^\\d+_/, "").replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ");
+                return `<div class="stem-row">
+                    <div class="stem-index">${String(index + 1).padStart(2, "0")}</div>
+                    <div class="stem-details"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(stem.name)}</span></div>
+                    <button class="stem-play" id="stemPlay-${index}" type="button" onclick="toggleStem(${index})"><i data-lucide="play"></i> Ouvir</button>
+                    <label class="stem-volume"><i data-lucide="volume-2"></i><input type="range" min="0" max="100" value="100" aria-label="Volume de ${escapeHTML(label)}" oninput="setStemVolume(${index}, this.value)"></label>
+                </div>`;
+            }).join("") : '<p class="stem-empty">Nenhuma track separada foi encontrada para esta música.</p>';
+
+            stemPlayers = stems.map(stem => {
+                const player = new Audio(stem.url);
+                player.preload = "auto";
+                player.volume = 1;
+                return player;
+            });
+            overlay.classList.add("active");
+            overlay.setAttribute("aria-hidden", "false");
+            updateAllStemsButton(false);
             lucide.createIcons();
+        }
+
+        function closeMultitrack() {
+            stopStemPlayers();
+            const overlay = document.getElementById("multitrackOverlay");
+            overlay.classList.remove("active");
+            overlay.setAttribute("aria-hidden", "true");
+        }
+
+        function toggleStem(index) {
+            const selected = stemPlayers[index];
+            if (!selected) return;
+            const wasPlaying = !selected.paused;
+            stemPlayers.forEach((player, playerIndex) => {
+                if (playerIndex !== index) {
+                    player.pause();
+                    player.currentTime = 0;
+                    updateStemButton(playerIndex, false);
+                }
+            });
+            if (wasPlaying) {
+                selected.pause();
+                updateStemButton(index, false);
+            } else {
+                selected.currentTime = 0;
+                selected.play().then(() => updateStemButton(index, true))
+                    .catch(() => showToast("Não foi possível reproduzir esta track."));
+            }
+            updateAllStemsButton(false);
+        }
+
+        function updateStemButton(index, isPlaying) {
+            const button = document.getElementById("stemPlay-" + index);
+            if (!button) return;
+            button.innerHTML = isPlaying
+                ? '<i data-lucide="pause"></i> Pausar'
+                : '<i data-lucide="play"></i> Ouvir';
+            lucide.createIcons();
+        }
+
+        function setStemVolume(index, value) {
+            if (stemPlayers[index]) stemPlayers[index].volume = Number(value) / 100;
+        }
+
+        async function toggleAllStems() {
+            if (!stemPlayers.length) {
+                showToast("Esta música não possui tracks de áudio disponíveis.");
+                return;
+            }
+            const allPlaying = stemPlayers.every(player => !player.paused);
+            if (allPlaying) {
+                stemPlayers.forEach((player, index) => {
+                    player.pause();
+                    updateStemButton(index, false);
+                });
+                updateAllStemsButton(false);
+                return;
+            }
+            stemPlayers.forEach(player => {
+                player.pause();
+                player.currentTime = 0;
+            });
+            try {
+                await Promise.all(stemPlayers.map(player => player.play()));
+                stemPlayers.forEach((player, index) => updateStemButton(index, true));
+                updateAllStemsButton(true);
+            } catch {
+                stemPlayers.forEach((player, index) => {
+                    player.pause();
+                    updateStemButton(index, false);
+                });
+                updateAllStemsButton(false);
+                showToast("Não foi possível iniciar todas as tracks. Verifique os arquivos de áudio.");
+            }
         }
 
         function togglePlay() {
@@ -102,15 +240,9 @@ let tracks = [];
                 showToast("Selecione uma música primeiro.");
                 return;
             }
-            if (!currentTrack.audioUrl) {
-                showToast("Esta faixa ainda não possui um arquivo de áudio publicado.");
-                return;
-            }
-            if (audioPlayer.paused) {
-                audioPlayer.play().catch(() => showToast("Não foi possível reproduzir este arquivo de áudio."));
-            } else {
-                audioPlayer.pause();
-            }
+            const overlay = document.getElementById("multitrackOverlay");
+            if (!overlay.classList.contains("active")) selectTrack(currentTrack.id);
+            toggleAllStems();
         }
 
         function formatAudioTime(seconds) {
