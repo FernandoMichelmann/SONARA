@@ -107,20 +107,43 @@
   }
 
   async function loadTracks() {
-    const data = await request("/developer/tracks");
-    const tracks = data.items || [];
+    const results = await Promise.all([request("/developer/tracks"), request("/developer/track-categories")]);
+    const tracks = results[0].items || [];
+    renderCategoryOptions(results[1].items || []);
     $("overviewTracks").textContent = tracks.length;
     const published = tracks.filter(track => track.is_published).length;
     $("publishedTracks").textContent = published + " publicada(s) no catálogo";
-    const rows = tracks.map(track => `
-      <tr>
-        <td><div class="cell-primary">${escapeHtml(track.title)}</div><div class="cell-secondary">${escapeHtml(track.artist || "Artista não informado")}</div></td>
-        <td>${escapeHtml(track.musical_key || "Tom —")} · ${track.bpm ? escapeHtml(track.bpm + " BPM") : "BPM —"}<div class="cell-secondary">${escapeHtml(track.category)}</div></td>
-        <td><div class="cell-primary">${escapeHtml(track.original_filename)}</div><div class="cell-secondary">${(Number(track.file_size || 0) / (1024 * 1024)).toFixed(1)} MB</div></td>
-        <td><span class="status-pill ${track.is_published ? "published" : "unpublished"}">${track.is_published ? "Publicada" : "Rascunho"}</span></td>
-        <td><button class="table-action" data-track-publish="${track.id}" data-next-published="${track.is_published ? "false" : "true"}">${track.is_published ? "Retirar do site" : "Publicar"}</button></td>
-      </tr>`).join("");
-    $("tracksTable").innerHTML = rows || '<tr><td colspan="5" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
+    const rows = tracks.map(track => {
+      const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
+      return '<tr>' +
+        '<td><div class="cell-primary">' + escapeHtml(track.title) + '</div><div class="cell-secondary">' + escapeHtml(track.artist || "Artista não informado") + '</div></td>' +
+        '<td>' + escapeHtml(track.musical_key || "Tom —") + ' · ' + (track.bpm ? escapeHtml(track.bpm + " BPM") : "BPM —") + '<div class="cell-secondary">' + escapeHtml(track.time_signature || "4/4") + '</div></td>' +
+        '<td><div class="tag-list">' + (tags || "—") + '</div></td>' +
+        '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
+        '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span></td>' +
+        '<td><button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button></td></tr>';
+    }).join("");
+    $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
+  }
+
+  function renderCategoryOptions(categories) {
+    const container = $("trackCategoryOptions");
+    const selected = new Set([...container.querySelectorAll("input:checked")].map(input => input.value));
+    container.innerHTML = categories.map(category =>
+      '<label class="category-option"><input type="checkbox" value="' + escapeHtml(category.name) + '" ' +
+      (selected.has(category.name) ? "checked" : "") + '><span>' + escapeHtml(category.name) + '</span></label>'
+    ).join("") || '<span class="muted">Nenhuma categoria cadastrada.</span>';
+  }
+
+  async function loadTrackCategories() {
+    const data = await request("/developer/track-categories");
+    renderCategoryOptions(data.items || []);
+  }
+
+  function setTrackStep(step) {
+    document.querySelectorAll(".track-form-step").forEach(panel => panel.hidden = panel.id !== "trackStep-" + step);
+    document.querySelectorAll(".track-form-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.trackStep === step));
+    if (window.lucide) window.lucide.createIcons();
   }
 
   async function loadRevenue() {
@@ -248,29 +271,96 @@
     }
   });
 
+  document.querySelectorAll("[data-track-step]").forEach(button => button.addEventListener("click", () => setTrackStep(button.dataset.trackStep)));
+  document.querySelectorAll("[data-track-next]").forEach(button => button.addEventListener("click", () => {
+    const next = button.dataset.trackNext;
+    if (next === "audio" && !$("trackTitle").value.trim()) {
+      setMessage($("trackUploadMessage"), "Informe pelo menos o nome da track.", "error");
+      setTrackStep("details");
+      $("trackTitle").focus();
+      return;
+    }
+    if (next === "cover" && !$("trackArchive").files.length) {
+      setMessage($("trackUploadMessage"), "Selecione o pacote ZIP antes de continuar.", "error");
+      setTrackStep("audio");
+      return;
+    }
+    setMessage($("trackUploadMessage"), "");
+    setTrackStep(next);
+  }));
+  document.querySelectorAll("[data-track-prev]").forEach(button => button.addEventListener("click", () => setTrackStep(button.dataset.trackPrev)));
+
+  $("addTrackCategory").addEventListener("click", async () => {
+    const input = $("newTrackCategory");
+    const name = input.value.trim();
+    if (!name) return;
+    const button = $("addTrackCategory");
+    button.disabled = true;
+    try {
+      await request("/developer/track-categories", { method: "POST", body: JSON.stringify({ name }) });
+      input.value = "";
+      await loadTrackCategories();
+      const checkbox = [...$("trackCategoryOptions").querySelectorAll("input")].find(item => item.value.toLowerCase() === name.toLowerCase());
+      if (checkbox) checkbox.checked = true;
+      setMessage($("trackUploadMessage"), "Categoria adicionada à biblioteca.", "success");
+    } catch (error) {
+      setMessage($("trackUploadMessage"), error.message, "error");
+    } finally { button.disabled = false; }
+  });
+
+  $("trackArchive").addEventListener("change", () => {
+    $("archiveSelection").textContent = $("trackArchive").files[0]?.name || "Nenhum pacote selecionado";
+  });
+  let coverPreviewUrl = null;
+  $("trackCover").addEventListener("change", () => {
+    const file = $("trackCover").files[0];
+    $("coverSelection").textContent = file?.name || "Nenhuma imagem selecionada";
+    const preview = $("trackCoverPreview");
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    if (!file) {
+      preview.innerHTML = '<i data-lucide="image-plus"></i><span>Prévia da capa</span>';
+    } else {
+      coverPreviewUrl = URL.createObjectURL(file);
+      preview.innerHTML = '<img alt="Prévia da capa" src="' + coverPreviewUrl + '">';
+    }
+    if (window.lucide) window.lucide.createIcons();
+  });
+
   $("trackUploadForm").addEventListener("submit", async event => {
     event.preventDefault();
     const form = event.currentTarget;
     const button = $("uploadTrackButton");
     const message = $("trackUploadMessage");
+    if (!$("trackArchive").files.length) {
+      setMessage(message, "Selecione um arquivo ZIP com os stems.", "error");
+      setTrackStep("audio");
+      return;
+    }
     const formData = new FormData(form);
+    const selectedCategories = [...$("trackCategoryOptions").querySelectorAll("input:checked")].map(input => input.value);
+    formData.set("categories", JSON.stringify(selectedCategories));
     formData.set("is_published", $("trackPublish").checked ? "true" : "false");
     if (!$("trackBpm").value) formData.delete("bpm");
+    if (!$("trackCover").files.length) formData.delete("cover");
     button.disabled = true;
-    button.querySelector("span").textContent = "Enviando arquivo...";
-    setMessage(message, "O upload pode levar alguns instantes para arquivos grandes.");
+    button.querySelector("span").textContent = "Enviando e extraindo ZIP...";
+    setMessage(message, "O sistema está validando e organizando os stems. Aguarde o término do envio.");
     try {
       await request("/developer/tracks", { method: "POST", body: formData });
       form.reset();
-      $("trackCategory").value = "Multitrack";
-      setMessage(message, "Track enviada com sucesso.", "success");
-      setGlobalMessage("Biblioteca de tracks atualizada.", "success");
-      await Promise.all([loadTracks()]);
+      $("archiveSelection").textContent = "Nenhum pacote selecionado";
+      $("coverSelection").textContent = "Nenhuma imagem selecionada";
+      $("trackCoverPreview").innerHTML = '<i data-lucide="image-plus"></i><span>Prévia da capa</span>';
+      setTrackStep("details");
+      setMessage(message, "Multitrack cadastrada com sucesso.", "success");
+      setGlobalMessage("Biblioteca de multitracks atualizada.", "success");
+      await loadTracks();
+      if (window.lucide) window.lucide.createIcons();
     } catch (error) {
-      setMessage(message, error.message || "Não foi possível enviar a track.", "error");
+      setMessage(message, error.message || "Não foi possível enviar a multitrack.", "error");
     } finally {
       button.disabled = false;
-      button.querySelector("span").textContent = "Enviar track";
+      button.querySelector("span").textContent = "Salvar e enviar multitrack";
     }
   });
 
