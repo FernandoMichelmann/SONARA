@@ -8,3 +8,6 @@ backend/sonara.db-shm
 backend/sonara.db-wal
 *.py[cod]
 .pytest_cache/
+
+# Uploaded audio files are stored locally and must not be committed
+backend/uploads/
