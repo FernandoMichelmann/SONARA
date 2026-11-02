@@ -19,6 +19,7 @@ def migrate_track_columns():
         "time_signature": "VARCHAR(12) NOT NULL DEFAULT '4/4'",
         "stems_path": "VARCHAR(600) NOT NULL DEFAULT ''",
         "preview_start_seconds": "INTEGER NOT NULL DEFAULT 0",
+        "preview_end_seconds": "INTEGER NOT NULL DEFAULT 30",
         "cover_path": "VARCHAR(600)",
         "cover_content_type": "VARCHAR(120)",
     }
