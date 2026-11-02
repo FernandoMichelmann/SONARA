@@ -112,6 +112,13 @@ let tracks = [];
                 : isPlaying
                     ? '<i data-lucide="pause"></i> Pausar todas'
                     : '<i data-lucide="play"></i> Tocar todas';
+            const footerPlay = document.getElementById("playButton");
+            if (footerPlay) {
+                const hasActiveAudio = isPlaying || stemPlayers.some(player => !player.paused);
+                footerPlay.innerHTML = hasActiveAudio
+                    ? '<i data-lucide="pause" size="17"></i>'
+                    : '<i data-lucide="play" size="17"></i>';
+            }
             lucide.createIcons();
         }
 
