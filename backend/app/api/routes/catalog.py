@@ -17,12 +17,9 @@ def public_track_catalog(db: Session = Depends(get_db)):
     tracks = db.scalars(
         select(Track).where(Track.is_published.is_(True)).order_by(Track.created_at.desc())
     ).all()
-    tracks = [
-        track for track in tracks
-        if track.stems_path
-        and (Path(track.stems_path).parent / "previews").is_dir()
-        and any((Path(track.stems_path).parent / "previews").glob("*.mp3"))
-    ]
+    # A publicação é controlada por Track.is_published.
+    # Não esconda a track inteira por ausência/erro nos arquivos de prévia:
+    # isso fazia a música sumir silenciosamente do site público.
     return {"items": [{
         "id": track.id, "title": track.title, "artist": track.artist,
         "musical_key": track.musical_key, "bpm": track.bpm,
