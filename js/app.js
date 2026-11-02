@@ -235,28 +235,6 @@ let tracks = [];
             lucide.createIcons();
         }
 
-        function waitForStemReady(player, timeoutMs = 30000) {
-            if (player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return Promise.resolve();
-            return new Promise((resolve, reject) => {
-                let settled = false;
-                const finish = (error) => {
-                    if (settled) return;
-                    settled = true;
-                    clearTimeout(timer);
-                    player.removeEventListener("canplay", onReady);
-                    player.removeEventListener("error", onError);
-                    error ? reject(error) : resolve();
-                };
-                const onReady = () => finish();
-                const onError = () => finish(new Error("Falha ao carregar o áudio."));
-                const timer = setTimeout(() => finish(new Error("Tempo limite ao carregar o áudio.")), timeoutMs);
-                player.addEventListener("canplay", onReady, { once: true });
-                player.addEventListener("error", onError, { once: true });
-                player.preload = "auto";
-                player.load();
-            });
-        }
-
         async function toggleStem(index) {
             if (stemLoading) return;
             createStemPlayers();
@@ -276,8 +254,10 @@ let tracks = [];
             stemLoading = true;
             updateStemButton(index, false, true);
             try {
-                await waitForStemReady(selected);
+                selected.preload = "auto";
+                selected.load();
                 selected.currentTime = 0;
+                // play() é chamado diretamente no clique para respeitar a política de áudio do Safari.
                 await selected.play();
                 activeStemIndex = index;
                 updateStemButton(index, true);
@@ -317,13 +297,14 @@ let tracks = [];
             updateAllStemsButton(false, true);
             stemPlayers.forEach((player, index) => updateStemButton(index, false, true));
             try {
-                // Carrega somente depois do clique; evita dezenas de downloads ao abrir a tela.
-                await Promise.all(stemPlayers.map(player => waitForStemReady(player)));
+                // Carrega somente depois do clique; evita downloads desnecessários ao abrir a tela.
                 stemPlayers.forEach(player => {
                     player.pause();
+                    player.preload = "auto";
+                    player.load();
                     player.currentTime = 0;
                 });
-                // Todas recebem play na mesma ação do usuário, depois de estarem prontas.
+                // Dispara todos os play() juntos e dentro da ação original do usuário (Safari).
                 const results = await Promise.allSettled(stemPlayers.map(player => player.play()));
                 const failed = results.findIndex(result => result.status === "rejected");
                 if (failed !== -1) {
