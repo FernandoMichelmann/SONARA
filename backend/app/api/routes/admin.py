@@ -232,14 +232,15 @@ async def upload_track(
                         raise HTTPException(status_code=413, detail="A capa excede 12 MB.")
                     destination.write(chunk)
 
+        main_stem = next((path for path in stem_files if any(word in path.stem.lower() for word in ("mix", "full", "stereo", "master"))), stem_files[0])
         track = Track(
             title=title.strip(), artist=artist.strip(), musical_key=musical_key.strip(),
             bpm=bpm, time_signature=time_signature.strip() or "4/4",
             category=", ".join(selected) or "Multitrack",
             categories_json=json.dumps(selected, ensure_ascii=False),
-            original_filename=archive_name, storage_path=str(stem_files[0]),
+            original_filename=archive_name, storage_path=str(main_stem),
             stems_path=str(stems_dir),
-            content_type=mimetypes.guess_type(stem_files[0].name)[0] or "application/octet-stream",
+            content_type=mimetypes.guess_type(main_stem.name)[0] or "application/octet-stream",
             file_size=archive_size, cover_path=str(saved_cover) if saved_cover else None,
             cover_content_type=mimetypes.guess_type(saved_cover.name)[0] if saved_cover else None,
             is_published=is_published,
