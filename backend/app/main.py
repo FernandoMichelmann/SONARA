@@ -15,11 +15,12 @@ logger = logging.getLogger("sonara")
 def bootstrap_developer():
     email = (settings.developer_email or "").strip().lower()
     password = settings.developer_password
-    if not email or not password:
-        logger.warning("Developer not bootstrapped: configure DEVELOPER_EMAIL and DEVELOPER_PASSWORD in backend/.env")
-        return
+    if not email or not password or email == "owner@example.com" or password.startswith("CHANGE_THIS"):
+        raise RuntimeError("Configure a real DEVELOPER_EMAIL and DEVELOPER_PASSWORD in backend/.env before starting SONARA.")
     if len(password) < 14:
         raise RuntimeError("DEVELOPER_PASSWORD must contain at least 14 characters.")
+    if len(settings.jwt_secret_key) < 32 or settings.jwt_secret_key.startswith("CHANGE_THIS"):
+        raise RuntimeError("Configure a random JWT_SECRET_KEY with at least 32 characters in backend/.env.")
     with SessionLocal() as db:
         developer = db.scalar(select(User).where(User.email == email))
         if developer:
@@ -35,8 +36,6 @@ def bootstrap_developer():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.app_env.lower() == "production" and settings.jwt_secret_key.startswith("CHANGE_THIS"):
-        raise RuntimeError("Configure a strong JWT_SECRET_KEY before production.")
     Base.metadata.create_all(bind=engine)
     bootstrap_developer()
     yield
