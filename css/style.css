@@ -994,3 +994,8 @@
 .stem-volume input{width:100%;accent-color:var(--blue)}
 .multitrack-note,.stem-empty{margin-top:17px;color:var(--muted);font-size:10px;line-height:1.6}
 @media(max-width:620px){.multitrack-overlay{padding:9px;align-items:flex-end}.multitrack-dialog{max-height:94vh;padding:22px 15px;border-radius:15px}.multitrack-heading img{width:65px;height:65px}.multitrack-heading h2{font-size:20px}.multitrack-toolbar{gap:8px}.multitrack-toolbar .primary-button,.multitrack-download{padding:10px;font-size:10px}.multitrack-toolbar>span{margin-left:0}.stem-row{grid-template-columns:24px minmax(0,1fr) auto;gap:8px;padding:11px 8px}.stem-volume{grid-column:2/4;width:100%;padding:3px 0 0 0}.stem-play{padding:8px;font-size:9px}}
+
+
+.stem-solo{font-weight:800;letter-spacing:.5px}
+.stem-solo.solo-active{background:rgba(52,120,246,.25);border-color:#70A5FF;color:#DCE8FF;box-shadow:0 0 0 2px rgba(52,120,246,.12)}
+.stem-row:has(.solo-active){border-color:rgba(112,165,255,.55);background:rgba(52,120,246,.07)}
