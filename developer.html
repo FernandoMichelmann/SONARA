@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#080A0F">
+  <title>SONARA Developer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/developer.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/developer.js" defer></script>
+</head>
+<body>
+  <main class="dev-shell">
+    <header class="dev-brand" aria-label="SONARA Developer">
+      <span class="brand-mark"><i data-lucide="audio-waveform"></i></span>
+      <span><strong>SONARA</strong><small>DEVELOPER CONSOLE</small></span>
+    </header>
+
+    <section class="login-card" id="loginCard">
+      <div class="eyebrow"><span></span> PRIVATE ACCESS</div>
+      <div class="lock-icon"><i data-lucide="shield-check"></i></div>
+      <h1>Acesso do proprietário</h1>
+      <p class="intro">Entre com suas credenciais administrativas para acessar o ambiente de desenvolvimento da SONARA.</p>
+
+      <form id="developerLogin" autocomplete="on">
+        <label for="developerEmail">E-mail administrativo</label>
+        <div class="field">
+          <i data-lucide="mail"></i>
+          <input id="developerEmail" name="email" type="email" autocomplete="username" placeholder="seu@email.com" required>
+        </div>
+
+        <label for="developerPassword">Senha</label>
+        <div class="field">
+          <i data-lucide="key-round"></i>
+          <input id="developerPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha administrativa" required>
+          <button class="password-toggle" type="button" id="togglePassword" aria-label="Mostrar senha"><i data-lucide="eye"></i></button>
+        </div>
+
+        <button class="submit-button" id="submitButton" type="submit">
+          <span>Entrar no ambiente privado</span><i data-lucide="arrow-up-right"></i>
+        </button>
+        <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
+      </form>
+      <div class="security-note"><i data-lucide="lock-keyhole"></i><span>Área restrita. O acesso é validado pelo servidor.</span></div>
+    </section>
+
+    <section class="dashboard-card" id="dashboardCard" hidden>
+      <div class="dashboard-top">
+        <div>
+          <div class="eyebrow"><span></span> AUTHENTICATED SESSION</div>
+          <h1>Developer Console</h1>
+          <p class="intro">Bem-vindo ao ambiente privado da SONARA.</p>
+        </div>
+        <button class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
+      </div>
+      <div class="status-panel">
+        <i data-lucide="shield-check"></i>
+        <div><strong>Sessão validada pelo servidor</strong><p id="developerIdentity">Acesso administrativo confirmado.</p></div>
+      </div>
+      <div class="module-grid">
+        <article><i data-lucide="users"></i><strong>Usuários</strong><span>Gestão de contas e permissões</span></article>
+        <article><i data-lucide="building-2"></i><strong>Organizações</strong><span>Clientes e equipes</span></article>
+        <article><i data-lucide="chart-no-axes-combined"></i><strong>Indicadores</strong><span>Uso e atividade da plataforma</span></article>
+        <article><i data-lucide="database"></i><strong>Infraestrutura</strong><span>Serviços, dados e integridade</span></article>
+        <article><i data-lucide="credit-card"></i><strong>Assinaturas</strong><span>Planos e faturamento</span></article>
+        <article><i data-lucide="scroll-text"></i><strong>Auditoria</strong><span>Histórico de ações administrativas</span></article>
+      </div>
+      <p class="coming-soon">Os módulos serão conectados gradualmente às APIs administrativas.</p>
+    </section>
+
+    <footer>SONARA <span>•</span> MIDNIGHT AUDIO <span>•</span> PRIVATE ENVIRONMENT</footer>
+  </main>
+</body>
+</html>
