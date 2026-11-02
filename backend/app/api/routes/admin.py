@@ -59,6 +59,7 @@ def track_payload(track: Track):
         "audio_url": f"/api/v1/tracks/{track.id}/audio" if track.is_published else None,
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
         "stems": stems,
+        "preview_start_seconds": getattr(track, "preview_start_seconds", 0),
     }
 
 
@@ -245,7 +246,7 @@ async def upload_track(
             content_type=mimetypes.guess_type(main_stem.name)[0] or "application/octet-stream",
             file_size=archive_size, cover_path=str(saved_cover) if saved_cover else None,
             cover_content_type=mimetypes.guess_type(saved_cover.name)[0] if saved_cover else None,
-            is_published=is_published,
+            is_published=False,
         )
         db.add(track)
         db.commit()
@@ -304,7 +305,7 @@ def create_track_preview(
     generated = []
     try:
         for source in source_stems:
-            output = preview_dir / (source.name + ".mp3")
+            output = preview_dir / (source.stem + ".mp3")
             command = [
                 ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", str(start_seconds), "-i", str(source),
