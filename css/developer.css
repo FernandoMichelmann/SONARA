@@ -103,3 +103,27 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .admin-footer{padding-top:35px;text-align:center;color:#586278;font-size:9px;letter-spacing:1.7px}.admin-footer span{padding:0 7px;color:var(--blue)}
 @media(max-width:1100px){.dashboard-card{grid-template-columns:190px minmax(0,1fr)}.admin-content{padding:23px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-card>strong{font-size:25px}}
 @media(max-width:720px){.dev-shell{width:calc(100% - 20px);padding-top:16px}.dashboard-card{display:block}.sidebar{padding:12px;border-right:0;border-bottom:1px solid var(--border)}.sidebar-heading{padding:5px 8px 10px}.sidebar>.nav-item{display:inline-flex;width:auto;margin:0 3px 3px 0;padding:0 10px}.sidebar-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:10px}.identity-mini{min-width:0;flex:1;border:0;margin:0;padding:7px}.identity-mini small{max-width:150px}.logout-button{width:auto}.admin-content{padding:18px 13px}.dashboard-top{flex-direction:column}.dashboard-top h1{font-size:23px}.refresh-button{align-self:flex-start}.section-toolbar{align-items:stretch;flex-direction:column}.search-field{width:100%}.form-grid{grid-template-columns:1fr}.form-field{margin-bottom:14px}.revenue-stats{grid-template-columns:1fr}.stat-card{padding:15px}.stat-card>strong{font-size:24px}.login-card{margin-top:6vh;padding:28px 22px}}
+
+/* Cadastro de multitracks */
+.track-form-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:23px;border-bottom:1px solid var(--border);padding-bottom:13px}
+.track-form-tab{border:1px solid var(--border);border-radius:8px;padding:10px 13px;background:var(--surface2);color:var(--muted);font-size:10px;font-weight:700}
+.track-form-tab.active{border-color:#3478F6;background:rgba(52,120,246,.14);color:#DCE8FF}
+.track-form-step{min-width:0}
+.category-manager{margin:15px 0 22px;padding:16px;border:1px solid var(--border);border-radius:9px;background:rgba(8,10,15,.25)}
+.category-heading strong,.category-heading small{display:block}.category-heading strong{font-size:11px}.category-heading small{margin-top:5px;color:var(--muted);font-size:9px}
+.category-options{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.category-option{display:inline-flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:#0B101B;color:var(--text);font-size:10px;cursor:pointer}
+.category-option input{accent-color:var(--blue);width:13px;height:13px}
+.category-option:has(input:checked){border-color:var(--blue);background:rgba(52,120,246,.12);color:#DCE8FF}
+.category-create{display:flex;gap:8px;max-width:480px}.category-create input{flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:7px;background:#0B101B;color:var(--white);font-size:10px}
+.track-next{margin-top:3px}
+.upload-dropzone{display:flex;flex-direction:column;align-items:center;text-align:center;padding:30px 18px;border:1px dashed #40506f;border-radius:10px;background:rgba(52,120,246,.045)}
+.upload-dropzone>svg{width:32px;height:32px;color:var(--blue2);margin-bottom:13px}.upload-dropzone strong{font-size:13px}.upload-dropzone p{max-width:520px;margin:8px auto 15px;color:var(--text);font-size:10px;line-height:1.7}
+.upload-dropzone input{max-width:100%;font-size:10px;color:var(--text)}.upload-dropzone small{margin-top:12px;color:var(--muted);font-size:9px}
+.file-selection{display:block;margin-top:9px;color:var(--blue2);font-size:10px;overflow-wrap:anywhere}
+.track-step-actions{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
+.cover-upload-layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:20px;align-items:center}
+.cover-preview{width:180px;aspect-ratio:1;border:1px dashed #40506f;border-radius:10px;background:#0B101B;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:10px;overflow:hidden}
+.cover-preview>svg{width:30px;height:30px;color:var(--blue2)}.cover-preview img{width:100%;height:100%;object-fit:cover}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px;min-width:130px}.tag-pill{display:inline-block;padding:4px 7px;border:1px solid #3478F640;border-radius:20px;background:#3478F610;color:#9DBEFF;font-size:9px}
+@media(max-width:720px){.cover-upload-layout{grid-template-columns:1fr}.cover-preview{width:min(100%,220px)}.category-create{flex-direction:column}.track-form-tab{flex:1}}
