@@ -86,6 +86,7 @@ let tracks = [];
         let stemSyncTimer = null;
         let masterStemVolume = 0.7;
         let stemVolumeLevels = [];
+        let soloStemIndices = new Set();
 
         function stopStemPlayers(reset = true) {
             if (stemSyncTimer) {
@@ -172,6 +173,7 @@ let tracks = [];
             audioPlayer.pause();
             currentTrack = selected;
             stemPlayers = [];
+            soloStemIndices = new Set();
             document.getElementById("playerTitle").textContent = currentTrack.title;
             document.getElementById("playerArtist").textContent = currentTrack.artist || "SONARA";
             document.getElementById("progressFill").style.width = "0%";
@@ -208,6 +210,7 @@ let tracks = [];
 
             const stems = currentTrack.stems || [];
             stemVolumeLevels = stems.map(() => 1);
+            soloStemIndices = new Set();
             document.getElementById("stemCount").textContent = stems.length + (stems.length === 1 ? " track" : " tracks");
             const list = document.getElementById("stemList");
             list.innerHTML = stems.length ? stems.map((stem, index) => {
@@ -215,7 +218,7 @@ let tracks = [];
                 return `<div class="stem-row">
                     <div class="stem-index">${String(index + 1).padStart(2, "0")}</div>
                     <div class="stem-details"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(stem.name)}</span></div>
-                    <button class="stem-play" id="stemPlay-${index}" type="button" onclick="toggleStem(${index})"><i data-lucide="play"></i> Ouvir</button>
+                    <button class="stem-play stem-solo" id="stemPlay-${index}" type="button" aria-pressed="false" onclick="toggleSolo(${index})"><i data-lucide="headphones"></i> SOLO</button>
                     <label class="stem-volume"><i data-lucide="volume-2"></i><input type="range" min="0" max="100" value="100" aria-label="Volume de ${escapeHTML(label)}" oninput="setStemVolume(${index}, this.value)"></label>
                 </div>`;
             }).join("") : '<p class="stem-empty">Nenhuma track de áudio foi encontrada nesta música.</p>';
@@ -242,6 +245,27 @@ let tracks = [];
                 : isPlaying
                     ? '<i data-lucide="pause"></i> Pausar'
                     : '<i data-lucide="play"></i> Ouvir';
+            lucide.createIcons();
+        }
+
+
+        function toggleSolo(index) {
+            if (soloStemIndices.has(index)) soloStemIndices.delete(index);
+            else soloStemIndices.add(index);
+            document.querySelectorAll(".stem-solo").forEach((button, buttonIndex) => {
+                const active = soloStemIndices.has(buttonIndex);
+                button.classList.toggle("solo-active", active);
+                button.setAttribute("aria-pressed", String(active));
+                button.innerHTML = active
+                    ? '<i data-lucide="headphones"></i> SOLO ATIVO'
+                    : '<i data-lucide="headphones"></i> SOLO';
+            });
+            stemPlayers.forEach((player, playerIndex) => {
+                const audible = !soloStemIndices.size || soloStemIndices.has(playerIndex);
+                player.volume = (stemVolumeLevels[playerIndex] ?? 1) * masterStemVolume * (audible ? 1 : 0);
+                if (!audible) player.pause();
+            });
+            updateAllStemsButton(stemPlayers.some(player => !player.paused));
             lucide.createIcons();
         }
 
@@ -284,7 +308,7 @@ let tracks = [];
         function setStemVolume(index, value) {
             if (stemPlayers[index]) {
                 stemVolumeLevels[index] = Number(value) / 100;
-                stemPlayers[index].volume = stemVolumeLevels[index] * masterStemVolume;
+                stemPlayers[index].volume = stemVolumeLevels[index] * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
             }
         }
 
@@ -295,12 +319,12 @@ let tracks = [];
                 showToast("Esta música não possui tracks de áudio disponíveis.");
                 return;
             }
-            const allPlaying = stemPlayers.every(player => !player.paused);
+            const selectedIndices = soloStemIndices.size ? [...soloStemIndices] : stemPlayers.map((_, index) => index);
+            const selectedPlayers = selectedIndices.map(index => stemPlayers[index]).filter(Boolean);
+            const allPlaying = selectedPlayers.length > 0 && selectedPlayers.every(player => !player.paused);
             if (allPlaying) {
-                stemPlayers.forEach((player, index) => {
-                    player.pause();
-                    updateStemButton(index, false);
-                });
+                selectedPlayers.forEach(player => player.pause());
+                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
                 updateAllStemsButton(false);
                 stopProgressSync();
                 return;
@@ -308,24 +332,23 @@ let tracks = [];
 
             stemLoading = true;
             updateAllStemsButton(false, true);
-            stemPlayers.forEach((player, index) => updateStemButton(index, false, true));
             try {
-                // Carrega somente depois do clique; evita downloads desnecessários ao abrir a tela.
-                stemPlayers.forEach(player => {
-                    player.pause();
+                stemPlayers.forEach(player => player.pause());
+                selectedPlayers.forEach(player => {
                     player.preload = "auto";
                     player.load();
                     player.currentTime = 0;
+                    const index = stemPlayers.indexOf(player);
+                    player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
                 });
-                // Dispara todos os play() juntos e dentro da ação original do usuário (Safari).
-                const results = await Promise.allSettled(stemPlayers.map(player => player.play()));
+                const results = await Promise.allSettled(selectedPlayers.map(player => player.play()));
                 const failed = results.findIndex(result => result.status === "rejected");
                 if (failed !== -1) {
-                    stemPlayers.forEach(player => player.pause());
-                    throw new Error("Não foi possível iniciar todas as tracks. Verifique o arquivo " + (currentTrack.stems[failed]?.name || "") + ".");
+                    selectedPlayers.forEach(player => player.pause());
+                    throw new Error("Não foi possível iniciar a prévia de " + (currentTrack.stems[selectedIndices[failed]]?.name || "um instrumento") + ".");
                 }
-                stemPlayers.forEach((player, index) => updateStemButton(index, true));
-                activeStemIndex = 0;
+                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
+                activeStemIndex = selectedIndices[0] ?? null;
                 updateAllStemsButton(true);
                 startProgressSync();
             } catch (error) {
@@ -334,7 +357,7 @@ let tracks = [];
                     updateStemButton(index, false);
                 });
                 updateAllStemsButton(false);
-                showToast(error.message || "Falha ao preparar as tracks para reprodução.");
+                showToast(error.message || "Falha ao iniciar a prévia.");
             } finally {
                 stemLoading = false;
             }
