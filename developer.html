@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="theme-color" content="#080A0F">
-  <title>SONARA Developer</title>
+  <title>SONARA — Developer Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -24,55 +24,97 @@
       <div class="eyebrow"><span></span> PRIVATE ACCESS</div>
       <div class="lock-icon"><i data-lucide="shield-check"></i></div>
       <h1>Acesso do proprietário</h1>
-      <p class="intro">Entre com suas credenciais administrativas para acessar o ambiente de desenvolvimento da SONARA.</p>
-
+      <p class="intro">Entre com suas credenciais administrativas para gerenciar usuários, tracks e receitas da SONARA.</p>
       <form id="developerLogin" autocomplete="on">
         <label for="developerEmail">E-mail administrativo</label>
-        <div class="field">
-          <i data-lucide="mail"></i>
-          <input id="developerEmail" name="email" type="email" autocomplete="username" placeholder="seu@email.com" required>
-        </div>
-
+        <div class="field"><i data-lucide="mail"></i><input id="developerEmail" name="email" type="email" autocomplete="username" placeholder="seu@email.com" required></div>
         <label for="developerPassword">Senha</label>
-        <div class="field">
-          <i data-lucide="key-round"></i>
-          <input id="developerPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha administrativa" required>
-          <button class="password-toggle" type="button" id="togglePassword" aria-label="Mostrar senha"><i data-lucide="eye"></i></button>
-        </div>
-
-        <button class="submit-button" id="submitButton" type="submit">
-          <span>Entrar no ambiente privado</span><i data-lucide="arrow-up-right"></i>
-        </button>
+        <div class="field"><i data-lucide="key-round"></i><input id="developerPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha administrativa" required><button class="password-toggle" type="button" id="togglePassword" aria-label="Mostrar senha"><i data-lucide="eye"></i></button></div>
+        <button class="submit-button" id="submitButton" type="submit"><span>Entrar no ambiente privado</span><i data-lucide="arrow-up-right"></i></button>
         <p class="form-message" id="formMessage" role="alert" aria-live="polite"></p>
       </form>
       <div class="security-note"><i data-lucide="lock-keyhole"></i><span>Área restrita. O acesso é validado pelo servidor.</span></div>
     </section>
 
     <section class="dashboard-card" id="dashboardCard" hidden>
-      <div class="dashboard-top">
-        <div>
-          <div class="eyebrow"><span></span> AUTHENTICATED SESSION</div>
-          <h1>Developer Console</h1>
-          <p class="intro">Bem-vindo ao ambiente privado da SONARA.</p>
+      <aside class="sidebar">
+        <div class="sidebar-heading">PAINEL ADMINISTRATIVO</div>
+        <button class="nav-item active" data-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
+        <button class="nav-item" data-tab="users"><i data-lucide="users"></i> Usuários <span id="navUserCount">—</span></button>
+        <button class="nav-item" data-tab="tracks"><i data-lucide="audio-lines"></i> Tracks</button>
+        <button class="nav-item" data-tab="revenue"><i data-lucide="chart-no-axes-combined"></i> Receitas</button>
+        <div class="sidebar-bottom">
+          <div class="identity-mini"><span class="identity-dot"></span><div><strong>Proprietário</strong><small id="sidebarIdentity">Sessão validada</small></div></div>
+          <button class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
         </div>
-        <button class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
-      </div>
-      <div class="status-panel">
-        <i data-lucide="shield-check"></i>
-        <div><strong>Sessão validada pelo servidor</strong><p id="developerIdentity">Acesso administrativo confirmado.</p></div>
-      </div>
-      <div class="module-grid">
-        <article><i data-lucide="users"></i><strong>Usuários</strong><span>Gestão de contas e permissões</span></article>
-        <article><i data-lucide="building-2"></i><strong>Organizações</strong><span>Clientes e equipes</span></article>
-        <article><i data-lucide="chart-no-axes-combined"></i><strong>Indicadores</strong><span>Uso e atividade da plataforma</span></article>
-        <article><i data-lucide="database"></i><strong>Infraestrutura</strong><span>Serviços, dados e integridade</span></article>
-        <article><i data-lucide="credit-card"></i><strong>Assinaturas</strong><span>Planos e faturamento</span></article>
-        <article><i data-lucide="scroll-text"></i><strong>Auditoria</strong><span>Histórico de ações administrativas</span></article>
-      </div>
-      <p class="coming-soon">Os módulos serão conectados gradualmente às APIs administrativas.</p>
-    </section>
+      </aside>
 
-    <footer>SONARA <span>•</span> MIDNIGHT AUDIO <span>•</span> PRIVATE ENVIRONMENT</footer>
+      <div class="admin-content">
+        <header class="dashboard-top">
+          <div><div class="eyebrow"><span></span> SONARA CONTROL CENTER</div><h1 id="pageTitle">Visão geral</h1><p class="intro" id="pageIntro">Acompanhe os principais números da plataforma.</p></div>
+          <button class="refresh-button" id="refreshButton"><i data-lucide="refresh-cw"></i><span>Atualizar dados</span></button>
+        </header>
+        <div class="global-message" id="globalMessage" role="status" aria-live="polite"></div>
+
+        <section class="tab-panel" id="panel-overview">
+          <div class="stats-grid">
+            <article class="stat-card"><span>USUÁRIOS CADASTRADOS</span><i data-lucide="users"></i><strong id="overviewUsers">—</strong><small>Contas comuns registradas</small></article>
+            <article class="stat-card"><span>TRACKS NO CATÁLOGO</span><i data-lucide="audio-lines"></i><strong id="overviewTracks">—</strong><small id="publishedTracks">Carregando publicação...</small></article>
+            <article class="stat-card"><span>RECEITA RECEBIDA</span><i data-lucide="wallet"></i><strong id="overviewRevenue">—</strong><small>Conforme lançamentos registrados</small></article>
+            <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="overviewPending">—</strong><small>Aguardando recebimento</small></article>
+          </div>
+          <div class="info-panel"><div class="panel-title"><i data-lucide="shield-check"></i><h2>Status administrativo</h2></div><p id="developerIdentity">Sessão validada pelo servidor.</p><p class="muted">Os indicadores são carregados da API e do banco de dados. Receita ainda não é sincronizada automaticamente com um gateway de pagamento.</p></div>
+        </section>
+
+        <section class="tab-panel" id="panel-users" hidden>
+          <div class="section-toolbar"><div><h2>Usuários cadastrados</h2><p>Contas comuns que se cadastraram na SONARA.</p></div><div class="search-field"><i data-lucide="search"></i><input id="userSearch" type="search" placeholder="Buscar nome ou e-mail"></div></div>
+          <div class="table-wrap"><table><thead><tr><th>USUÁRIO</th><th>DATA DE CADASTRO</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="usersTable"><tr><td colspan="4" class="empty-cell">Carregando usuários...</td></tr></tbody></table></div>
+          <p class="table-foot" id="usersCount"></p>
+        </section>
+
+        <section class="tab-panel" id="panel-tracks" hidden>
+          <div class="section-toolbar"><div><h2>Biblioteca de tracks</h2><p>Envie arquivos de áudio e controle o que fica disponível no catálogo público.</p></div></div>
+          <form id="trackUploadForm" class="upload-form">
+            <div class="form-grid">
+              <div class="form-field"><label for="trackTitle">Nome da track *</label><input id="trackTitle" name="title" maxlength="180" required placeholder="Ex.: Ousado Amor"></div>
+              <div class="form-field"><label for="trackArtist">Artista</label><input id="trackArtist" name="artist" maxlength="180" placeholder="Nome do artista"></div>
+              <div class="form-field"><label for="trackKey">Tom musical</label><input id="trackKey" name="musical_key" maxlength="20" placeholder="Ex.: B, C#m"></div>
+              <div class="form-field"><label for="trackBpm">BPM</label><input id="trackBpm" name="bpm" type="number" min="1" max="400" placeholder="Ex.: 72"></div>
+              <div class="form-field"><label for="trackCategory">Categoria</label><input id="trackCategory" name="category" maxlength="80" value="Multitrack"></div>
+              <div class="form-field"><label for="trackAudio">Arquivo de áudio *</label><input id="trackAudio" name="audio" type="file" accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,audio/*" required><small>MP3, WAV, FLAC, M4A, OGG ou AAC. Limite: 500 MB.</small></div>
+            </div>
+            <label class="check-field"><input id="trackPublish" name="is_published" type="checkbox"><span>Publicar no catálogo assim que o upload terminar</span></label>
+            <button class="submit-button form-submit" id="uploadTrackButton" type="submit"><i data-lucide="upload-cloud"></i><span>Enviar track</span></button>
+            <p class="inline-message" id="trackUploadMessage" role="status"></p>
+          </form>
+          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Arquivos e estado de publicação.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>TRACK</th><th>DETALHES</th><th>ARQUIVO</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="5" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
+        </section>
+
+        <section class="tab-panel" id="panel-revenue" hidden>
+          <div class="stats-grid revenue-stats">
+            <article class="stat-card"><span>RECEITA RECEBIDA</span><i data-lucide="wallet"></i><strong id="revenueReceived">R$ 0,00</strong><small>Registros marcados como recebidos</small></article>
+            <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="revenuePending">R$ 0,00</strong><small>Registros aguardando recebimento</small></article>
+            <article class="stat-card"><span>LANÇAMENTOS</span><i data-lucide="receipt-text"></i><strong id="revenueEntries">0</strong><small>Registros financeiros</small></article>
+          </div>
+          <div class="info-panel revenue-note"><i data-lucide="info"></i><p>Por enquanto, estes são lançamentos financeiros registrados manualmente. Os valores não representam vendas confirmadas automaticamente. A integração com pagamentos será uma etapa separada.</p></div>
+          <div class="section-toolbar"><div><h2>Registrar receita</h2><p>Adicione uma venda ou recebimento real para manter seu controle atualizado.</p></div></div>
+          <form id="revenueForm" class="upload-form">
+            <div class="form-grid">
+              <div class="form-field"><label for="revenueDescription">Descrição *</label><input id="revenueDescription" name="description" required maxlength="240" placeholder="Ex.: Assinatura mensal"></div>
+              <div class="form-field"><label for="revenueSource">Origem</label><select id="revenueSource" name="source"><option>Assinatura</option><option>Venda de track</option><option>Licenciamento</option><option>Outro</option></select></div>
+              <div class="form-field"><label for="revenueAmount">Valor (R$) *</label><input id="revenueAmount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0,00"></div>
+              <div class="form-field"><label for="revenueStatus">Situação</label><select id="revenueStatus" name="status"><option value="received">Recebido</option><option value="pending">Pendente</option></select></div>
+            </div>
+            <button class="submit-button form-submit" id="saveRevenueButton" type="submit"><i data-lucide="plus"></i><span>Registrar lançamento</span></button>
+            <p class="inline-message" id="revenueFormMessage" role="status"></p>
+          </form>
+          <div class="section-toolbar list-toolbar"><div><h2>Histórico financeiro</h2><p>Últimos lançamentos registrados.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>ORIGEM</th><th>DATA</th><th>STATUS</th><th>VALOR</th></tr></thead><tbody id="revenueTable"><tr><td colspan="5" class="empty-cell">Carregando lançamentos...</td></tr></tbody></table></div>
+        </section>
+        <footer class="admin-footer">SONARA <span>•</span> MIDNIGHT AUDIO <span>•</span> PRIVATE ENVIRONMENT</footer>
+      </div>
+    </section>
   </main>
 </body>
 </html>
