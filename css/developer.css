@@ -127,3 +127,18 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .cover-preview>svg{width:30px;height:30px;color:var(--blue2)}.cover-preview img{width:100%;height:100%;object-fit:cover}
 .tag-list{display:flex;flex-wrap:wrap;gap:4px;min-width:130px}.tag-pill{display:inline-block;padding:4px 7px;border:1px solid #3478F640;border-radius:20px;background:#3478F610;color:#9DBEFF;font-size:9px}
 @media(max-width:720px){.cover-upload-layout{grid-template-columns:1fr}.cover-preview{width:min(100%,220px)}.category-create{flex-direction:column}.track-form-tab{flex:1}}
+
+
+/* Editor de prévia de 30 segundos */
+.preview-editor{margin:24px 0;padding:24px;border:1px solid rgba(112,165,255,.28);border-radius:14px;background:linear-gradient(145deg,rgba(27,43,69,.82),rgba(12,18,30,.96))}
+.preview-editor-heading h3{font-size:19px;margin:9px 0 6px}.preview-editor-heading p,.preview-editor-controls>p{font-size:11px;line-height:1.7;color:var(--text)}
+.preview-kicker{font-size:9px;letter-spacing:1.6px;color:var(--blue2);font-weight:800}
+.preview-editor-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:26px;align-items:center;margin-top:20px}
+.preview-square{aspect-ratio:1;background:linear-gradient(145deg,#152D5C,#3478F6 55%,#101A32);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:17px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;box-shadow:0 15px 40px #0005}
+.preview-square-top{display:flex;justify-content:space-between;align-items:center;font-size:9px;letter-spacing:1.4px;font-weight:800;color:#EAF2FF}.preview-square-top svg{width:20px;height:20px}
+.preview-wave{height:74px;border-radius:8px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.9) 0 2px,transparent 2px 6px);opacity:.82;clip-path:polygon(0 48%,4% 30%,8% 60%,12% 18%,16% 70%,20% 40%,24% 15%,28% 72%,32% 42%,36% 25%,40% 80%,44% 38%,48% 18%,52% 65%,56% 30%,60% 75%,64% 25%,68% 52%,72% 12%,76% 70%,80% 35%,84% 60%,88% 22%,92% 65%,96% 32%,100% 50%,100% 56%,96% 42%,92% 75%,88% 32%,84% 70%,80% 45%,76% 80%,72% 25%,68% 62%,64% 35%,60% 85%,56% 40%,52% 75%,48% 28%,44% 48%,40% 88%,36% 35%,32% 55%,28% 82%,24% 25%,20% 50%,16% 80%,12% 28%,8% 70%,4% 40%,0 54%)}
+.preview-window{align-self:center;padding:7px 12px;border:1px solid #FFFFFF80;border-radius:20px;background:#07152C99;color:white;font-size:10px;font-weight:800;letter-spacing:1px}
+.preview-editor-controls{min-width:0}.preview-editor-controls>strong{display:block;font-size:14px;margin-bottom:12px}.preview-editor-controls audio{width:100%;height:38px;margin-bottom:13px}
+.preview-editor-controls label{display:flex;justify-content:space-between;align-items:center;margin:12px 0 7px}.preview-editor-controls input[type=range]{width:100%;accent-color:var(--blue)}
+.preview-time-ends{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin:6px 0 13px}.preview-editor-controls .submit-button{margin-top:15px}.preview-editor-controls .inline-message{min-height:18px;margin-top:10px}
+@media(max-width:650px){.preview-editor-layout{grid-template-columns:1fr}.preview-square{width:min(100%,230px);margin:auto}}
