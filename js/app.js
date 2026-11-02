@@ -439,72 +439,30 @@ let tracks = [];
         audioPlayer.volume = 0.7;
 
         
-        let heroSlideIndex = 0;
-        let heroSlideTimer = null;
-        let heroSlideTracks = [];
-
         function renderHeroSlideshow() {
-            const image = document.getElementById("heroSlideImage");
-            const title = document.getElementById("heroSlideTitle");
-            const artist = document.getElementById("heroSlideArtist");
-            const dots = document.getElementById("heroSlideDots");
-            if (!image || !title || !artist || !dots) return;
+            const trackElement = document.getElementById("heroBannerTrack");
+            if (!trackElement) return;
 
-            heroSlideTracks = tracks.filter(track => track.coverUrl);
-            if (!heroSlideTracks.length) {
-                image.style.backgroundImage = "";
-                title.textContent = "Explore as multitracks";
-                artist.textContent = "SONARA ORIGINALS";
-                dots.innerHTML = "";
-                if (heroSlideTimer) clearInterval(heroSlideTimer);
-                heroSlideTimer = null;
+            const bannerTracks = tracks.filter(track => track.coverUrl);
+            if (!bannerTracks.length) {
+                trackElement.innerHTML = '<div class="hero-banner-empty">Novos banners em breve</div>';
+                trackElement.style.animation = "none";
                 return;
             }
 
-            heroSlideIndex = heroSlideIndex % heroSlideTracks.length;
-            const showSlide = index => {
-                const track = heroSlideTracks[index];
-                image.classList.remove("active");
-                image.style.backgroundImage = 'url("' + track.coverUrl.replaceAll('"', '%22') + '")';
-                title.textContent = track.title;
-                artist.textContent = track.artist || "SONARA";
-                requestAnimationFrame(() => image.classList.add("active"));
-                dots.querySelectorAll(".hero-slide-dot").forEach((dot, dotIndex) => {
-                    dot.classList.toggle("active", dotIndex === index);
-                    dot.setAttribute("aria-current", dotIndex === index ? "true" : "false");
-                });
-            };
-            dots.innerHTML = heroSlideTracks.map((track, index) =>
-                '<button class="hero-slide-dot" type="button" aria-label="Mostrar ' + escapeHTML(track.title) + '" data-hero-slide="' + index + '"></button>'
+            const createCards = (items, copy) => items.map((track, index) =>
+                '<div class="hero-banner-card">' +
+                    '<img src="' + escapeHTML(track.coverUrl) + '" alt="' + escapeHTML(track.title || "Banner SONARA") + '"' +
+                    (copy ? ' aria-hidden="true"' : ' loading="lazy"') + '>' +
+                '</div>'
             ).join("");
-            dots.querySelectorAll("[data-hero-slide]").forEach(dot => {
-                dot.addEventListener("click", () => {
-                    heroSlideIndex = Number(dot.dataset.heroSlide);
-                    showSlide(heroSlideIndex);
-                    if (heroSlideTimer) clearInterval(heroSlideTimer);
-                    heroSlideTimer = heroSlideTracks.length > 1 ? setInterval(nextHeroSlide, 5000) : null;
-                });
-            });
-            showSlide(heroSlideIndex);
-            if (heroSlideTimer) clearInterval(heroSlideTimer);
-            heroSlideTimer = heroSlideTracks.length > 1 ? setInterval(nextHeroSlide, 5000) : null;
+
+            // Duas cópias idênticas permitem o movimento contínuo sem um salto no reinício.
+            trackElement.innerHTML = createCards(bannerTracks, false) + createCards(bannerTracks, true);
+            trackElement.style.animation = bannerTracks.length > 1 ? "" : "none";
         }
 
-        function nextHeroSlide() {
-            if (!heroSlideTracks.length) return;
-            heroSlideIndex = (heroSlideIndex + 1) % heroSlideTracks.length;
-            const image = document.getElementById("heroSlideImage");
-            const track = heroSlideTracks[heroSlideIndex];
-            if (!image || !track) return;
-            image.classList.remove("active");
-            image.style.backgroundImage = 'url("' + track.coverUrl.replaceAll('"', '%22') + '")';
-            document.getElementById("heroSlideTitle").textContent = track.title;
-            document.getElementById("heroSlideArtist").textContent = track.artist || "SONARA";
-            requestAnimationFrame(() => image.classList.add("active"));
-            document.querySelectorAll(".hero-slide-dot").forEach((dot, index) => dot.classList.toggle("active", index === heroSlideIndex));
-        }
-
-async function loadPublicCatalog() {
+        async function loadPublicCatalog() {
             const badge = document.getElementById("catalogBadge");
             try {
                 const response = await fetch(SONARA_CATALOG_API + "/catalog/tracks");
