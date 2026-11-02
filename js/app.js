@@ -299,7 +299,10 @@ let tracks = [];
                     genre: (track.categories || [track.category || "Multitrack"]).join(", "),
                     cover: covers[index % covers.length],
                     coverUrl: track.cover_url ? SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + track.cover_url : "",
-                    audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio"))
+                    audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio")),
+                    timeSignature: track.time_signature || "4/4",
+                    zipDownloadUrl: track.zip_download_url ? SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + track.zip_download_url : "",
+                    stems: (track.stems || []).map(stem => ({ ...stem, url: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + stem.url }))
                 }));
                 if (badge) badge.textContent = "CATÁLOGO OFICIAL";
                 searchTerm = document.getElementById("searchInput").value;
