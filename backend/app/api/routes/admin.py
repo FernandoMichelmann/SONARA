@@ -30,6 +30,17 @@ MAX_STEM_FILES = 100
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
 MAX_AUDIO_BYTES = 500 * 1024 * 1024
 
+def is_macos_metadata_file(path: Path) -> bool:
+    """Identifica arquivos auxiliares do macOS (AppleDouble), não são áudio."""
+    if "__MACOSX" in path.parts or "._" in path.name:
+        return True
+    try:
+        with path.open("rb") as source:
+            return source.read(4) in (bytes.fromhex("00051607"), bytes.fromhex("00051600"))
+    except OSError:
+        return False
+
+
 
 class UserStatusUpdate(BaseModel):
     is_active: bool
@@ -209,6 +220,9 @@ async def upload_track(
                 parts = Path(raw_name).parts
                 if raw_name.startswith("/") or ".." in parts or not parts:
                     raise HTTPException(status_code=400, detail="O ZIP contém um caminho inválido.")
+                # ZIPs do macOS podem conter arquivos AppleDouble, que não são áudio.
+                if "__MACOSX" in parts or Path(raw_name).name.startswith("._"):
+                    continue
                 if Path(raw_name).suffix.lower() not in ALLOWED_AUDIO_EXTENSIONS:
                     continue
                 if member.flag_bits & 0x1:
@@ -220,7 +234,11 @@ async def upload_track(
                 destination_path = stems_dir / (f"{extracted_count:02d}_" + Path(raw_name).name)
                 with zipped.open(member) as source, destination_path.open("wb") as destination:
                     shutil.copyfileobj(source, destination, length=1024 * 1024)
-        stem_files = sorted(path for path in stems_dir.iterdir() if path.is_file())
+        stem_files = sorted(
+            path for path in stems_dir.iterdir()
+            if path.is_file() and not is_macos_metadata_file(path)
+            and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        )
         if not stem_files:
             raise HTTPException(status_code=400, detail="Nenhum arquivo de áudio compatível foi encontrado dentro do ZIP.")
 
@@ -317,6 +335,7 @@ def get_track_preview_source(
     source_stems = sorted(
         path for path in stems_dir.iterdir()
         if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        and not is_macos_metadata_file(path)
     )
     if not source_stems:
         raise HTTPException(status_code=404, detail="Nenhuma faixa de áudio foi encontrada.")
@@ -374,7 +393,11 @@ def create_track_preview(
     stems_dir = Path(track.stems_path).resolve()
     preview_dir = stems_dir.parent / "previews"
     preview_dir.mkdir(parents=True, exist_ok=True)
-    source_stems = sorted(path for path in stems_dir.iterdir() if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS)
+    source_stems = sorted(
+        path for path in stems_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        and not is_macos_metadata_file(path)
+    )
     if not source_stems:
         raise HTTPException(status_code=404, detail="Nenhum instrumento foi encontrado.")
     generated = []
