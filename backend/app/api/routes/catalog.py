@@ -26,7 +26,7 @@ def public_track_catalog(db: Session = Depends(get_db)):
         "file_size": track.file_size, "preview_start_seconds": track.preview_start_seconds, "preview_duration_seconds": 30, "audio_url": f"/api/v1/tracks/{track.id}/audio",
         "zip_download_url": f"/api/v1/tracks/{track.id}/download",
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
-        "stems": [{"name": p.name, "url": f"/api/v1/tracks/{track.id}/stems/{p.name}"} for p in sorted(Path(track.stems_path).iterdir()) if p.is_file()] if track.stems_path and Path(track.stems_path).is_dir() else [],
+        "stems": [{"name": p.stem.removesuffix(".mp3"), "url": f"/api/v1/tracks/{track.id}/clips/{p.name}"} for p in sorted((Path(track.stems_path).parent / "previews").glob("*.mp3"))] if track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() else [],
     } for track in tracks]}
 
 
