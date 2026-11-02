@@ -35,13 +35,15 @@ def bootstrap_developer():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.app_env.lower() == "production" and settings.jwt_secret_key.startswith("CHANGE_THIS"):
+        raise RuntimeError("Configure a strong JWT_SECRET_KEY before production.")
     Base.metadata.create_all(bind=engine)
     bootstrap_developer()
     yield
 
 app = FastAPI(title=settings.app_name, version="0.1.0",
               description="API oficial da plataforma SONARA.", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
+app.add_middleware(CORSMiddleware, allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
                    allow_credentials=True, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                    allow_headers=["Authorization", "Content-Type"])
 
