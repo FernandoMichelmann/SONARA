@@ -89,6 +89,8 @@ let tracks = [];
         let soloStemIndices = new Set();
 
         function stopStemPlayers(reset = true) {
+            audioPlayer.pause();
+            if (reset) { try { audioPlayer.currentTime = 0; } catch {} }
             if (stemSyncTimer) {
                 clearInterval(stemSyncTimer);
                 stemSyncTimer = null;
@@ -115,7 +117,7 @@ let tracks = [];
                     : '<i data-lucide="play"></i> Tocar seleção';
             const footerPlay = document.getElementById("playButton");
             if (footerPlay) {
-                const hasActiveAudio = isPlaying || stemPlayers.some(player => !player.paused);
+                const hasActiveAudio = isPlaying || !audioPlayer.paused || stemPlayers.some(player => !player.paused);
                 footerPlay.innerHTML = hasActiveAudio
                     ? '<i data-lucide="pause" size="17"></i>'
                     : '<i data-lucide="play" size="17"></i>';
@@ -152,7 +154,7 @@ let tracks = [];
         function startProgressSync() {
             stopProgressSync();
             stemSyncTimer = setInterval(() => {
-                const player = activeStemIndex === null ? stemPlayers.find(item => !item.paused) : stemPlayers[activeStemIndex];
+                const player = !audioPlayer.paused ? audioPlayer : (activeStemIndex === null ? stemPlayers.find(item => !item.paused) : stemPlayers[activeStemIndex]);
                 if (!player || !Number.isFinite(player.duration)) return;
                 document.getElementById("currentTime").textContent = formatAudioTime(player.currentTime);
                 document.getElementById("durationTime").textContent = formatAudioTime(player.duration);
@@ -172,6 +174,7 @@ let tracks = [];
             stopStemPlayers();
             audioPlayer.pause();
             currentTrack = selected;
+            audioPlayer.pause(); audioPlayer.removeAttribute('src'); audioPlayer.load();
             stemPlayers = [];
             soloStemIndices = new Set();
             document.getElementById("playerTitle").textContent = currentTrack.title;
@@ -322,7 +325,20 @@ let tracks = [];
                 showToast("Esta música não possui tracks de áudio disponíveis.");
                 return;
             }
-            const selectedIndices = soloStemIndices.size ? [...soloStemIndices] : stemPlayers.map((_, index) => index);
+            if (!soloStemIndices.size) {
+                if (!currentTrack.mixUrl) { showToast('Mixagem desta música indisponível.'); return; }
+                if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); stopProgressSync(); return; }
+                stemLoading = true; updateAllStemsButton(false, true);
+                try {
+                    if (audioPlayer.src !== currentTrack.mixUrl) { audioPlayer.src = currentTrack.mixUrl; audioPlayer.preload = 'auto'; audioPlayer.load(); }
+                    audioPlayer.volume = masterStemVolume;
+                    await audioPlayer.play();
+                    activeStemIndex = null; updateAllStemsButton(true); startProgressSync();
+                } catch (error) { audioPlayer.pause(); updateAllStemsButton(false); showToast(error.message || 'Não foi possível reproduzir a mixagem.'); }
+                finally { stemLoading = false; }
+                return;
+            }
+            const selectedIndices = [...soloStemIndices];
             const selectedPlayers = selectedIndices.map(index => stemPlayers[index]).filter(Boolean);
             const allPlaying = selectedPlayers.length > 0 && selectedPlayers.every(player => !player.paused);
             if (allPlaying) {
@@ -438,6 +454,7 @@ let tracks = [];
                     cover: covers[index % covers.length],
                     coverUrl: track.cover_url ? SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + track.cover_url : "",
                     audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio")),
+                    mixUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.mix_url || ("/api/v1/tracks/" + track.id + "/mix")),
                     timeSignature: track.time_signature || "4/4",
                     zipDownloadUrl: track.zip_download_url ? SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + track.zip_download_url : "",
                     stems: (track.stems || []).map(stem => ({ ...stem, url: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + stem.url }))
