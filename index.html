@@ -69,7 +69,7 @@
                 <div class="top-right">
                     <button class="icon-button" onclick="showToast('Notificações em breve.')"><i
                             data-lucide="bell"></i></button>
-                    <div class="avatar">S</div>
+                    <button class="avatar account-avatar" id="userAccountButton" type="button" aria-label="Entrar ou acessar minha conta">S</button>
                 </div>
             </header>
 
@@ -263,6 +263,36 @@
             <button data-page="subscription"><i data-lucide="credit-card"></i>Planos</button>
         </nav>
 
+        <section class="auth-overlay" id="authOverlay" aria-hidden="true">
+            <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+                <button class="auth-close" id="authClose" type="button" aria-label="Fechar"><i data-lucide="x"></i></button>
+                <div class="auth-brand"><i data-lucide="audio-waveform"></i><span>SONARA</span></div>
+                <div class="auth-kicker">SUA EXPERIÊNCIA MUSICAL</div>
+                <h2 id="authTitle">Entre na sua conta</h2>
+                <p class="auth-description" id="authDescription">Acesse sua biblioteca e organize sua jornada musical.</p>
+                <div class="auth-tabs" id="authTabs">
+                    <button class="active" type="button" data-auth-mode="login">Entrar</button>
+                    <button type="button" data-auth-mode="register">Criar conta</button>
+                </div>
+                <form id="userAuthForm">
+                    <label class="auth-name-field" id="authNameField" hidden for="authName">Nome completo</label>
+                    <input class="auth-input auth-name-field" id="authName" name="name" type="text" autocomplete="name" placeholder="Seu nome" hidden>
+                    <label for="authEmail">E-mail</label>
+                    <input class="auth-input" id="authEmail" name="email" type="email" autocomplete="email" placeholder="voce@email.com" required>
+                    <label for="authPassword">Senha</label>
+                    <input class="auth-input" id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Mínimo de 10 caracteres" minlength="10" required>
+                    <button class="auth-submit" id="authSubmit" type="submit">Entrar <i data-lucide="arrow-right"></i></button>
+                    <p class="auth-message" id="authMessage" role="alert" aria-live="polite"></p>
+                </form>
+                <div class="auth-account" id="authAccount" hidden>
+                    <div class="auth-account-icon"><i data-lucide="user-round-check"></i></div>
+                    <strong id="authAccountName"></strong>
+                    <span id="authAccountEmail"></span>
+                    <button type="button" id="authLogout">Sair da conta</button>
+                </div>
+                <p class="auth-footnote"><i data-lucide="shield-check"></i> Sua sessão é protegida pela SONARA.</p>
+            </div>
+        </section>
         <div class="toast" id="toast"></div>
     </div>
 
