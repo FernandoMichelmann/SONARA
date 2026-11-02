@@ -113,6 +113,24 @@
             </section>
             <p class="inline-message" id="trackUploadMessage" role="status"></p>
           </form>
+
+          <section class="preview-editor" id="previewEditor" hidden>
+            <div class="preview-editor-heading"><span class="preview-kicker">EDITOR DE PRÉVIA</span><h3>Escolha os 30 segundos que o público vai ouvir</h3><p>Ouça a música, arraste o início do trecho e visualize a janela no quadrado.</p></div>
+            <div class="preview-editor-layout">
+              <div class="preview-square"><div class="preview-square-top"><i data-lucide="audio-lines"></i><span>SONARA</span></div><div class="preview-wave"></div><div class="preview-window">PRÉVIA · 00:30</div></div>
+              <div class="preview-editor-controls">
+                <strong id="previewTrackName">Prévia da música</strong>
+                <audio id="previewSourceAudio" controls preload="metadata"></audio>
+                <label for="previewStartRange">Início do trecho <strong id="previewStartLabel">0:00</strong></label>
+                <input id="previewStartRange" type="range" min="0" max="0" step="1" value="0" disabled>
+                <div class="preview-time-ends"><span>00:00</span><span id="previewEndLabel">00:30</span></div>
+                <p>O mesmo recorte será aplicado a todos os instrumentos. O áudio original e o ZIP permanecem intactos.</p>
+                <button type="button" class="submit-button" id="savePreviewButton"><i data-lucide="scissors"></i><span>Gerar prévias e concluir</span></button>
+                <p class="inline-message" id="previewMessage" role="status"></p>
+              </div>
+            </div>
+          </section>
+
           <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div></div>
           <div class="table-wrap"><table><thead><tr><th>TRACK / ARTISTA</th><th>DETALHES</th><th>CATEGORIAS</th><th>STEMS</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="6" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
         </section>
