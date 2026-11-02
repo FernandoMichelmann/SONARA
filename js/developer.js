@@ -124,8 +124,11 @@
         '<td>' + escapeHtml(track.musical_key || "Tom —") + ' · ' + (track.bpm ? escapeHtml(track.bpm + " BPM") : "BPM —") + '<div class="cell-secondary">' + escapeHtml(track.time_signature || "4/4") + '</div></td>' +
         '<td><div class="tag-list">' + (tags || "—") + '</div></td>' +
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
-        '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span></td>' +
-        '<td><button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button></td></tr>';
+        '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
+        '<td>' +
+          '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
+          (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
+        '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
   }
@@ -350,9 +353,12 @@
     button.querySelector("span").textContent = "Enviando e extraindo ZIP...";
     setMessage(message, "O sistema está validando e organizando os stems. Aguarde o término do envio.");
     try {
-      const uploadedTrack = await request("/developer/tracks", { method: "POST", body: formData });
+      const uploadedResponse = await request("/developer/tracks", { method: "POST", body: formData });
+      const uploadedTrack = uploadedResponse.track || uploadedResponse.item || uploadedResponse;
+      if (!uploadedTrack || !uploadedTrack.id) throw new Error("O servidor recebeu o ZIP, mas não retornou o identificador da multitrack. Atualize a lista e configure a prévia por lá.");
       pendingPreviewTrack = uploadedTrack;
       previewPublishAfter = $("trackPublish").checked;
+      $("previewPublishToggle").checked = previewPublishAfter;
       form.reset();
       $("archiveSelection").textContent = "Nenhum pacote selecionado";
       $("coverSelection").textContent = "Nenhuma imagem selecionada";
@@ -360,8 +366,8 @@
       setTrackStep("details");
       setMessage(message, "Arquivos recebidos. Agora escolha o trecho de 30 segundos.", "success");
       setGlobalMessage("Escolha a prévia antes de publicar a música.", "success");
-      await loadTracks();
       await openPreviewEditor(uploadedTrack);
+      await loadTracks();
       if (window.lucide) window.lucide.createIcons();
     } catch (error) {
       setMessage(message, error.message || "Não foi possível enviar a multitrack.", "error");
@@ -380,6 +386,7 @@
   async function openPreviewEditor(track) {
     const editor = $("previewEditor");
     const audio = $("previewSourceAudio");
+    pendingPreviewTrack = track;
     $("previewTrackName").textContent = track.title || "Prévia da música";
     setMessage($("previewMessage"), "Carregando o áudio de referência para escolher o trecho...");
     editor.hidden = false;
@@ -425,6 +432,10 @@
       audio.currentTime = previewStart;
     }
   });
+  $("previewPublishToggle").addEventListener("change", () => {
+    previewPublishAfter = $("previewPublishToggle").checked;
+  });
+
   $("savePreviewButton").addEventListener("click", async () => {
     if (!pendingPreviewTrack) return;
     const button = $("savePreviewButton");
@@ -454,6 +465,23 @@
   });
 
   $("tracksTable").addEventListener("click", async event => {
+    const previewButton = event.target.closest("[data-track-preview]");
+    if (previewButton) {
+      previewButton.disabled = true;
+      try {
+        const data = await request("/developer/tracks");
+        const track = (data.items || []).find(item => String(item.id) === previewButton.dataset.trackPreview);
+        if (!track) throw new Error("Multitrack não encontrada na biblioteca.");
+        previewPublishAfter = false;
+        $("previewPublishToggle").checked = false;
+        await openPreviewEditor(track);
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível abrir o editor da prévia.", "error");
+      } finally {
+        previewButton.disabled = false;
+      }
+      return;
+    }
     const button = event.target.closest("[data-track-publish]");
     if (!button) return;
     button.disabled = true;
