@@ -1,0 +1,10 @@
+# Local secrets and databases
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/sonara.db
+backend/sonara.db-shm
+backend/sonara.db-wal
+*.py[cod]
+.pytest_cache/
