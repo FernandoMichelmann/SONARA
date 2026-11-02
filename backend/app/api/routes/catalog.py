@@ -30,6 +30,18 @@ def public_track_catalog(db: Session = Depends(get_db)):
     } for track in tracks]}
 
 
+
+@router.get("/tracks/{track_id}/clips/{clip_name}")
+def stream_track_clip(track_id: int, clip_name: str, db: Session = Depends(get_db)):
+    track = db.get(Track, track_id)
+    if not track or not track.is_published or not track.stems_path:
+        raise HTTPException(status_code=404, detail="Trecho não encontrado.")
+    folder = Path(track.stems_path).parent / "previews"
+    clip = folder / clip_name
+    if clip.parent.resolve() != folder.resolve() or not clip.is_file() or clip.suffix.lower() != ".mp3":
+        raise HTTPException(status_code=404, detail="Trecho indisponível.")
+    return FileResponse(clip, media_type="audio/mpeg", content_disposition_type="inline")
+
 @router.get("/tracks/{track_id}/download")
 def download_track_multitrack(track_id: int, db: Session = Depends(get_db)):
     track = db.get(Track, track_id)
