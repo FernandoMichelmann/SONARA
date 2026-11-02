@@ -82,11 +82,12 @@ def stream_track_stem(track_id: int, stem_name: str, db: Session = Depends(get_d
     track = db.get(Track, track_id)
     if not track or not track.is_published or not track.stems_path:
         raise HTTPException(status_code=404, detail="Stem não encontrado.")
-    base = Path(track.stems_path).resolve()
-    path = (base / Path(stem_name).name).resolve()
-    if path.parent != base or not path.is_file():
-        raise HTTPException(status_code=404, detail="Stem não encontrado.")
-    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream", filename=path.name, content_disposition_type="inline")
+    preview_dir = (Path(track.stems_path).resolve().parent / "previews").resolve()
+    preview_name = Path(stem_name).stem + ".mp3"
+    path = (preview_dir / preview_name).resolve()
+    if path.parent != preview_dir or not path.is_file():
+        raise HTTPException(status_code=404, detail="Prévia de 30 segundos não encontrada.")
+    return FileResponse(path, media_type="audio/mpeg", content_disposition_type="inline")
 
 
 @router.get("/tracks/{track_id}/audio")
@@ -94,7 +95,13 @@ def stream_published_track(track_id: int, db: Session = Depends(get_db)):
     track = db.get(Track, track_id)
     if not track or not track.is_published:
         raise HTTPException(status_code=404, detail="Áudio não encontrado.")
-    path = Path(track.storage_path).resolve()
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Arquivo de áudio indisponível no servidor.")
-    return FileResponse(path, media_type=track.content_type, filename=path.name, content_disposition_type="inline")
+    preview_dir = (Path(track.stems_path).resolve().parent / "previews").resolve() if track.stems_path else None
+    if not preview_dir or not preview_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Prévia de 30 segundos indisponível.")
+    path = (preview_dir / (Path(track.storage_path).stem + ".mp3")).resolve()
+    if path.parent != preview_dir or not path.is_file():
+        previews = sorted(preview_dir.glob("*.mp3"))
+        if not previews:
+            raise HTTPException(status_code=404, detail="Prévia de 30 segundos indisponível.")
+        path = previews[0]
+    return FileResponse(path, media_type="audio/mpeg", content_disposition_type="inline")
