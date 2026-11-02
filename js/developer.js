@@ -396,8 +396,18 @@
     const response = await fetch(API_BASE + "/developer/tracks/" + track.id + "/preview-source", {
       headers: token ? { Authorization: "Bearer " + token } : {}
     });
-    if (!response.ok) throw new Error("Não foi possível abrir o áudio para selecionar a prévia.");
+    if (!response.ok) {
+      let detail = "Não foi possível gerar a mixagem de referência.";
+      try {
+        const payload = await response.json();
+        detail = payload.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
     const blob = await response.blob();
+    if (!blob.size || !blob.type.startsWith("audio/")) {
+      throw new Error("O servidor não retornou um arquivo de áudio válido para a mixagem.");
+    }
     if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
     previewSourceObjectUrl = URL.createObjectURL(blob);
     audio.src = previewSourceObjectUrl;
