@@ -389,7 +389,7 @@
     const audio = $("previewSourceAudio");
     pendingPreviewTrack = track;
     $("previewTrackName").textContent = track.title || "Prévia da música";
-    setMessage($("previewMessage"), "Carregando o áudio de referência para escolher o trecho...");
+    setMessage($("previewMessage"), "Mixando todos os instrumentos para você ouvir a música completa...");
     editor.hidden = false;
     editor.scrollIntoView({ behavior: "smooth", block: "center" });
     const token = sessionStorage.getItem(TOKEN_KEY) || "";
@@ -415,7 +415,7 @@
     previewStart = 0;
     $("previewStartLabel").textContent = "0:00";
     $("previewEndLabel").textContent = "0:30";
-    setMessage($("previewMessage"), !validDuration ? "O arquivo precisa ter pelo menos 30 segundos." : "Arraste o seletor e aperte play para ouvir o trecho escolhido.", !validDuration ? "error" : "success");
+    setMessage($("previewMessage"), !validDuration ? "A mixagem precisa ter pelo menos 30 segundos." : "Todas as faixas estão sincronizadas na mixagem. Arraste o seletor e aperte play para escolher o trecho.", !validDuration ? "error" : "success");
   });
   $("previewSourceAudio").addEventListener("error", () => {
     $("savePreviewButton").disabled = true;
