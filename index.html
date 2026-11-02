@@ -263,6 +263,26 @@
             <button data-page="subscription"><i data-lucide="credit-card"></i>Planos</button>
         </nav>
 
+        <section class="multitrack-overlay" id="multitrackOverlay" aria-hidden="true">
+            <div class="multitrack-dialog" role="dialog" aria-modal="true" aria-labelledby="multitrackTitle">
+                <button class="multitrack-close" type="button" onclick="closeMultitrack()" aria-label="Fechar"><i data-lucide="x"></i></button>
+                <div class="multitrack-heading">
+                    <img id="multitrackCover" src="" alt="" hidden>
+                    <div>
+                        <div class="eyebrow">SONARA MULTITRACK PLAYER</div>
+                        <h2 id="multitrackTitle">Selecione uma música</h2>
+                        <p id="multitrackMeta"></p>
+                    </div>
+                </div>
+                <div class="multitrack-toolbar">
+                    <button class="primary-button" id="playAllStems" type="button" onclick="toggleAllStems()"><i data-lucide="play"></i> Tocar todas</button>
+                    <button class="multitrack-download" id="downloadMultitrack" type="button"><i data-lucide="download"></i> Baixar Multitrack ZIP</button>
+                    <span id="stemCount"></span>
+                </div>
+                <div class="stem-list" id="stemList"></div>
+                <p class="multitrack-note">Use “Ouvir” para escutar uma track isolada. “Tocar todas” inicia o conjunto sincronizado.</p>
+            </div>
+        </section>
         <section class="auth-overlay" id="authOverlay" aria-hidden="true">
             <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
                 <button class="auth-close" id="authClose" type="button" aria-label="Fechar"><i data-lucide="x"></i></button>
