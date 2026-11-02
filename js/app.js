@@ -166,7 +166,7 @@ let tracks = [];
                     bpm: track.bpm || "—",
                     genre: (track.categories || [track.category || "Multitrack"]).join(", "),
                     cover: covers[index % covers.length],
-                    coverUrl: track.cover_url ? SONARA_CATALOG_API.replace(/\\/api\\/v1$/, "") + track.cover_url : "",
+                    coverUrl: track.cover_url ? SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + track.cover_url : "",
                     audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio"))
                 }));
                 if (badge) badge.textContent = "CATÁLOGO OFICIAL";
