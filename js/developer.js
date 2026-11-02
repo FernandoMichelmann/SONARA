@@ -250,9 +250,10 @@
 
   $("trackUploadForm").addEventListener("submit", async event => {
     event.preventDefault();
+    const form = event.currentTarget;
     const button = $("uploadTrackButton");
     const message = $("trackUploadMessage");
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     formData.set("is_published", $("trackPublish").checked ? "true" : "false");
     if (!$("trackBpm").value) formData.delete("bpm");
     button.disabled = true;
@@ -260,7 +261,7 @@
     setMessage(message, "O upload pode levar alguns instantes para arquivos grandes.");
     try {
       await request("/developer/tracks", { method: "POST", body: formData });
-      event.currentTarget.reset();
+      form.reset();
       $("trackCategory").value = "Multitrack";
       setMessage(message, "Track enviada com sucesso.", "success");
       setGlobalMessage("Biblioteca de tracks atualizada.", "success");
@@ -291,6 +292,7 @@
 
   $("revenueForm").addEventListener("submit", async event => {
     event.preventDefault();
+    const form = event.currentTarget;
     const button = $("saveRevenueButton");
     const message = $("revenueFormMessage");
     const amount = Number($("revenueAmount").value);
@@ -309,7 +311,7 @@
           status: $("revenueStatus").value
         })
       });
-      event.currentTarget.reset();
+      form.reset();
       setMessage(message, "Lançamento registrado.", "success");
       setGlobalMessage("Histórico financeiro atualizado.", "success");
       await loadRevenue();
