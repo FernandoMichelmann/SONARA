@@ -2,15 +2,30 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import select, inspect, text
 from app.api.routes import admin, auth, catalog, developer
 from app.core.config import settings
 from app.db import Base, SessionLocal, engine
-from app.models import RevenueEntry, Track, User
+from app.models import RevenueEntry, Track, TrackCategory, User
 from app.security import hash_password
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sonara")
+
+def migrate_track_columns():
+    """Additive migration that preserves all existing track records."""
+    additions = {
+        "categories_json": "TEXT NOT NULL DEFAULT '[]'",
+        "time_signature": "VARCHAR(12) NOT NULL DEFAULT '4/4'",
+        "stems_path": "VARCHAR(600) NOT NULL DEFAULT ''",
+        "cover_path": "VARCHAR(600)",
+        "cover_content_type": "VARCHAR(120)",
+    }
+    with engine.begin() as connection:
+        existing = {column["name"] for column in inspect(engine).get_columns("tracks")}
+        for column, definition in additions.items():
+            if column not in existing:
+                connection.execute(text(f"ALTER TABLE tracks ADD COLUMN {column} {definition}"))
 
 def bootstrap_developer():
     email = (settings.developer_email or "").strip().lower()
@@ -37,6 +52,7 @@ def bootstrap_developer():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    migrate_track_columns()
     bootstrap_developer()
     yield
 
