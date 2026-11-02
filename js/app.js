@@ -1,14 +1,16 @@
-const tracks = [
-            { id: 1, title: "Ousado Amor", artist: "SONARA Sessions", key: "G", bpm: 68, genre: "Worship", cover: "cover-one" },
-            { id: 2, title: "A Casa É Sua", artist: "SONARA Sessions", key: "D", bpm: 72, genre: "Worship", cover: "cover-two" },
-            { id: 3, title: "Lugar Secreto", artist: "SONARA Sessions", key: "F#m", bpm: 75, genre: "Adoração", cover: "cover-three" },
-            { id: 4, title: "Bondade de Deus", artist: "SONARA Sessions", key: "G", bpm: 70, genre: "Worship", cover: "cover-four" }
-        ];
+let tracks = [];
 
         // Conteúdo fictício exclusivamente para demonstração visual.
         let favorites = new Set();
         let currentTrack = null;
         let playing = false;
+        const audioPlayer = new Audio();
+        const SONARA_CATALOG_API = "http://127.0.0.1:8000/api/v1";
+
+        function escapeHTML(value) {
+            return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+        }
         let searchTerm = "";
 
         function renderCards(target, items) {
@@ -19,12 +21,12 @@ const tracks = [
     <article class="music-card" onclick="selectTrack(${track.id})">
       <div class="cover ${track.cover}">
         <i data-lucide="audio-lines" class="cover-icon"></i>
-        <button class="cover-play" aria-label="Reproduzir ${track.title}" onclick="event.stopPropagation();selectTrack(${track.id})">
+        <button class="cover-play" aria-label="Reproduzir ${escapeHTML(track.title)}" onclick="event.stopPropagation();selectTrack(${track.id});togglePlay()">
           <i data-lucide="play" size="18"></i>
         </button>
       </div>
-      <h3>${track.title}</h3>
-      <p>${track.artist} · ${track.genre}</p>
+      <h3>${escapeHTML(track.title)}</h3>
+      <p>${escapeHTML(track.artist)} · ${escapeHTML(track.genre)}</p>
       <button class="icon-button" style="margin-top:9px" aria-label="Favoritar ${track.title}" onclick="event.stopPropagation();toggleFavorite(${track.id})">
         <i data-lucide="${favorites.has(track.id) ? 'heart' : 'heart'}" size="16" style="color:${favorites.has(track.id) ? '#F06A78' : '#747F95'}"></i>
       </button>
@@ -52,11 +54,11 @@ const tracks = [
     <tr>
       <td class="track-name">
         <div class="mini-cover"><i data-lucide="audio-lines" size="17"></i></div>
-        <span>${t.title}</span>
+        <span>${escapeHTML(t.title)}</span>
       </td>
-      <td>${t.key}</td>
-      <td>${t.bpm}</td>
-      <td><span class="badge">DEMO</span></td>
+      <td>${escapeHTML(t.key)}</td>
+      <td>${escapeHTML(t.bpm)}</td>
+      <td><span class="badge">${t.audioUrl ? "PUBLICADA" : "SEM ÁUDIO"}</span></td>
     </tr>
   `).join("");
 
@@ -79,13 +81,19 @@ const tracks = [
         });
 
         function selectTrack(id) {
-            currentTrack = tracks.find(t => t.id === id);
+            currentTrack = tracks.find(t => t.id === Number(id));
             if (!currentTrack) return;
-
+            if (audioPlayer.src !== currentTrack.audioUrl) {
+                audioPlayer.pause();
+                audioPlayer.src = currentTrack.audioUrl || "";
+                audioPlayer.load();
+            }
             document.getElementById("playerTitle").textContent = currentTrack.title;
-            document.getElementById("playerArtist").textContent = currentTrack.artist;
-
-            showToast("Música selecionada. Arquivo de áudio ainda não cadastrado.");
+            document.getElementById("playerArtist").textContent = currentTrack.artist || "SONARA";
+            document.getElementById("progressFill").style.width = "0%";
+            document.getElementById("currentTime").textContent = "0:00";
+            document.getElementById("durationTime").textContent = "0:00";
+            showToast("Track selecionada.");
             lucide.createIcons();
         }
 
@@ -94,8 +102,81 @@ const tracks = [
                 showToast("Selecione uma música primeiro.");
                 return;
             }
+            if (!currentTrack.audioUrl) {
+                showToast("Esta faixa ainda não possui um arquivo de áudio publicado.");
+                return;
+            }
+            if (audioPlayer.paused) {
+                audioPlayer.play().catch(() => showToast("Não foi possível reproduzir este arquivo de áudio."));
+            } else {
+                audioPlayer.pause();
+            }
+        }
 
-            showToast("Player visual: aguardando integração com arquivos de áudio.");
+        function formatAudioTime(seconds) {
+            if (!Number.isFinite(seconds)) return "0:00";
+            const minutes = Math.floor(seconds / 60);
+            const remainder = Math.floor(seconds % 60).toString().padStart(2, "0");
+            return minutes + ":" + remainder;
+        }
+
+        audioPlayer.addEventListener("timeupdate", () => {
+            document.getElementById("currentTime").textContent = formatAudioTime(audioPlayer.currentTime);
+            document.getElementById("progressFill").style.width = audioPlayer.duration
+                ? (audioPlayer.currentTime / audioPlayer.duration * 100) + "%" : "0%";
+        });
+        audioPlayer.addEventListener("loadedmetadata", () => {
+            document.getElementById("durationTime").textContent = formatAudioTime(audioPlayer.duration);
+        });
+        audioPlayer.addEventListener("play", () => {
+            playing = true;
+            document.getElementById("playButton").innerHTML = '<i data-lucide="pause" size="17"></i>';
+            lucide.createIcons();
+        });
+        audioPlayer.addEventListener("pause", () => {
+            playing = false;
+            document.getElementById("playButton").innerHTML = '<i data-lucide="play" size="17"></i>';
+            lucide.createIcons();
+        });
+        audioPlayer.addEventListener("ended", () => {
+            document.getElementById("progressFill").style.width = "0%";
+        });
+        document.getElementById("progressBar").addEventListener("click", event => {
+            if (!Number.isFinite(audioPlayer.duration) || !audioPlayer.duration) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            audioPlayer.currentTime = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * audioPlayer.duration;
+        });
+        document.querySelector('.player-volume input[type="range"]').addEventListener("input", event => {
+            audioPlayer.volume = Number(event.target.value) / 100;
+        });
+        audioPlayer.volume = 0.7;
+
+        async function loadPublicCatalog() {
+            const badge = document.getElementById("catalogBadge");
+            try {
+                const response = await fetch(SONARA_CATALOG_API + "/catalog/tracks");
+                if (!response.ok) throw new Error("Catálogo indisponível");
+                const data = await response.json();
+                const covers = ["cover-one", "cover-two", "cover-three", "cover-four"];
+                tracks = (data.items || []).map((track, index) => ({
+                    id: Number(track.id),
+                    title: track.title,
+                    artist: track.artist || "SONARA",
+                    key: track.musical_key || "—",
+                    bpm: track.bpm || "—",
+                    genre: track.category || "Multitrack",
+                    cover: covers[index % covers.length],
+                    audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio"))
+                }));
+                if (badge) badge.textContent = "CATÁLOGO OFICIAL";
+                searchTerm = document.getElementById("searchInput").value;
+                renderAll();
+            } catch {
+                tracks = [];
+                if (badge) badge.textContent = "CATÁLOGO INDISPONÍVEL";
+                renderAll();
+                document.querySelector("#emptyState p").textContent = "Não foi possível carregar o catálogo. Verifique se a API SONARA está ativa.";
+            }
         }
 
         function toggleFavorite(id) {
@@ -134,6 +215,7 @@ const tracks = [
         ).join("");
 
         renderAll();
+        loadPublicCatalog();
         lucide.createIcons();
 
 /* SONARA user authentication */
