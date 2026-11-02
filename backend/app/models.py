@@ -32,6 +32,7 @@ class Track(Base):
     categories_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     time_signature: Mapped[str] = mapped_column(String(12), default="4/4", nullable=False)
     stems_path: Mapped[str] = mapped_column(String(600), default="", nullable=False)
+    preview_start_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     cover_path: Mapped[str | None] = mapped_column(String(600), nullable=True)
     cover_content_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
