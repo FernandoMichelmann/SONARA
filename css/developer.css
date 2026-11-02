@@ -143,3 +143,17 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .preview-editor-controls label{display:flex;justify-content:space-between;align-items:center;margin:12px 0 7px}.preview-editor-controls input[type=range]{width:100%;accent-color:var(--blue)}
 .preview-time-ends{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin:6px 0 13px}.preview-editor-controls .submit-button{margin-top:15px}.preview-editor-controls .inline-message{min-height:18px;margin-top:10px}
 @media(max-width:650px){.preview-editor-layout{grid-template-columns:1fr}.preview-square{width:min(100%,230px);margin:auto}}
+
+
+/* Seleção independente do início e fim do trecho de prévia */
+.preview-editor-controls input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 8px 0 15px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+.preview-editor-controls input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
+.preview-editor-controls label { margin-top: 16px; }
+.preview-editor-controls label strong { color: #EAF2FF; font-variant-numeric: tabular-nums; }
+.preview-window { min-width: 130px; text-align: center; }
