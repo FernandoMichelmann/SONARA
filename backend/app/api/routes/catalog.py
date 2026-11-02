@@ -23,7 +23,7 @@ def public_track_catalog(db: Session = Depends(get_db)):
         "time_signature": getattr(track, "time_signature", "4/4"),
         "category": track.category,
         "categories": json.loads(track.categories_json or "[]") if getattr(track, "categories_json", None) else ([track.category] if track.category else []),
-        "file_size": track.file_size, "audio_url": f"/api/v1/tracks/{track.id}/audio",
+        "file_size": track.file_size, "preview_start_seconds": track.preview_start_seconds, "preview_duration_seconds": 30, "audio_url": f"/api/v1/tracks/{track.id}/audio",
         "zip_download_url": f"/api/v1/tracks/{track.id}/download",
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
         "stems": [{"name": p.name, "url": f"/api/v1/tracks/{track.id}/stems/{p.name}"} for p in sorted(Path(track.stems_path).iterdir()) if p.is_file()] if track.stems_path and Path(track.stems_path).is_dir() else [],
