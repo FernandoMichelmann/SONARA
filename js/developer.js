@@ -128,6 +128,7 @@
         '<td>' +
           '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
           (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
+          '<button class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
         '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
@@ -471,6 +472,33 @@
   });
 
   $("tracksTable").addEventListener("click", async event => {
+    const deleteButton = event.target.closest("[data-track-delete]");
+    if (deleteButton) {
+      const trackId = deleteButton.dataset.trackDelete;
+      const row = deleteButton.closest("tr");
+      const trackTitle = row?.querySelector(".cell-primary")?.textContent?.trim() || "esta track";
+      if (!window.confirm('Excluir "' + trackTitle + '" permanentemente? Os arquivos enviados também serão apagados. Esta ação não pode ser desfeita.')) return;
+      deleteButton.disabled = true;
+      try {
+        await request("/developer/tracks/" + trackId, { method: "DELETE" });
+        if (pendingPreviewTrack && String(pendingPreviewTrack.id) === String(trackId)) {
+          $("previewSourceAudio").pause();
+          $("previewSourceAudio").removeAttribute("src");
+          $("previewSourceAudio").load();
+          if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
+          previewSourceObjectUrl = null;
+          pendingPreviewTrack = null;
+          $("previewEditor").hidden = true;
+        }
+        setGlobalMessage("Track excluída e removida do catálogo.", "success");
+        await loadTracks();
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível excluir a track.", "error");
+        deleteButton.disabled = false;
+      }
+      return;
+    }
+
     const previewButton = event.target.closest("[data-track-preview]");
     if (previewButton) {
       previewButton.disabled = true;
