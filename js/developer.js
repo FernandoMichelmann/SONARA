@@ -15,6 +15,8 @@
   let previewPublishAfter = false;
   let previewSourceObjectUrl = null;
   let previewStart = 0;
+  let previewEnd = 30;
+  let previewSourceDuration = 0;
 
   if (window.lucide) window.lucide.createIcons();
 
@@ -384,6 +386,16 @@
     return Math.floor(value / 60) + ":" + String(value % 60).padStart(2, "0");
   }
 
+  function updatePreviewSelection(seekToStart = false) {
+    $("previewStartLabel").textContent = previewTime(previewStart);
+    $("previewEndLabel").textContent = previewTime(previewEnd);
+    $("previewWindowLabel").textContent = "PRÉVIA · " + previewTime(previewEnd - previewStart);
+    $("previewEndRange").min = String(previewStart + 1);
+    $("previewEndRange").max = String(Math.min(previewSourceDuration, previewStart + 30));
+    $("previewEndRange").value = String(previewEnd);
+    if (seekToStart) $("previewSourceAudio").currentTime = previewStart;
+  }
+
   async function openPreviewEditor(track) {
     const editor = $("previewEditor");
     const audio = $("previewSourceAudio");
@@ -398,16 +410,11 @@
     });
     if (!response.ok) {
       let detail = "Não foi possível gerar a mixagem de referência.";
-      try {
-        const payload = await response.json();
-        detail = payload.detail || detail;
-      } catch (_) {}
+      try { const payload = await response.json(); detail = payload.detail || detail; } catch (_) {}
       throw new Error(detail);
     }
     const blob = await response.blob();
-    if (!blob.size || !blob.type.startsWith("audio/")) {
-      throw new Error("O servidor não retornou um arquivo de áudio válido para a mixagem.");
-    }
+    if (!blob.size || !blob.type.startsWith("audio/")) throw new Error("O servidor não retornou um arquivo de áudio válido para a mixagem.");
     if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
     previewSourceObjectUrl = URL.createObjectURL(blob);
     audio.src = previewSourceObjectUrl;
@@ -416,16 +423,20 @@
 
   $("previewSourceAudio").addEventListener("loadedmetadata", () => {
     const audio = $("previewSourceAudio");
-    const validDuration = Number.isFinite(audio.duration) && audio.duration >= 30;
-    const maxStart = validDuration ? Math.floor(audio.duration - 30) : 0;
-    $("previewStartRange").max = String(maxStart);
-    $("previewStartRange").disabled = !validDuration;
-    $("savePreviewButton").disabled = !validDuration;
-    $("previewStartRange").value = "0";
+    previewSourceDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
+    const validDuration = previewSourceDuration >= 2;
     previewStart = 0;
-    $("previewStartLabel").textContent = "0:00";
-    $("previewEndLabel").textContent = "0:30";
-    setMessage($("previewMessage"), !validDuration ? "A mixagem precisa ter pelo menos 30 segundos." : "Todas as faixas estão sincronizadas na mixagem. Arraste o seletor e aperte play para escolher o trecho.", !validDuration ? "error" : "success");
+    previewEnd = Math.min(30, previewSourceDuration);
+    $("previewStartRange").max = String(Math.max(0, previewSourceDuration - 1));
+    $("previewStartRange").value = "0";
+    $("previewStartRange").disabled = !validDuration;
+    $("previewEndRange").disabled = !validDuration;
+    $("savePreviewButton").disabled = !validDuration;
+    updatePreviewSelection();
+    setMessage($("previewMessage"), !validDuration
+      ? "A mixagem precisa ter pelo menos 2 segundos."
+      : "Arraste os controles de início e fim. Você pode selecionar qualquer trecho de até 30 segundos.",
+      !validDuration ? "error" : "success");
   });
   $("previewSourceAudio").addEventListener("error", () => {
     $("savePreviewButton").disabled = true;
@@ -434,17 +445,21 @@
 
   $("previewStartRange").addEventListener("input", () => {
     previewStart = Number($("previewStartRange").value);
-    $("previewStartLabel").textContent = previewTime(previewStart);
-    $("previewEndLabel").textContent = previewTime(previewStart + 30);
-    $("previewSourceAudio").currentTime = previewStart;
+    if (previewEnd <= previewStart) previewEnd = previewStart + 1;
+    if (previewEnd > previewStart + 30) previewEnd = previewStart + 30;
+    updatePreviewSelection(true);
+  });
+  $("previewEndRange").addEventListener("input", () => {
+    previewEnd = Number($("previewEndRange").value);
+    updatePreviewSelection();
   });
   $("previewSourceAudio").addEventListener("play", () => {
     const audio = $("previewSourceAudio");
-    if (audio.currentTime < previewStart || audio.currentTime >= previewStart + 30) audio.currentTime = previewStart;
+    if (audio.currentTime < previewStart || audio.currentTime >= previewEnd) audio.currentTime = previewStart;
   });
   $("previewSourceAudio").addEventListener("timeupdate", () => {
     const audio = $("previewSourceAudio");
-    if (!audio.paused && audio.currentTime >= previewStart + 30) {
+    if (!audio.paused && audio.currentTime >= previewEnd) {
       audio.pause();
       audio.currentTime = previewStart;
     }
@@ -455,12 +470,18 @@
 
   $("savePreviewButton").addEventListener("click", async () => {
     if (!pendingPreviewTrack) return;
+    const duration = previewEnd - previewStart;
+    if (duration < 1 || duration > 30) {
+      setMessage($("previewMessage"), "Escolha um intervalo entre 1 e 30 segundos.", "error");
+      return;
+    }
     const button = $("savePreviewButton");
     button.disabled = true;
     button.querySelector("span").textContent = "Gerando prévias...";
-    setMessage($("previewMessage"), "O servidor está preparando os arquivos leves de 30 segundos. Aguarde.");
+    setMessage($("previewMessage"), "Gerando os trechos selecionados para todos os instrumentos. Aguarde.");
     const body = new FormData();
     body.set("start_seconds", String(previewStart));
+    body.set("end_seconds", String(previewEnd));
     body.set("publish_after", previewPublishAfter ? "true" : "false");
     try {
       await request("/developer/tracks/" + pendingPreviewTrack.id + "/preview", { method: "POST", body });
@@ -471,7 +492,7 @@
       previewSourceObjectUrl = null;
       $("previewEditor").hidden = true;
       pendingPreviewTrack = null;
-      setGlobalMessage("Prévia de 30 segundos gerada e música preparada.", "success");
+      setGlobalMessage("Prévia selecionada gerada e música preparada para publicação.", "success");
       await loadTracks();
     } catch (error) {
       setMessage($("previewMessage"), error.message || "Não foi possível gerar as prévias.", "error");
