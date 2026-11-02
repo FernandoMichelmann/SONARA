@@ -6,6 +6,8 @@ import json
 import zipfile
 import shutil
 import mimetypes
+import subprocess
+import imageio_ffmpeg
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
@@ -262,6 +264,69 @@ async def upload_track(
     finally:
         await archive.close()
         if cover: await cover.close()
+
+
+
+
+@router.get("/tracks/{track_id}/preview-source")
+def get_track_preview_source(
+    track_id: int,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    track = db.get(Track, track_id)
+    if not track or not track.storage_path:
+        raise HTTPException(status_code=404, detail="Áudio-base não encontrado.")
+    source = Path(track.storage_path).resolve()
+    if not source.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo de áudio-base indisponível.")
+    return FileResponse(source, media_type=mimetypes.guess_type(source.name)[0] or "application/octet-stream")
+
+
+@router.post("/tracks/{track_id}/preview")
+def create_track_preview(
+    track_id: int,
+    start_seconds: int = Form(0, ge=0, le=86400),
+    publish_after: bool = Form(False),
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    track = db.get(Track, track_id)
+    if not track or not track.stems_path:
+        raise HTTPException(status_code=404, detail="Multitrack não encontrada.")
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    stems_dir = Path(track.stems_path).resolve()
+    preview_dir = stems_dir.parent / "previews"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    source_stems = sorted(path for path in stems_dir.iterdir() if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS)
+    if not source_stems:
+        raise HTTPException(status_code=404, detail="Nenhum instrumento foi encontrado.")
+    generated = []
+    try:
+        for source in source_stems:
+            output = preview_dir / (source.name + ".mp3")
+            command = [
+                ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+                "-ss", str(start_seconds), "-i", str(source),
+                "-t", "30", "-vn", "-codec:a", "libmp3lame",
+                "-b:a", "160k", "-ar", "44100", "-ac", "2",
+                "-metadata", "title=" + track.title, str(output),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=180)
+            if result.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
+                raise RuntimeError(f"Falha ao gerar prévia de {source.name}: {(result.stderr or '')[-500:]}")
+            generated.append(output)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="O processamento das prévias excedeu o tempo limite.")
+    except Exception as error:
+        for output in generated:
+            output.unlink(missing_ok=True)
+        raise HTTPException(status_code=422, detail=f"Não foi possível gerar as prévias. Verifique se o áudio contém pelo menos 30 segundos e tente outro trecho. {error}")
+    track.preview_start_seconds = start_seconds
+    track.is_published = bool(publish_after)
+    db.commit()
+    db.refresh(track)
+    return {"id": track.id, "preview_start_seconds": start_seconds, "duration_seconds": 30, "published": track.is_published, "preview_count": len(generated)}
 
 
 @router.patch("/tracks/{track_id}")
