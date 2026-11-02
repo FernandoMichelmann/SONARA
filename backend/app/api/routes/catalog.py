@@ -28,7 +28,7 @@ def public_track_catalog(db: Session = Depends(get_db)):
         "time_signature": getattr(track, "time_signature", "4/4"),
         "category": track.category,
         "categories": json.loads(track.categories_json or "[]") if getattr(track, "categories_json", None) else ([track.category] if track.category else []),
-        "file_size": track.file_size, "preview_start_seconds": track.preview_start_seconds, "preview_duration_seconds": 30, "audio_url": f"/api/v1/tracks/{track.id}/audio", "mix_url": f"/api/v1/tracks/{track.id}/mix",
+        "file_size": track.file_size, "preview_start_seconds": track.preview_start_seconds, "preview_duration_seconds": max(0, getattr(track, "preview_end_seconds", 30) - getattr(track, "preview_start_seconds", 0)), "audio_url": f"/api/v1/tracks/{track.id}/audio", "mix_url": f"/api/v1/tracks/{track.id}/mix",
         "zip_download_url": f"/api/v1/tracks/{track.id}/download",
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
         "stems": [{"name": p.stem.removesuffix(".mp3"), "url": f"/api/v1/tracks/{track.id}/clips/{p.name}"} for p in sorted((Path(track.stems_path).parent / "previews").glob("*.mp3"))] if track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() else [],
