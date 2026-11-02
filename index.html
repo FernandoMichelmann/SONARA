@@ -133,7 +133,7 @@
                     <p class="page-subtitle">Encontre a música ideal para sua próxima apresentação.</p>
                     <div class="section-heading">
                         <h2>Catálogo musical</h2>
-                        <span class="badge">DEMONSTRAÇÃO</span>
+                        <span class="badge" id="catalogBadge">CARREGANDO CATÁLOGO</span>
                     </div>
                     <div class="music-grid" id="exploreGrid"></div>
                 </section>
@@ -245,13 +245,13 @@
                     <div class="progress" id="progressBar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
-                    <span>0:00</span>
+                    <span id="durationTime">0:00</span>
                 </div>
             </div>
 
             <div class="player-volume">
                 <i data-lucide="volume-2" size="17"></i>
-                <input type="range" min="0" max="100" value="70" aria-label="Volume">
+                <input id="volumeControl" type="range" min="0" max="100" value="70" aria-label="Volume">
             </div>
         </div>
 
