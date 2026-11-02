@@ -311,7 +311,7 @@ def get_track_preview_source(
 
     stems_dir = Path(track.stems_path).resolve()
     uploads_root = AUDIO_DIR.resolve()
-    if stems_dir.parent.parent.parent != uploads_root or stems_dir.parent.name == '' or not stems_dir.is_dir():
+    if stems_dir.parent.parent != uploads_root or not stems_dir.is_dir():
         raise HTTPException(status_code=404, detail="Pasta de stems indisponível.")
 
     source_stems = sorted(
@@ -332,7 +332,7 @@ def get_track_preview_source(
     inputs = "".join(f"[{index}:a:0]" for index in range(len(source_stems)))
     filter_graph = (
         f"{inputs}amix=inputs={len(source_stems)}:duration=longest:"
-        "dropout_transition=0:normalize=0,alimiter=limit=0.95[mix]"
+        "dropout_transition=0:normalize=1[mix]"
     )
     command.extend([
         "-filter_complex", filter_graph, "-map", "[mix]",
