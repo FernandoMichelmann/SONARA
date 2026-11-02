@@ -17,6 +17,12 @@ def public_track_catalog(db: Session = Depends(get_db)):
     tracks = db.scalars(
         select(Track).where(Track.is_published.is_(True)).order_by(Track.created_at.desc())
     ).all()
+    tracks = [
+        track for track in tracks
+        if track.stems_path
+        and (Path(track.stems_path).parent / "previews").is_dir()
+        and any((Path(track.stems_path).parent / "previews").glob("*.mp3"))
+    ]
     return {"items": [{
         "id": track.id, "title": track.title, "artist": track.artist,
         "musical_key": track.musical_key, "bpm": track.bpm,
