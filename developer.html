@@ -115,12 +115,13 @@
           </form>
 
           <section class="preview-editor" id="previewEditor" hidden>
-            <div class="preview-editor-heading"><span class="preview-kicker">EDITOR DE PRÉVIA</span><h3>Escolha os 30 segundos que o público vai ouvir</h3><p>Ouça a música, arraste o início do trecho e visualize a janela no quadrado.</p></div>
+            <div class="preview-editor-heading"><span class="preview-kicker">EDITOR DE PRÉVIA</span><h3>Escolha os 30 segundos que o público vai ouvir</h3><p>Todos os instrumentos do ZIP tocam juntos e sincronizados. Arraste o início do trecho para escolher os 30 segundos.</p></div>
             <div class="preview-editor-layout">
               <div class="preview-square"><div class="preview-square-top"><i data-lucide="audio-lines"></i><span>SONARA</span></div><div class="preview-wave"></div><div class="preview-window">PRÉVIA · 00:30</div></div>
               <div class="preview-editor-controls">
                 <strong id="previewTrackName">Prévia da música</strong>
                 <audio id="previewSourceAudio" controls preload="metadata"></audio>
+                <small class="muted">Prévia de referência em mixagem: todos os stems são reproduzidos juntos.</small>
                 <label for="previewStartRange">Início do trecho <strong id="previewStartLabel">0:00</strong></label>
                 <input id="previewStartRange" type="range" min="0" max="0" step="1" value="0" disabled>
                 <div class="preview-time-ends"><span>00:00</span><span id="previewEndLabel">00:30</span></div>
