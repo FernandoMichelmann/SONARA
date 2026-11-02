@@ -60,4 +60,4 @@ def stream_published_track(track_id: int, db: Session = Depends(get_db)):
     path = Path(track.storage_path).resolve()
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Arquivo de áudio indisponível no servidor.")
-    return FileResponse(path, media_type=track.content_type, filename=track.original_filename, content_disposition_type="inline")
+    return FileResponse(path, media_type=track.content_type, filename=path.name, content_disposition_type="inline")
