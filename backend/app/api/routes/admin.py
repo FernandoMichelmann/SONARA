@@ -73,6 +73,8 @@ def track_payload(track: Track):
         "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
         "stems": stems,
         "preview_start_seconds": getattr(track, "preview_start_seconds", 0),
+        "preview_end_seconds": getattr(track, "preview_end_seconds", 30),
+        "preview_duration_seconds": max(0, getattr(track, "preview_end_seconds", 30) - getattr(track, "preview_start_seconds", 0)),
         "preview_ready": bool(track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() and any((Path(track.stems_path).parent / "previews").glob("*.mp3"))),
     }
 
@@ -382,6 +384,7 @@ def get_track_preview_source(
 def create_track_preview(
     track_id: int,
     start_seconds: int = Form(0, ge=0, le=86400),
+    end_seconds: int = Form(..., ge=1, le=86430),
     publish_after: bool = Form(False),
     _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db),
@@ -389,6 +392,9 @@ def create_track_preview(
     track = db.get(Track, track_id)
     if not track or not track.stems_path:
         raise HTTPException(status_code=404, detail="Multitrack não encontrada.")
+    duration_seconds = end_seconds - start_seconds
+    if duration_seconds < 1 or duration_seconds > 30:
+        raise HTTPException(status_code=422, detail="A prévia deve ter entre 1 e 30 segundos. Confira o início e o fim.")
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     stems_dir = Path(track.stems_path).resolve()
     preview_dir = stems_dir.parent / "previews"
@@ -407,7 +413,7 @@ def create_track_preview(
             command = [
                 ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", str(start_seconds), "-i", str(source),
-                "-t", "30", "-af", "apad", "-vn", "-codec:a", "libmp3lame",
+                "-t", str(duration_seconds), "-vn", "-codec:a", "libmp3lame",
                 "-b:a", "160k", "-ar", "44100", "-ac", "2",
                 "-metadata", "title=" + track.title, str(output),
             ]
@@ -420,12 +426,20 @@ def create_track_preview(
     except Exception as error:
         for output in generated:
             output.unlink(missing_ok=True)
-        raise HTTPException(status_code=422, detail=f"Não foi possível gerar as prévias. Verifique se o áudio contém pelo menos 30 segundos e tente outro trecho. {error}")
+        raise HTTPException(status_code=422, detail=f"Não foi possível gerar as prévias. Verifique o áudio selecionado e tente novamente. {error}")
+
+    # Invalida a mixagem pública anterior para que ela nunca continue servindo o recorte antigo.
+    (preview_dir / "mix.mp3").unlink(missing_ok=True)
     track.preview_start_seconds = start_seconds
+    track.preview_end_seconds = end_seconds
     track.is_published = bool(publish_after)
     db.commit()
     db.refresh(track)
-    return {"id": track.id, "preview_start_seconds": start_seconds, "duration_seconds": 30, "published": track.is_published, "preview_count": len(generated)}
+    return {
+        "id": track.id, "preview_start_seconds": start_seconds,
+        "preview_end_seconds": end_seconds, "duration_seconds": duration_seconds,
+        "published": track.is_published, "preview_count": len(generated)
+    }
 
 
 @router.patch("/tracks/{track_id}")
