@@ -11,6 +11,7 @@ import imageio_ffmpeg
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -305,12 +306,57 @@ def get_track_preview_source(
     db: Session = Depends(get_db),
 ):
     track = db.get(Track, track_id)
-    if not track or not track.storage_path:
-        raise HTTPException(status_code=404, detail="Áudio-base não encontrado.")
-    source = Path(track.storage_path).resolve()
-    if not source.is_file():
-        raise HTTPException(status_code=404, detail="Arquivo de áudio-base indisponível.")
-    return FileResponse(source, media_type=mimetypes.guess_type(source.name)[0] or "application/octet-stream")
+    if not track or not track.stems_path:
+        raise HTTPException(status_code=404, detail="Multitrack não encontrada.")
+
+    stems_dir = Path(track.stems_path).resolve()
+    uploads_root = AUDIO_DIR.resolve()
+    if stems_dir.parent.parent != uploads_root or not stems_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Pasta de stems indisponível.")
+
+    source_stems = sorted(
+        path for path in stems_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+    )
+    if not source_stems:
+        raise HTTPException(status_code=404, detail="Nenhuma faixa de áudio foi encontrada.")
+
+    # Cria uma mixagem temporária de TODOS os stems, preservando o início comum
+    # para que o desenvolvedor escolha o trecho ouvindo a música completa.
+    reference_mix = stems_dir.parent / (".preview-reference-" + uuid4().hex + ".mp3")
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    command = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y"]
+    for source in source_stems:
+        command.extend(["-i", str(source)])
+
+    inputs = "".join(f"[{index}:a:0]" for index in range(len(source_stems)))
+    filter_graph = (
+        f"{inputs}amix=inputs={len(source_stems)}:duration=longest:"
+        "dropout_transition=0:normalize=0,alimiter=limit=0.95[mix]"
+    )
+    command.extend([
+        "-filter_complex", filter_graph, "-map", "[mix]",
+        "-codec:a", "libmp3lame", "-q:a", "3", "-ar", "44100",
+        str(reference_mix),
+    ])
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0 or not reference_mix.is_file() or reference_mix.stat().st_size == 0:
+            raise RuntimeError((result.stderr or "Falha ao mixar os stems.")[-1000:])
+    except subprocess.TimeoutExpired:
+        reference_mix.unlink(missing_ok=True)
+        raise HTTPException(status_code=504, detail="A mixagem dos stems excedeu o tempo limite.")
+    except Exception as error:
+        reference_mix.unlink(missing_ok=True)
+        raise HTTPException(status_code=422, detail=f"Não foi possível mixar todos os instrumentos: {error}")
+
+    return FileResponse(
+        reference_mix,
+        media_type="audio/mpeg",
+        filename="preview-reference.mp3",
+        background=BackgroundTask(reference_mix.unlink, missing_ok=True),
+    )
 
 
 @router.post("/tracks/{track_id}/preview")
