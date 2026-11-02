@@ -239,12 +239,15 @@ let tracks = [];
         function updateStemButton(index, isPlaying, loading = false) {
             const button = document.getElementById("stemPlay-" + index);
             if (!button) return;
+            const solo = soloStemIndices.has(index);
             button.disabled = loading;
+            button.classList.toggle("solo-active", solo);
+            button.setAttribute("aria-pressed", String(solo));
             button.innerHTML = loading
-                ? '<i data-lucide="loader-circle"></i> Carregando'
-                : isPlaying
-                    ? '<i data-lucide="pause"></i> Pausar'
-                    : '<i data-lucide="play"></i> Ouvir';
+                ? '<i data-lucide="loader-circle"></i>'
+                : solo
+                    ? '<i data-lucide="headphones"></i> SOLO ATIVO'
+                    : '<i data-lucide="headphones"></i> SOLO';
             lucide.createIcons();
         }
 
