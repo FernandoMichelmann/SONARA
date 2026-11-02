@@ -11,6 +11,10 @@
   let identity = null;
   let userQuery = "";
   let refreshInProgress = false;
+  let pendingPreviewTrack = null;
+  let previewPublishAfter = false;
+  let previewSourceObjectUrl = null;
+  let previewStart = 0;
 
   if (window.lucide) window.lucide.createIcons();
 
@@ -346,21 +350,105 @@
     button.querySelector("span").textContent = "Enviando e extraindo ZIP...";
     setMessage(message, "O sistema está validando e organizando os stems. Aguarde o término do envio.");
     try {
-      await request("/developer/tracks", { method: "POST", body: formData });
+      const uploadedTrack = await request("/developer/tracks", { method: "POST", body: formData });
+      pendingPreviewTrack = uploadedTrack;
+      previewPublishAfter = $("trackPublish").checked;
       form.reset();
       $("archiveSelection").textContent = "Nenhum pacote selecionado";
       $("coverSelection").textContent = "Nenhuma imagem selecionada";
       $("trackCoverPreview").innerHTML = '<i data-lucide="image-plus"></i><span>Prévia da capa</span>';
       setTrackStep("details");
-      setMessage(message, "Multitrack cadastrada com sucesso.", "success");
-      setGlobalMessage("Biblioteca de multitracks atualizada.", "success");
+      setMessage(message, "Arquivos recebidos. Agora escolha o trecho de 30 segundos.", "success");
+      setGlobalMessage("Escolha a prévia antes de publicar a música.", "success");
       await loadTracks();
+      await openPreviewEditor(uploadedTrack);
       if (window.lucide) window.lucide.createIcons();
     } catch (error) {
       setMessage(message, error.message || "Não foi possível enviar a multitrack.", "error");
     } finally {
       button.disabled = false;
       button.querySelector("span").textContent = "Salvar e enviar multitrack";
+    }
+  });
+
+
+  function previewTime(seconds) {
+    const value = Math.max(0, Math.floor(Number(seconds) || 0));
+    return Math.floor(value / 60) + ":" + String(value % 60).padStart(2, "0");
+  }
+
+  async function openPreviewEditor(track) {
+    const editor = $("previewEditor");
+    const audio = $("previewSourceAudio");
+    $("previewTrackName").textContent = track.title || "Prévia da música";
+    setMessage($("previewMessage"), "Carregando o áudio de referência para escolher o trecho...");
+    editor.hidden = false;
+    editor.scrollIntoView({ behavior: "smooth", block: "center" });
+    const token = sessionStorage.getItem(TOKEN_KEY) || "";
+    const response = await fetch(API_BASE + "/developer/tracks/" + track.id + "/preview-source", {
+      headers: token ? { Authorization: "Bearer " + token } : {}
+    });
+    if (!response.ok) throw new Error("Não foi possível abrir o áudio para selecionar a prévia.");
+    const blob = await response.blob();
+    if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
+    previewSourceObjectUrl = URL.createObjectURL(blob);
+    audio.src = previewSourceObjectUrl;
+    audio.load();
+  }
+
+  $("previewSourceAudio").addEventListener("loadedmetadata", () => {
+    const audio = $("previewSourceAudio");
+    const maxStart = Math.max(0, Math.floor(audio.duration - 30));
+    $("previewStartRange").max = String(maxStart);
+    $("previewStartRange").disabled = !Number.isFinite(audio.duration) || maxStart < 0;
+    $("previewStartRange").value = "0";
+    previewStart = 0;
+    $("previewStartLabel").textContent = "0:00";
+    $("previewEndLabel").textContent = "0:30";
+    setMessage($("previewMessage"), maxStart < 0 ? "O arquivo precisa ter pelo menos 30 segundos." : "Arraste o seletor e aperte play para ouvir o trecho escolhido.", maxStart < 0 ? "error" : "success");
+  });
+  $("previewStartRange").addEventListener("input", () => {
+    previewStart = Number($("previewStartRange").value);
+    $("previewStartLabel").textContent = previewTime(previewStart);
+    $("previewEndLabel").textContent = previewTime(previewStart + 30);
+    $("previewSourceAudio").currentTime = previewStart;
+  });
+  $("previewSourceAudio").addEventListener("play", () => {
+    const audio = $("previewSourceAudio");
+    if (audio.currentTime < previewStart || audio.currentTime >= previewStart + 30) audio.currentTime = previewStart;
+  });
+  $("previewSourceAudio").addEventListener("timeupdate", () => {
+    const audio = $("previewSourceAudio");
+    if (!audio.paused && audio.currentTime >= previewStart + 30) {
+      audio.pause();
+      audio.currentTime = previewStart;
+    }
+  });
+  $("savePreviewButton").addEventListener("click", async () => {
+    if (!pendingPreviewTrack) return;
+    const button = $("savePreviewButton");
+    button.disabled = true;
+    button.querySelector("span").textContent = "Gerando prévias...";
+    setMessage($("previewMessage"), "O servidor está preparando os arquivos leves de 30 segundos. Aguarde.");
+    const body = new FormData();
+    body.set("start_seconds", String(previewStart));
+    body.set("publish_after", previewPublishAfter ? "true" : "false");
+    try {
+      await request("/developer/tracks/" + pendingPreviewTrack.id + "/preview", { method: "POST", body });
+      $("previewSourceAudio").pause();
+      $("previewSourceAudio").removeAttribute("src");
+      $("previewSourceAudio").load();
+      if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
+      previewSourceObjectUrl = null;
+      $("previewEditor").hidden = true;
+      pendingPreviewTrack = null;
+      setGlobalMessage("Prévia de 30 segundos gerada e música preparada.", "success");
+      await loadTracks();
+    } catch (error) {
+      setMessage($("previewMessage"), error.message || "Não foi possível gerar as prévias.", "error");
+    } finally {
+      button.disabled = false;
+      button.querySelector("span").textContent = "Gerar prévias e concluir";
     }
   });
 
