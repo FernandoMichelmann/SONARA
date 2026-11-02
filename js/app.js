@@ -20,7 +20,7 @@ let tracks = [];
             container.innerHTML = items.map(track => `
     <article class="music-card" onclick="selectTrack(${track.id})">
       <div class="cover ${track.cover}">
-        <i data-lucide="audio-lines" class="cover-icon"></i>
+        ${track.coverUrl ? '<img class="cover-art" src="' + escapeHTML(track.coverUrl) + '" alt="Capa de ' + escapeHTML(track.title) + '" loading="lazy">' : '<i data-lucide="audio-lines" class="cover-icon"></i>'}
         <button class="cover-play" aria-label="Reproduzir ${escapeHTML(track.title)}" onclick="event.stopPropagation();selectTrack(${track.id});togglePlay()">
           <i data-lucide="play" size="18"></i>
         </button>
@@ -164,8 +164,9 @@ let tracks = [];
                     artist: track.artist || "SONARA",
                     key: track.musical_key || "—",
                     bpm: track.bpm || "—",
-                    genre: track.category || "Multitrack",
+                    genre: (track.categories || [track.category || "Multitrack"]).join(", "),
                     cover: covers[index % covers.length],
+                    coverUrl: track.cover_url ? SONARA_CATALOG_API.replace(/\\/api\\/v1$/, "") + track.cover_url : "",
                     audioUrl: SONARA_CATALOG_API.replace(/\/api\/v1$/, "") + (track.audio_url || ("/api/v1/tracks/" + track.id + "/audio"))
                 }));
                 if (badge) badge.textContent = "CATÁLOGO OFICIAL";
