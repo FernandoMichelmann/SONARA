@@ -3,10 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
-from app.api.routes import auth, developer
+from app.api.routes import admin, auth, catalog, developer
 from app.core.config import settings
 from app.db import Base, SessionLocal, engine
-from app.models import User
+from app.models import RevenueEntry, Track, User
 from app.security import hash_password
 
 logging.basicConfig(level=logging.INFO)
@@ -52,3 +52,5 @@ def health():
 
 app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(developer.router, prefix=settings.api_v1_prefix)
+app.include_router(admin.router, prefix=settings.api_v1_prefix)
+app.include_router(catalog.router, prefix=settings.api_v1_prefix)
