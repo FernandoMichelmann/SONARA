@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import mimetypes
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy import select
@@ -17,9 +19,37 @@ def public_track_catalog(db: Session = Depends(get_db)):
     ).all()
     return {"items": [{
         "id": track.id, "title": track.title, "artist": track.artist,
-        "musical_key": track.musical_key, "bpm": track.bpm, "category": track.category,
+        "musical_key": track.musical_key, "bpm": track.bpm,
+        "time_signature": getattr(track, "time_signature", "4/4"),
+        "category": track.category,
+        "categories": json.loads(track.categories_json or "[]") if getattr(track, "categories_json", None) else ([track.category] if track.category else []),
         "file_size": track.file_size, "audio_url": f"/api/v1/tracks/{track.id}/audio",
+        "cover_url": f"/api/v1/tracks/{track.id}/cover" if track.cover_path else None,
+        "stems": [{"name": p.name, "url": f"/api/v1/tracks/{track.id}/stems/{p.name}"} for p in sorted(Path(track.stems_path).iterdir()) if p.is_file()] if track.stems_path and Path(track.stems_path).is_dir() else [],
     } for track in tracks]}
+
+
+@router.get("/tracks/{track_id}/cover")
+def stream_track_cover(track_id: int, db: Session = Depends(get_db)):
+    track = db.get(Track, track_id)
+    if not track or not track.is_published or not track.cover_path:
+        raise HTTPException(status_code=404, detail="Capa não encontrada.")
+    path = Path(track.cover_path).resolve()
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Capa indisponível.")
+    return FileResponse(path, media_type=track.cover_content_type or "image/jpeg")
+
+
+@router.get("/tracks/{track_id}/stems/{stem_name}")
+def stream_track_stem(track_id: int, stem_name: str, db: Session = Depends(get_db)):
+    track = db.get(Track, track_id)
+    if not track or not track.is_published or not track.stems_path:
+        raise HTTPException(status_code=404, detail="Stem não encontrado.")
+    base = Path(track.stems_path).resolve()
+    path = (base / Path(stem_name).name).resolve()
+    if path.parent != base or not path.is_file():
+        raise HTTPException(status_code=404, detail="Stem não encontrado.")
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream", filename=path.name, content_disposition_type="inline")
 
 
 @router.get("/tracks/{track_id}/audio")
