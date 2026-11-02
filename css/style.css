@@ -1041,3 +1041,39 @@
         @media (prefers-reduced-motion: reduce) {
             .hero-slide-image { transition: none; transform: none; }
         }
+
+/* Banner principal sem textos institucionais: somente o slideshow */
+.hero.hero-banner-only {
+    min-height: 360px;
+    height: clamp(300px, 34vw, 440px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    border-radius: 14px;
+    overflow: hidden;
+}
+.hero.hero-banner-only .hero-slideshow {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    opacity: 1;
+}
+.hero.hero-banner-only .hero-slide-shade {
+    background: linear-gradient(90deg, rgba(5, 8, 14, .12), transparent 55%),
+                linear-gradient(0deg, rgba(5, 8, 14, .58), transparent 42%);
+}
+@media (max-width: 700px) {
+    .hero.hero-banner-only {
+        min-height: 250px;
+        height: 58vw;
+        padding: 0;
+        align-items: stretch;
+    }
+    .hero.hero-banner-only .hero-slideshow {
+        width: 100%;
+        opacity: 1;
+        border-radius: 14px;
+    }
+}
+
