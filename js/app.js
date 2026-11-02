@@ -111,8 +111,8 @@ let tracks = [];
             button.innerHTML = loading
                 ? '<i data-lucide="loader-circle"></i> Carregando tracks...'
                 : isPlaying
-                    ? '<i data-lucide="pause"></i> Pausar todas'
-                    : '<i data-lucide="play"></i> Tocar todas';
+                    ? '<i data-lucide="pause"></i> Pausar seleção'
+                    : '<i data-lucide="play"></i> Tocar seleção';
             const footerPlay = document.getElementById("playButton");
             if (footerPlay) {
                 const hasActiveAudio = isPlaying || stemPlayers.some(player => !player.paused);
