@@ -73,22 +73,48 @@
         </section>
 
         <section class="tab-panel" id="panel-tracks" hidden>
-          <div class="section-toolbar"><div><h2>Biblioteca de tracks</h2><p>Envie arquivos de áudio e controle o que fica disponível no catálogo público.</p></div></div>
+          <div class="section-toolbar"><div><h2>Biblioteca de multitracks</h2><p>Cadastre os dados musicais, organize stems em ZIP e escolha a capa da música.</p></div></div>
           <form id="trackUploadForm" class="upload-form">
-            <div class="form-grid">
-              <div class="form-field"><label for="trackTitle">Nome da track *</label><input id="trackTitle" name="title" maxlength="180" required placeholder="Ex.: Ousado Amor"></div>
-              <div class="form-field"><label for="trackArtist">Artista</label><input id="trackArtist" name="artist" maxlength="180" placeholder="Nome do artista"></div>
-              <div class="form-field"><label for="trackKey">Tom musical</label><input id="trackKey" name="musical_key" maxlength="20" placeholder="Ex.: B, C#m"></div>
-              <div class="form-field"><label for="trackBpm">BPM</label><input id="trackBpm" name="bpm" type="number" min="1" max="400" placeholder="Ex.: 72"></div>
-              <div class="form-field"><label for="trackCategory">Categoria</label><input id="trackCategory" name="category" maxlength="80" value="Multitrack"></div>
-              <div class="form-field"><label for="trackAudio">Arquivo de áudio *</label><input id="trackAudio" name="audio" type="file" accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,audio/*" required><small>MP3, WAV, FLAC, M4A, OGG ou AAC. Limite: 500 MB.</small></div>
+            <div class="track-form-tabs" role="tablist" aria-label="Etapas do cadastro">
+              <button type="button" class="track-form-tab active" data-track-step="details">01 · Informações</button>
+              <button type="button" class="track-form-tab" data-track-step="audio">02 · Pacote de áudio</button>
+              <button type="button" class="track-form-tab" data-track-step="cover">03 · Capa</button>
             </div>
-            <label class="check-field"><input id="trackPublish" name="is_published" type="checkbox"><span>Publicar no catálogo assim que o upload terminar</span></label>
-            <button class="submit-button form-submit" id="uploadTrackButton" type="submit"><i data-lucide="upload-cloud"></i><span>Enviar track</span></button>
+            <section class="track-form-step" id="trackStep-details">
+              <div class="form-grid">
+                <div class="form-field"><label for="trackTitle">Nome da track *</label><input id="trackTitle" name="title" maxlength="180" required placeholder="Ex.: Ousado Amor"></div>
+                <div class="form-field"><label for="trackArtist">Artista</label><input id="trackArtist" name="artist" maxlength="180" placeholder="Nome do artista"></div>
+                <div class="form-field"><label for="trackKey">Tom musical</label><select id="trackKey" name="musical_key"><option value="">Selecione o tom</option><option>C</option><option>C#</option><option>Db</option><option>D</option><option>D#</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>Gb</option><option>G</option><option>G#</option><option>Ab</option><option>A</option><option>A#</option><option>Bb</option><option>B</option><option>Am</option><option>Bm</option><option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option><option>Gm</option></select></div>
+                <div class="form-field"><label for="trackBpm">BPM</label><input id="trackBpm" name="bpm" type="number" min="1" max="400" placeholder="Ex.: 72"></div>
+                <div class="form-field"><label for="trackTimeSignature">Compasso / célula</label><select id="trackTimeSignature" name="time_signature"><option>4/4</option><option>6/8</option><option>3/4</option><option>2/4</option><option>12/8</option><option>5/4</option><option>7/8</option><option>Outro</option></select></div>
+              </div>
+              <div class="category-manager">
+                <div class="category-heading"><strong>Categorias e tags</strong><small>Marque quantas categorias fizerem sentido para esta música.</small></div>
+                <div class="category-options" id="trackCategoryOptions"><span class="muted">Carregando categorias...</span></div>
+                <div class="category-create"><input id="newTrackCategory" type="text" maxlength="60" placeholder="Criar nova categoria"><button type="button" class="table-action" id="addTrackCategory">Adicionar categoria</button></div>
+              </div>
+              <button type="button" class="submit-button track-next" data-track-next="audio">Continuar para o áudio <i data-lucide="arrow-right"></i></button>
+            </section>
+            <section class="track-form-step" id="trackStep-audio" hidden>
+              <div class="upload-dropzone"><i data-lucide="file-archive"></i><strong>Pacote completo de áudio</strong><p>Envie um arquivo ZIP contendo os stems separados: guitarra, baixo, bateria, click, teclas e outros.</p>
+                <input id="trackArchive" name="archive" type="file" accept=".zip,application/zip" required>
+                <small>ZIP até 1 GB · até 100 arquivos de áudio · MP3, WAV, FLAC, M4A, OGG ou AAC</small>
+                <span class="file-selection" id="archiveSelection">Nenhum pacote selecionado</span>
+              </div>
+              <div class="track-step-actions"><button type="button" class="table-action" data-track-prev="details">Voltar</button><button type="button" class="submit-button" data-track-next="cover">Continuar para a capa <i data-lucide="arrow-right"></i></button></div>
+            </section>
+            <section class="track-form-step" id="trackStep-cover" hidden>
+              <div class="cover-upload-layout">
+                <div class="cover-preview" id="trackCoverPreview"><i data-lucide="image-plus"></i><span>Prévia da capa</span></div>
+                <div class="form-field"><label for="trackCover">Imagem da capa</label><input id="trackCover" name="cover" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"><small>JPG, PNG ou WEBP · máximo 12 MB. A capa aparecerá no catálogo público.</small><p class="file-selection" id="coverSelection">Nenhuma imagem selecionada</p></div>
+              </div>
+              <label class="check-field"><input id="trackPublish" name="is_published" type="checkbox"><span>Publicar no catálogo assim que o cadastro terminar</span></label>
+              <div class="track-step-actions"><button type="button" class="table-action" data-track-prev="audio">Voltar</button><button class="submit-button form-submit" id="uploadTrackButton" type="submit"><i data-lucide="upload-cloud"></i><span>Salvar e enviar multitrack</span></button></div>
+            </section>
             <p class="inline-message" id="trackUploadMessage" role="status"></p>
           </form>
-          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Arquivos e estado de publicação.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>TRACK</th><th>DETALHES</th><th>ARQUIVO</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="5" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
+          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>TRACK / ARTISTA</th><th>DETALHES</th><th>CATEGORIAS</th><th>STEMS</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="6" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
         </section>
 
         <section class="tab-panel" id="panel-revenue" hidden>
