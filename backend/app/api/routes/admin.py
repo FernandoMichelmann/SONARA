@@ -129,9 +129,8 @@ async def upload_track(
             bpm=bpm, category=category.strip() or "Multitrack",
             original_filename=original_name, storage_path=str(stored_path),
             content_type=audio.content_type or "application/octet-stream",
-            file_size=size, is_published=is_published, created_by=developer.id if hasattr(Track, "created_by") else None,
+            file_size=size, is_published=is_published,
         )
-        # Track has no created_by column; ownership is enforced by this developer-only endpoint.
         db.add(track)
         db.commit()
         db.refresh(track)
