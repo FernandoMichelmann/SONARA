@@ -1,0 +1,30 @@
+from functools import lru_cache
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    app_name: str = "SONARA API"
+    app_env: str = "development"
+    api_v1_prefix: str = "/api/v1"
+    database_url: str = "sqlite:///./sonara.db"
+    jwt_secret_key: str = "CHANGE_THIS_SECRET_BEFORE_DEPLOYMENT_32_CHARS_MIN"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    cors_origins: list[str] = ["http://127.0.0.1:5500", "http://localhost:5500"]
+    developer_email: str | None = None
+    developer_password: str | None = None
+    developer_name: str = "SONARA Owner"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+settings = get_settings()
