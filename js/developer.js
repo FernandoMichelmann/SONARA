@@ -409,12 +409,18 @@
     const maxStart = validDuration ? Math.floor(audio.duration - 30) : 0;
     $("previewStartRange").max = String(maxStart);
     $("previewStartRange").disabled = !validDuration;
+    $("savePreviewButton").disabled = !validDuration;
     $("previewStartRange").value = "0";
     previewStart = 0;
     $("previewStartLabel").textContent = "0:00";
     $("previewEndLabel").textContent = "0:30";
     setMessage($("previewMessage"), !validDuration ? "O arquivo precisa ter pelo menos 30 segundos." : "Arraste o seletor e aperte play para ouvir o trecho escolhido.", !validDuration ? "error" : "success");
   });
+  $("previewSourceAudio").addEventListener("error", () => {
+    $("savePreviewButton").disabled = true;
+    setMessage($("previewMessage"), "Não foi possível ler o áudio-base. Confira o ZIP e tente abrir o editor novamente.", "error");
+  });
+
   $("previewStartRange").addEventListener("input", () => {
     previewStart = Number($("previewStartRange").value);
     $("previewStartLabel").textContent = previewTime(previewStart);
