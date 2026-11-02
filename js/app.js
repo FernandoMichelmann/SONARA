@@ -84,6 +84,8 @@ let tracks = [];
         let stemLoading = false;
         let activeStemIndex = null;
         let stemSyncTimer = null;
+        let masterStemVolume = 0.7;
+        let stemVolumeLevels = [];
 
         function stopStemPlayers(reset = true) {
             if (stemSyncTimer) {
@@ -119,7 +121,7 @@ let tracks = [];
                 const player = new Audio();
                 player.preload = "none";
                 player.src = stem.url;
-                player.volume = 1;
+                player.volume = masterStemVolume;
                 player.addEventListener("ended", () => {
                     const index = stemPlayers.indexOf(player);
                     if (index >= 0) updateStemButton(index, false);
@@ -198,6 +200,7 @@ let tracks = [];
             };
 
             const stems = currentTrack.stems || [];
+            stemVolumeLevels = stems.map(() => 1);
             document.getElementById("stemCount").textContent = stems.length + (stems.length === 1 ? " track" : " tracks");
             const list = document.getElementById("stemList");
             list.innerHTML = stems.length ? stems.map((stem, index) => {
@@ -272,7 +275,10 @@ let tracks = [];
         }
 
         function setStemVolume(index, value) {
-            if (stemPlayers[index]) stemPlayers[index].volume = Number(value) / 100;
+            if (stemPlayers[index]) {
+                stemVolumeLevels[index] = Number(value) / 100;
+                stemPlayers[index].volume = stemVolumeLevels[index] * masterStemVolume;
+            }
         }
 
         async function toggleAllStems() {
@@ -366,12 +372,19 @@ let tracks = [];
             document.getElementById("progressFill").style.width = "0%";
         });
         document.getElementById("progressBar").addEventListener("click", event => {
-            if (!Number.isFinite(audioPlayer.duration) || !audioPlayer.duration) return;
+            const active = activeStemIndex === null ? stemPlayers.filter(player => !player.paused) : [stemPlayers[activeStemIndex]].filter(Boolean);
+            const reference = active[0];
+            if (!reference || !Number.isFinite(reference.duration) || !reference.duration) return;
             const bounds = event.currentTarget.getBoundingClientRect();
-            audioPlayer.currentTime = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * audioPlayer.duration;
+            const nextTime = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * reference.duration;
+            active.forEach(player => { if (Number.isFinite(player.duration)) player.currentTime = Math.min(nextTime, player.duration); });
         });
         document.querySelector('.player-volume input[type="range"]').addEventListener("input", event => {
-            audioPlayer.volume = Number(event.target.value) / 100;
+            masterStemVolume = Number(event.target.value) / 100;
+            stemPlayers.forEach((player, index) => {
+                player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume;
+            });
+            audioPlayer.volume = masterStemVolume;
         });
         audioPlayer.volume = 0.7;
 
