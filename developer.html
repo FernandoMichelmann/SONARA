@@ -139,6 +139,16 @@
           </section>
           <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div></div>
           <div class="table-wrap"><table><thead><tr><th>TRACK / ARTISTA</th><th>DETALHES</th><th>CATEGORIAS</th><th>STEMS</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="6" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
+
+          <section class="homepage-feature-editor" id="homepageFeatureEditor">
+            <div class="section-toolbar"><div><h2>Destaques da página inicial</h2><p>Escolha quais tracks publicadas aparecem em Lançamentos e Mais baixados. A ordem da lista acompanha a ordem de seleção abaixo.</p></div></div>
+            <div class="homepage-feature-columns">
+              <div class="homepage-feature-group"><h3>Lançamentos</h3><p>Selecione até 12 tracks.</p><div class="homepage-feature-options" id="launchesFeatureOptions"><span class="muted">Carregando tracks...</span></div></div>
+              <div class="homepage-feature-group"><h3>Mais baixados</h3><p>Selecione até 14 tracks.</p><div class="homepage-feature-options" id="mostDownloadedFeatureOptions"><span class="muted">Carregando tracks...</span></div></div>
+            </div>
+            <div class="homepage-feature-actions"><button type="button" class="submit-button" id="saveHomepageFeatures"><i data-lucide="save"></i><span>Salvar destaques</span></button><p class="inline-message" id="homepageFeatureMessage" role="status"></p></div>
+          </section>
+
         </section>
 
         <section class="tab-panel" id="panel-revenue" hidden>
