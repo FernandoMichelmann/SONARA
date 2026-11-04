@@ -16,6 +16,7 @@
         <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/visuvate.css?v=2">
     <link rel="stylesheet" href="css/sonara-redesign.css?v=2">
+    <link rel="stylesheet" href="css/sonara-reference.css?v=1">
 </head>
 
 <body>
@@ -78,21 +79,8 @@
             <div class="content">
 
                 <section class="page active" id="page-home">
-                    <section class="page-home-intro" aria-label="Boas-vindas SONARA">
-                        <div class="page-home-copy">
-                            <div class="page-home-kicker">SONARA WORKSPACE · MIDNIGHT AUDIO</div>
-                            <h1>Seu som. Sua equipe.<br><span>Uma experiência completa.</span></h1>
-                            <p>Explore multitracks, prepare seus arranjos e tenha cada detalhe da sua próxima apresentação em um só lugar.</p>
-                            <div class="page-home-actions">
-                                <button class="primary-button" type="button" onclick="navigate('explore')"><i data-lucide="compass"></i> Explorar catálogo</button>
-                                <button class="page-home-secondary" type="button" onclick="navigate('library')">Abrir minha biblioteca</button>
-                            </div>
-                        </div>
-                        <div class="page-home-art" aria-hidden="true">
-                            <div class="sound-orbit"><i data-lucide="audio-waveform"></i></div>
-                        </div>
-                    </section>
-                    <section class="hero hero-banner-only" aria-label="Banners em destaque">
+                    <section class="hero hero-banner-only" aria-label="Destaques SONARA">
+                        <div class="section-heading reference-section-heading"><h2>Destaques SONARA</h2><button type="button" onclick="navigate('explore')">Ver catálogo</button></div>
                         <div class="hero-banner-viewport" id="heroBannerViewport">
                             <div class="hero-banner-track" id="heroBannerTrack"></div>
                         </div>
@@ -100,7 +88,7 @@
 
                     <section class="section">
                         <div class="section-heading">
-                            <h2>Descubra novos sons</h2>
+                            <h2>Multitracks em alta</h2>
                             <button onclick="navigate('explore')">Ver catálogo →</button>
                         </div>
                         <div class="music-grid" id="musicGrid"></div>
