@@ -87,16 +87,13 @@ class HomepageFeatureUpdate(BaseModel):
 def _homepage_selection_payload(db: Session):
     selection = db.get(HomepageFeatureSelection, 1)
     if not selection:
-        selection = HomepageFeatureSelection(id=1, launches_json="[]", most_downloaded_json="[]")
-        db.add(selection)
-        db.commit()
-        db.refresh(selection)
+        return {"launches": [], "most_downloaded": [], "configured": False}
     try:
         launches = json.loads(selection.launches_json or "[]")
         most_downloaded = json.loads(selection.most_downloaded_json or "[]")
     except (TypeError, json.JSONDecodeError):
         launches, most_downloaded = [], []
-    return {"launches": launches, "most_downloaded": most_downloaded}
+    return {"launches": launches, "most_downloaded": most_downloaded, "configured": True}
 
 
 @router.get("/homepage-features")
