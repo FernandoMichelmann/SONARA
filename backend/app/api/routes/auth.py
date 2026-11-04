@@ -1,6 +1,9 @@
+import hashlib
+import hmac
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.core.config import settings
 from app.db import get_db
 from app.models import User
 from app.schemas import TokenResponse, UserLogin, UserRegister, UserResponse
@@ -14,7 +17,12 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     email = str(payload.email).lower().strip()
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status_code=409, detail="Já existe uma conta com este e-mail.")
-    if db.scalar(select(User).where(User.cpf == payload.cpf)):
+    cpf_hash = hmac.new(
+        settings.jwt_secret_key.encode("utf-8"),
+        payload.cpf.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    if db.scalar(select(User).where(User.cpf_hash == cpf_hash)):
         raise HTTPException(status_code=409, detail="Este CPF já está vinculado a uma conta.")
     user = User(
         email=email,
@@ -22,7 +30,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         password_hash=hash_password(payload.password),
         address=payload.address,
         birth_date=payload.birth_date,
-        cpf=payload.cpf,
+        cpf_hash=cpf_hash,
         role="user",
         is_active=True,
     )
