@@ -87,18 +87,6 @@ let tracks = [];
             document.getElementById("emptyState").style.display =
                 filtered.length ? "none" : "block";
 
-            document.getElementById("recentTracks").innerHTML = filtered.map(t => `
-    <tr>
-      <td class="track-name">
-        <div class="mini-cover"><i data-lucide="audio-lines" size="17"></i></div>
-        <span>${escapeHTML(t.title)}</span>
-      </td>
-      <td>${escapeHTML(t.key)}</td>
-      <td>${escapeHTML(t.bpm)}</td>
-      <td><span class="badge">${t.audioUrl ? "PUBLICADA" : "SEM ÁUDIO"}</span></td>
-    </tr>
-  `).join("");
-
             lucide.createIcons();
         }
 
