@@ -41,14 +41,15 @@ def public_homepage_features(db: Session = Depends(get_db)):
     from app.models import HomepageFeatureSelection
     selection = db.get(HomepageFeatureSelection, 1)
     if not selection:
-        return {"launches": [], "most_downloaded": []}
+        return {"launches": [], "most_downloaded": [], "configured": False}
     try:
         return {
             "launches": json.loads(selection.launches_json or "[]"),
             "most_downloaded": json.loads(selection.most_downloaded_json or "[]"),
+            "configured": True,
         }
     except (TypeError, json.JSONDecodeError):
-        return {"launches": [], "most_downloaded": []}
+        return {"launches": [], "most_downloaded": [], "configured": False}
 
 
 @router.get("/tracks/{track_id}/clips/{clip_name}")
