@@ -222,18 +222,8 @@ let tracks = [];
             }
 
             const download = document.getElementById("downloadMultitrack");
-            download.onclick = () => {
-                if (!currentTrack?.zipDownloadUrl) {
-                    showToast("O ZIP original não está disponível para esta música.");
-                    return;
-                }
-                const link = document.createElement("a");
-                link.href = currentTrack.zipDownloadUrl;
-                link.download = "";
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            };
+            updateDownloadAccessButton();
+            download.onclick = handleDownloadAccess;
 
             const stems = currentTrack.stems || [];
             stemVolumeLevels = stems.map(() => 1);
@@ -572,6 +562,27 @@ const SONARA_USER_TOKEN = "sonaraUserAccessToken";
 let sonaraCurrentUser = null;
 let authMode = "login";
 
+function updateDownloadAccessButton() {
+    const button = document.getElementById("downloadMultitrack");
+    if (!button) return;
+    const isLoggedIn = Boolean(sonaraCurrentUser);
+    button.innerHTML = isLoggedIn
+        ? '<i data-lucide="lock-keyhole"></i> Assine para baixar'
+        : '<i data-lucide="user-plus"></i> Cadastre-se para baixar';
+    button.setAttribute("aria-label", isLoggedIn ? "Assine para baixar" : "Cadastre-se para baixar");
+    lucide.createIcons();
+}
+
+function handleDownloadAccess() {
+    if (!sonaraCurrentUser) {
+        openAuthModal();
+        setAuthMode("register");
+        return;
+    }
+    navigate("subscription");
+    showToast("O download será liberado após a ativação de um plano compatível.");
+}
+
 function setAuthMode(mode) {
     authMode = mode;
     const registering = mode === "register";
@@ -641,6 +652,7 @@ async function restoreSonaraUserSession() {
         const avatar = document.getElementById("userAccountButton");
         avatar.textContent = (sonaraCurrentUser.full_name || "S").trim().charAt(0).toUpperCase();
         avatar.setAttribute("aria-label", "Conta de " + sonaraCurrentUser.full_name);
+        updateDownloadAccessButton();
     } catch {
         sessionStorage.removeItem(SONARA_USER_TOKEN);
         sonaraCurrentUser = null;
@@ -683,6 +695,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
         document.getElementById("userAccountButton").textContent =
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
+        updateDownloadAccessButton();
         document.getElementById("userAuthForm").reset();
         openAuthModal();
         showToast(authMode === "register" ? "Conta criada com sucesso!" : "Login realizado com sucesso!");
@@ -704,6 +717,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
 document.getElementById("authLogout").addEventListener("click", () => {
     sessionStorage.removeItem(SONARA_USER_TOKEN);
     sonaraCurrentUser = null;
+    updateDownloadAccessButton();
     document.getElementById("userAccountButton").textContent = "S";
     document.getElementById("userAccountButton").setAttribute("aria-label", "Entrar ou acessar minha conta");
     closeAuthModal();
