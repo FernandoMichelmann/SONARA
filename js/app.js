@@ -799,6 +799,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
         document.getElementById("userAccountButton").textContent =
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
+        document.getElementById("userAccountButton").hidden = false;
         updateDownloadAccessButton();
         form.reset();
         navigate("subscription");
