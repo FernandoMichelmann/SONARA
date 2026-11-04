@@ -1,5 +1,6 @@
 # Local secrets and databases
 backend/.env
+backend/.env.save
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
