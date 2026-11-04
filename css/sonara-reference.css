@@ -199,3 +199,22 @@ body:has(#page-home.active) .mobile-nav{display:none!important}
 .home-wordmark{display:none!important}
 .home-wordmark-logo{display:none;width:132px;height:30px;object-fit:contain;object-position:left center;flex:0 0 auto}
 body:has(#page-home.active) .home-wordmark-logo{display:block}
+
+/* Homepage header: use the exact official SONARA wordmark and consistent navigation typography */
+.home-wordmark{display:none!important}
+.home-wordmark-logo{display:none;width:184px!important;height:auto!important;max-width:184px!important;object-fit:contain;object-position:left center;flex:0 0 184px}
+body:has(#page-home.active) .home-wordmark-logo{display:block!important}
+body:has(#page-home.active) .topbar-left{gap:25px!important;align-items:center!important}
+body:has(#page-home.active) .featured-nav{display:flex!important;align-items:center!important;gap:20px!important}
+body:has(#page-home.active) .featured-nav button{
+ font-family:Inter,Arial,sans-serif!important;font-size:11px!important;font-weight:500!important;
+ letter-spacing:0!important;color:#d5d5d5!important;padding:6px 0!important;line-height:1.2!important
+}
+body:has(#page-home.active) .featured-nav button:hover,
+body:has(#page-home.active) .featured-nav button.active{color:#fff!important;font-weight:700!important}
+@media(max-width:760px){
+ body:has(#page-home.active) .home-wordmark-logo{width:120px!important;max-width:120px!important;flex-basis:120px!important}
+ body:has(#page-home.active) .topbar-left{gap:12px!important}
+ body:has(#page-home.active) .featured-nav{gap:10px!important}
+ body:has(#page-home.active) .featured-nav button{font-size:9px!important}
+}
