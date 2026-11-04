@@ -37,12 +37,41 @@ let tracks = [];
             lucide.createIcons();
         }
 
+        function renderFeaturedRails() {
+            const featuredRail = document.getElementById("featuredRail");
+            const originalsRail = document.getElementById("originalsRail");
+            const available = tracks.filter(track => track.coverUrl);
+
+            if (featuredRail) {
+                featuredRail.innerHTML = available.slice(0, 12).map(track => `
+                    <button class="featured-tile" type="button" onclick="selectTrack(${track.id})" aria-label="Abrir ${escapeHTML(track.title)}">
+                        <img src="${escapeHTML(track.coverUrl)}" alt="" loading="lazy">
+                        <span class="featured-tile-shade"></span>
+                        <span class="featured-tile-copy"><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)}</small></span>
+                    </button>
+                `).join("") || '<div class="featured-empty">As novidades do catálogo aparecerão aqui.</div>';
+            }
+
+            if (originalsRail) {
+                originalsRail.innerHTML = available.slice(0, 14).map((track, index) => `
+                    <button class="original-poster" type="button" onclick="selectTrack(${track.id})" aria-label="Reproduzir ${escapeHTML(track.title)}">
+                        <img src="${escapeHTML(track.coverUrl)}" alt="Capa de ${escapeHTML(track.title)}" loading="lazy">
+                        <span class="poster-shade"></span>
+                        <span class="poster-label">SONARA ORIGINAL</span>
+                        <span class="poster-copy"><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)}</small></span>
+                        <span class="poster-number">${String(index + 1).padStart(2, "0")}</span>
+                    </button>
+                `).join("") || '<div class="featured-empty">Adicione capas aos lançamentos para montar esta seleção.</div>';
+            }
+        }
+
         function renderAll() {
             const filtered = tracks.filter(t =>
                 `${t.title} ${t.artist} ${t.key} ${t.bpm} ${t.genre}`
                     .toLowerCase().includes(searchTerm.toLowerCase())
             );
 
+            renderFeaturedRails();
             renderCards("musicGrid", filtered);
             renderCards("exploreGrid", filtered);
             renderCards("libraryGrid", tracks);
@@ -487,7 +516,7 @@ let tracks = [];
                 if (badge) badge.textContent = "CATÁLOGO OFICIAL";
                 searchTerm = document.getElementById("searchInput").value;
                 renderAll();
-                renderHeroSlideshow();
+                renderFeaturedRails();
             } catch {
                 tracks = [];
                 if (badge) badge.textContent = "CATÁLOGO INDISPONÍVEL";
