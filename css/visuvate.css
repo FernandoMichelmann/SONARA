@@ -1,0 +1,107 @@
+/* SONARA VISUVATE — visual layer only. Existing application logic remains untouched. */
+:root{
+  color-scheme:dark;
+  --v-bg:#080b12;--v-panel:#101622;--v-panel-2:#151e2c;--v-panel-3:#1b2636;
+  --v-line:rgba(174,192,220,.12);--v-line-strong:rgba(174,192,220,.2);
+  --v-text:#f4f6fb;--v-muted:#8c9ab0;--v-blue:#6e9cff;--v-cyan:#7be0d0;
+  --v-violet:#a99aff;--v-radius:18px;--v-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+html{background:var(--v-bg);scroll-behavior:smooth}
+body{background:radial-gradient(ellipse at 78% -12%,rgba(66,105,174,.16),transparent 34%),var(--v-bg);color:var(--v-text);font-family:Inter,system-ui,sans-serif;letter-spacing:-.012em}
+button,input,select,textarea{font:inherit}
+button{transition:transform .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--v-blue);outline-offset:3px}
+.app{background:transparent}
+.sidebar{background:rgba(12,17,27,.94);border-right:1px solid var(--v-line);backdrop-filter:blur(22px);padding:28px 18px}
+.brand{gap:13px;padding:2px 12px 34px}
+.brand-symbol{filter:drop-shadow(0 0 14px rgba(90,137,255,.25))}
+.brand-name{font-size:17px;letter-spacing:.18em;font-weight:800}
+.brand-caption{font-size:9px;letter-spacing:.22em;color:#71819a}
+.nav-label{font-size:9px;letter-spacing:.2em;color:#65738a;font-weight:800;margin:22px 12px 10px}
+.nav-item{min-height:44px;border:1px solid transparent;border-radius:12px;color:#9aa8bc;font-size:12px;font-weight:600;margin:3px 0;padding:0 12px;transition:all .2s ease}
+.nav-item i{width:17px;height:17px}
+.nav-item:hover{background:rgba(255,255,255,.045);color:#fff}
+.nav-item.active{background:linear-gradient(105deg,rgba(92,137,232,.2),rgba(92,137,232,.06));border-color:rgba(112,157,255,.2);color:#eaf1ff;box-shadow:inset 3px 0 0 #78a4ff}
+.sidebar-bottom{padding:16px 4px 4px}
+.upgrade-card{border:1px solid rgba(119,157,239,.2);border-radius:16px;background:linear-gradient(145deg,rgba(58,88,146,.26),rgba(23,32,48,.92));padding:19px;box-shadow:inset 0 1px rgba(255,255,255,.05)}
+.upgrade-card h4{font-size:14px;letter-spacing:-.03em}
+.upgrade-card p{color:#9eabc0;font-size:11px;line-height:1.7}
+.upgrade-card button,.primary-button{border:1px solid rgba(151,180,255,.25);border-radius:10px;background:#7299ed;color:#08111f;font-weight:800;padding:11px 14px}
+.upgrade-card button:hover,.primary-button:hover{background:#91b0ff;transform:translateY(-2px);box-shadow:0 10px 28px rgba(89,133,225,.22)}
+.main{min-width:0}
+.topbar{height:82px;background:rgba(8,12,20,.76);border-bottom:1px solid var(--v-line);backdrop-filter:blur(22px);padding:0 clamp(20px,4vw,54px);gap:24px}
+.search{height:43px;max-width:570px;background:rgba(255,255,255,.045);border:1px solid var(--v-line);border-radius:13px;padding:0 14px;color:#8190a8}
+.search:focus-within{border-color:rgba(113,157,255,.55);box-shadow:0 0 0 3px rgba(113,157,255,.1)}
+.search input{color:#f3f6ff;font-size:12px}
+.search input::placeholder{color:#738199}
+.top-right{gap:12px}
+.icon-button{width:40px;height:40px;border:1px solid var(--v-line);border-radius:12px;background:rgba(255,255,255,.035);color:#aab7ca}
+.icon-button:hover{color:#fff;border-color:var(--v-line-strong);background:rgba(255,255,255,.09);transform:translateY(-1px)}
+.avatar{border:1px solid rgba(130,165,245,.35);background:linear-gradient(145deg,#7899e5,#514d88);color:#fff;font-weight:800}
+.content{max-width:1600px;padding:clamp(22px,4vw,52px);padding-bottom:150px}
+.page-title{font-size:clamp(28px,3vw,40px);font-weight:800;letter-spacing:-.06em;line-height:1.08}
+.page-subtitle{color:var(--v-muted);font-size:13px;line-height:1.7;margin:10px 0 30px}
+.section{margin:0 0 44px}
+.section-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 19px}
+.section-heading h2,.section-heading h3{font-size:19px;font-weight:750;letter-spacing:-.045em}
+.section-heading button{color:#91b1f8;font-size:11px;font-weight:700}
+.section-heading button:hover{color:#c1d4ff}
+.hero.hero-banner-only{height:clamp(260px,31vw,420px);margin:0 0 40px;overflow:hidden;border-radius:22px;mask-image:linear-gradient(90deg,#000 0%,#000 88%,transparent 100%)}
+.hero-banner-viewport{border-radius:22px}
+.hero-banner-track{gap:15px}
+.hero-banner-card{border-radius:15px;border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 50px rgba(0,0,0,.28);transition:transform .35s ease}
+.hero-banner-card:hover{transform:translateY(-5px)}
+.music-grid{gap:18px}
+.music-card{position:relative;min-width:0;padding:12px 12px 15px;border:1px solid var(--v-line);border-radius:17px;background:linear-gradient(155deg,rgba(26,37,54,.96),rgba(15,22,33,.96));box-shadow:0 8px 24px rgba(0,0,0,.12);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.music-card:hover{transform:translateY(-5px);border-color:rgba(123,161,245,.34);box-shadow:0 18px 38px rgba(0,0,0,.26)}
+.music-card .cover{overflow:hidden;border-radius:12px;background:linear-gradient(135deg,#293b5b,#171d31)}
+.music-card .cover-art{transition:transform .55s cubic-bezier(.2,.8,.2,1)}
+.music-card:hover .cover-art{transform:scale(1.055)}
+.music-card h3{font-size:13px;font-weight:750;letter-spacing:-.025em;margin-top:13px}
+.music-card p{font-size:10px;color:#91a0b6;margin-top:5px}
+.music-card .icon-button{width:32px;height:32px;border-radius:10px}
+.empty-state{border:1px dashed var(--v-line-strong);border-radius:18px;padding:34px;color:var(--v-muted)}
+.track-table,.table-wrap table{border-collapse:separate;border-spacing:0;width:100%;overflow:hidden;border:1px solid var(--v-line);border-radius:15px;background:rgba(17,24,36,.72)}
+.track-table th,.table-wrap th{padding:15px 17px;background:rgba(255,255,255,.035);color:#73839b;font-size:9px;letter-spacing:.15em;font-weight:800;border-bottom:1px solid var(--v-line)}
+.track-table td,.table-wrap td{padding:15px 17px;border-bottom:1px solid var(--v-line);font-size:11px;color:#c4cede}
+.track-table tr:last-child td,.table-wrap tr:last-child td{border-bottom:0}
+.track-table tbody tr:hover,.table-wrap tbody tr:hover{background:rgba(255,255,255,.025)}
+.badge{border:1px solid rgba(123,161,245,.22);border-radius:99px;background:rgba(91,132,213,.1);color:#a9c4ff;padding:7px 11px;font-size:9px;letter-spacing:.1em}
+.plan-grid{gap:17px}
+.plan-card{border:1px solid var(--v-line);border-radius:19px;background:linear-gradient(155deg,#172131,#101722);padding:25px;box-shadow:0 15px 40px rgba(0,0,0,.14)}
+.plan-card h3{font-size:17px;font-weight:750;letter-spacing:-.04em}
+.plan-card p,.plan-card li{color:#9aa9be;font-size:11px;line-height:1.8}
+.plan-card.featured{border-color:rgba(124,161,246,.48);background:radial-gradient(ellipse at 90% 0%,rgba(99,137,219,.2),transparent 55%),linear-gradient(155deg,#1b2940,#111a29);box-shadow:0 18px 45px rgba(43,74,137,.16)}
+.price{font-size:26px;font-weight:800;letter-spacing:-.06em;margin:16px 0}
+.player{position:fixed;z-index:30;bottom:0;left:var(--sidebar-width,260px);right:0;min-height:88px;background:rgba(12,17,26,.94);border-top:1px solid var(--v-line-strong);backdrop-filter:blur(24px);box-shadow:0 -15px 45px rgba(0,0,0,.22);padding:13px clamp(18px,3vw,40px);gap:24px}
+.player-song h4{font-size:11px;font-weight:750;color:#f1f4fa}
+.player-song p{font-size:10px;color:#8796ad;margin-top:4px}
+.player-cover{border-radius:11px;background:linear-gradient(135deg,#536fa9,#292c49);color:#dce6ff}
+.player-controls .controls button{color:#a6b5cb}
+.player-controls .controls button:hover{color:#fff}
+.player-controls .controls .play{width:36px;height:36px;background:#e8efff;color:#0d1523;box-shadow:0 4px 18px rgba(150,180,255,.22)}
+.timeline{color:#8291a8;font-size:9px}
+.progress{background:rgba(255,255,255,.12);height:4px;border-radius:10px}
+.progress-fill{background:linear-gradient(90deg,#6f9cff,#80dfd0);border-radius:10px}
+.auth-overlay{backdrop-filter:blur(16px);background:rgba(2,5,11,.76)}
+.auth-modal{border:1px solid var(--v-line-strong);border-radius:22px;background:linear-gradient(150deg,#1a2638,#0e1521);box-shadow:var(--v-shadow);padding:clamp(25px,4vw,40px)}
+.auth-modal h2,.auth-modal h3{letter-spacing:-.05em}
+.auth-input{background:#0b111b;border:1px solid var(--v-line-strong);border-radius:11px;color:#fff}
+.auth-submit{border-radius:11px;background:#7b9ff0;color:#0a1423;font-weight:800}
+.toast{border:1px solid var(--v-line-strong);border-radius:12px;background:#172337;color:#f5f7fb;box-shadow:var(--v-shadow)}
+/* Keep the existing mobile navigation and player behavior, only refine presentation. */
+@media(max-width:900px){
+ .content{padding:24px 20px 150px}.topbar{height:70px;padding:0 18px}
+ .hero.hero-banner-only{height:clamp(220px,52vw,320px)}
+ .music-grid{gap:13px}
+}
+@media(max-width:700px){
+ .content{padding:20px 15px 150px}.topbar{padding:0 14px;gap:10px}
+ .search{height:40px}.search input{font-size:11px}
+ .section-heading h2{font-size:17px}.music-card{padding:9px;border-radius:14px}
+ .player{left:0;right:0;min-height:78px;padding:10px 13px;gap:10px}
+ .player-song{max-width:42%}.player-cover{width:42px;height:42px}
+ .player-controls{min-width:0}.timeline{gap:7px}
+ .hero.hero-banner-only{margin-bottom:28px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
