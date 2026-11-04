@@ -55,7 +55,7 @@ body{
  padding:16px 16px 14px!important;margin:0 0 19px!important;overflow:hidden!important;box-shadow:none!important
 }
 #page-home .hero.hero-banner-only{height:clamp(205px,20vw,258px)!important;min-height:0!important}
-#page-home .hero-banner-viewport{border-radius:11px!important;mask-image:none!important;-webkit-mask-image:none!important}
+#page-home .hero-banner-viewport{height:155px!important;border-radius:11px!important;mask-image:none!important;-webkit-mask-image:none!important}
 #page-home .hero-banner-track{gap:12px!important;animation-duration:52s!important}
 #page-home .hero-banner-card{height:145px!important;aspect-ratio:1/1!important;border-radius:11px!important;border:0!important;background:#171321!important}
 #page-home .hero-banner-card img{object-fit:cover!important}
