@@ -34,14 +34,14 @@ def migrate_user_profile_columns():
     additions = {
         "address": "VARCHAR(240)",
         "birth_date": "DATE",
-        "cpf": "VARCHAR(11)",
+        "cpf_hash": "VARCHAR(64)",
     }
     with engine.begin() as connection:
         existing = {column["name"] for column in inspect(engine).get_columns("users")}
         for column, definition in additions.items():
             if column not in existing:
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
-        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cpf ON users (cpf)"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cpf_hash ON users (cpf_hash)"))
 
 
 def bootstrap_developer():
