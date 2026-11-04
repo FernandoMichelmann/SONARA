@@ -74,3 +74,15 @@ tbody tr:hover td{background:rgba(133,173,255,.04)}
 .admin-footer{color:#71839d;letter-spacing:.2em}
 @media(max-width:1050px){.dashboard-card{grid-template-columns:215px minmax(0,1fr)}.admin-content{padding:23px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.dev-shell{width:calc(100% - 20px);padding-top:17px}.dashboard-card{display:block}.dashboard-card>.sidebar{padding:13px;border-right:0;border-bottom:1px solid var(--dr-line)}.sidebar-heading{padding:5px 8px 11px}.dashboard-card .sidebar>.nav-item{display:inline-flex;width:auto;margin:0 3px 4px 0;padding:0 10px}.sidebar-bottom{display:flex;align-items:center;gap:8px;padding-top:10px}.identity-mini{min-width:0;flex:1;border:0;margin:0;padding:7px}.logout-button{width:auto}.admin-content{padding:18px 13px}.dashboard-top{align-items:flex-start;flex-direction:column}.refresh-button{align-self:flex-start}.section-toolbar{align-items:stretch;flex-direction:column}.search-field{width:100%}.form-grid{grid-template-columns:1fr}.form-field{margin-bottom:14px}.revenue-stats{grid-template-columns:1fr}.stat-card{padding:16px}.login-card{margin-top:5vh;padding:27px 21px}.track-form-tab{flex:1}.upload-form{padding:16px}}
+
+
+/* Homepage featured-track selector */
+.homepage-feature-editor{margin-top:30px;padding:22px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:rgba(255,255,255,.025)}
+.homepage-feature-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.homepage-feature-group{min-width:0;padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.16)}
+.homepage-feature-group h3{margin:0 0 5px;font-size:15px}.homepage-feature-group>p{margin:0 0 14px;color:#9693a2;font-size:12px}
+.homepage-feature-options{display:grid;gap:8px;max-height:310px;overflow:auto}
+.homepage-feature-option{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:rgba(255,255,255,.025);font-size:12px}
+.homepage-feature-option input{accent-color:#8b5cf6}.homepage-feature-option small{display:block;color:#9693a2;font-size:10px}
+.homepage-feature-actions{display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap}
+@media(max-width:760px){.homepage-feature-columns{grid-template-columns:1fr}.homepage-feature-editor{padding:14px}}
