@@ -36,6 +36,21 @@ def public_track_catalog(db: Session = Depends(get_db)):
 
 
 
+@router.get("/catalog/homepage-features")
+def public_homepage_features(db: Session = Depends(get_db)):
+    from app.models import HomepageFeatureSelection
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        return {"launches": [], "most_downloaded": []}
+    try:
+        return {
+            "launches": json.loads(selection.launches_json or "[]"),
+            "most_downloaded": json.loads(selection.most_downloaded_json or "[]"),
+        }
+    except (TypeError, json.JSONDecodeError):
+        return {"launches": [], "most_downloaded": []}
+
+
 @router.get("/tracks/{track_id}/clips/{clip_name}")
 def stream_track_clip(track_id: int, clip_name: str, db: Session = Depends(get_db)):
     track = db.get(Track, track_id)
