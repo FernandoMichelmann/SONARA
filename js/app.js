@@ -665,6 +665,7 @@ async function restoreSonaraUserSession() {
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, token);
         const avatar = document.getElementById("userAccountButton");
         avatar.textContent = (sonaraCurrentUser.full_name || "S").trim().charAt(0).toUpperCase();
+        avatar.hidden = false;
         avatar.setAttribute("aria-label", "Conta de " + sonaraCurrentUser.full_name);
         updateDownloadAccessButton();
     } catch {
@@ -699,6 +700,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
         document.getElementById("userAccountButton").textContent =
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
+        document.getElementById("userAccountButton").hidden = false;
         updateDownloadAccessButton();
         document.getElementById("userAuthForm").reset();
         closeAuthModal();
@@ -721,6 +723,7 @@ document.getElementById("authLogout").addEventListener("click", () => {
     sonaraCurrentUser = null;
     updateDownloadAccessButton();
     document.getElementById("userAccountButton").textContent = "S";
+    document.getElementById("userAccountButton").hidden = true;
     document.getElementById("userAccountButton").setAttribute("aria-label", "Entrar ou acessar minha conta");
     closeAuthModal();
     showToast("Você saiu da sua conta.");
