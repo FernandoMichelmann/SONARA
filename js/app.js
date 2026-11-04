@@ -1,4 +1,5 @@
 let tracks = [];
+        let homepageFeatureSelection = { launches: [], most_downloaded: [] };
 
         // Conteúdo fictício exclusivamente para demonstração visual.
         let favorites = new Set();
@@ -41,10 +42,9 @@ let tracks = [];
             const featuredRail = document.getElementById("featuredRail");
             const originalsRail = document.getElementById("originalsRail");
             const available = tracks.filter(track => track.coverUrl);
-            const mostDownloaded = [...available].sort((a, b) =>
-                Number(b.download_count ?? b.downloads_count ?? b.total_downloads ?? b.downloads ?? 0) -
-                Number(a.download_count ?? a.downloads_count ?? a.total_downloads ?? a.downloads ?? 0)
-            );
+            const byId = new Map(available.map(track => [Number(track.id), track]));
+            const launches = homepageFeatureSelection.launches.map(id => byId.get(Number(id))).filter(Boolean);
+            const mostDownloaded = homepageFeatureSelection.most_downloaded.map(id => byId.get(Number(id))).filter(Boolean);
 
             if (featuredRail) {
                 featuredRail.innerHTML = available.slice(0, 12).map(track => `
@@ -497,9 +497,13 @@ let tracks = [];
         async function loadPublicCatalog() {
             const badge = document.getElementById("catalogBadge");
             try {
-                const response = await fetch(SONARA_CATALOG_API + "/catalog/tracks");
+                const [response, featureResponse] = await Promise.all([
+                    fetch(SONARA_CATALOG_API + "/catalog/tracks"),
+                    fetch(SONARA_CATALOG_API + "/catalog/homepage-features")
+                ]);
                 if (!response.ok) throw new Error("Catálogo indisponível");
                 const data = await response.json();
+                if (featureResponse.ok) homepageFeatureSelection = await featureResponse.json();
                 const covers = ["cover-one", "cover-two", "cover-three", "cover-four"];
                 tracks = (data.items || []).map((track, index) => ({
                     id: Number(track.id),
