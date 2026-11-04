@@ -101,6 +101,20 @@ let tracks = [];
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
 
+        function openRegistrationPage() {
+            if (sonaraCurrentUser) {
+                navigate("subscription");
+                showToast("Sua conta já está criada. Confira os planos SONARA.");
+                return;
+            }
+            closeAuthModal();
+            navigate("register");
+            document.getElementById("sonaraRegistrationForm")?.reset();
+            document.getElementById("registerMessage").textContent = "";
+            lucide.createIcons();
+        }
+
+
         document.querySelectorAll("[data-page]").forEach(button => {
             button.addEventListener("click", () => navigate(button.dataset.page));
         });
@@ -618,7 +632,7 @@ function openAuthModal() {
         document.getElementById("authAccountEmail").textContent = sonaraCurrentUser.email;
     } else {
         form.hidden = false;
-        document.getElementById("authTabs").hidden = false;
+        document.getElementById("authTabs").hidden = true;
         account.hidden = true;
         setAuthMode("login");
     }
@@ -664,9 +678,6 @@ document.getElementById("authClose").addEventListener("click", closeAuthModal);
 document.getElementById("authOverlay").addEventListener("click", event => {
     if (event.target.id === "authOverlay") closeAuthModal();
 });
-document.querySelectorAll("[data-auth-mode]").forEach(button =>
-    button.addEventListener("click", () => setAuthMode(button.dataset.authMode))
-);
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") closeAuthModal();
 });
@@ -677,16 +688,9 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
     const message = document.getElementById("authMessage");
     const email = document.getElementById("authEmail").value.trim();
     const password = document.getElementById("authPassword").value;
-    const fullName = document.getElementById("authName").value.trim();
     button.disabled = true;
     message.textContent = "";
     try {
-        if (authMode === "register") {
-            await sonaraApi("/auth/register", {
-                method: "POST",
-                body: JSON.stringify({ email, full_name: fullName, password })
-            });
-        }
         const tokenResult = await sonaraApi("/auth/login", {
             method: "POST",
             body: JSON.stringify({ email, password })
@@ -697,13 +701,11 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
         updateDownloadAccessButton();
         document.getElementById("userAuthForm").reset();
-        openAuthModal();
-        showToast(authMode === "register" ? "Conta criada com sucesso!" : "Login realizado com sucesso!");
+        closeAuthModal();
+        showToast("Login realizado com sucesso!");
     } catch (error) {
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
-        } else if (error.status === 409) {
-            message.textContent = "Este e-mail já possui uma conta. Tente entrar.";
         } else if (error.status === 401) {
             message.textContent = "E-mail ou senha inválidos.";
         } else {
@@ -722,6 +724,97 @@ document.getElementById("authLogout").addEventListener("click", () => {
     document.getElementById("userAccountButton").setAttribute("aria-label", "Entrar ou acessar minha conta");
     closeAuthModal();
     showToast("Você saiu da sua conta.");
+});
+
+
+function normalizeCpf(value) {
+    return String(value || "").replace(/\\D/g, "");
+}
+
+function isValidCpf(value) {
+    const cpf = normalizeCpf(value);
+    if (cpf.length !== 11 || /^(\\d)\\1{10}$/.test(cpf)) return false;
+    const digit = length => {
+        let sum = 0;
+        for (let i = 0; i < length; i++) sum += Number(cpf[i]) * (length + 1 - i);
+        const remainder = (sum * 10) % 11;
+        return remainder === 10 ? 0 : remainder;
+    };
+    return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
+}
+
+const cpfField = document.getElementById("registerCpf");
+cpfField.addEventListener("input", () => {
+    const digits = normalizeCpf(cpfField.value).slice(0, 11);
+    cpfField.value = digits.replace(/(\\d{3})(\\d)/, "$1.$2")
+        .replace(/(\\d{3})(\\d)/, "$1.$2")
+        .replace(/(\\d{3})(\\d{1,2})$/, "$1-$2");
+});
+
+document.getElementById("sonaraRegistrationForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = document.getElementById("registerSubmit");
+    const message = document.getElementById("registerMessage");
+    const values = Object.fromEntries(new FormData(form).entries());
+    message.textContent = "";
+    if (values.password !== values.password_confirm) {
+        message.textContent = "As senhas não coincidem.";
+        document.getElementById("registerPasswordConfirm").focus();
+        return;
+    }
+    if (!isValidCpf(values.cpf)) {
+        message.textContent = "Informe um CPF válido.";
+        cpfField.focus();
+        return;
+    }
+    if (!values.full_name.trim().includes(" ")) {
+        message.textContent = "Informe seu nome e sobrenome.";
+        document.getElementById("registerFullName").focus();
+        return;
+    }
+    button.disabled = true;
+    button.innerHTML = '<i data-lucide="loader-circle"></i> Criando conta...';
+    lucide.createIcons();
+    try {
+        await sonaraApi("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({
+                full_name: values.full_name.trim(),
+                email: values.email.trim(),
+                password: values.password,
+                address: values.address.trim(),
+                birth_date: values.birth_date,
+                cpf: normalizeCpf(values.cpf)
+            })
+        });
+        const tokenResult = await sonaraApi("/auth/login", {
+            method: "POST",
+            body: JSON.stringify({ email: values.email.trim(), password: values.password })
+        });
+        sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
+        sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
+        document.getElementById("userAccountButton").textContent =
+            sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
+        updateDownloadAccessButton();
+        form.reset();
+        navigate("subscription");
+        showToast("Conta criada! Agora você pode conhecer os planos SONARA.");
+    } catch (error) {
+        if (error instanceof TypeError) {
+            message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
+        } else if (error.status === 409) {
+            message.textContent = error.message.includes("CPF")
+                ? "Este CPF já está vinculado a uma conta."
+                : "Este e-mail já possui uma conta.";
+        } else {
+            message.textContent = error.message;
+        }
+    } finally {
+        button.disabled = false;
+        button.innerHTML = 'Criar minha conta <i data-lucide="arrow-right"></i>';
+        lucide.createIcons();
+    }
 });
 
 restoreSonaraUserSession();
