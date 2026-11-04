@@ -41,6 +41,10 @@ let tracks = [];
             const featuredRail = document.getElementById("featuredRail");
             const originalsRail = document.getElementById("originalsRail");
             const available = tracks.filter(track => track.coverUrl);
+            const mostDownloaded = [...available].sort((a, b) =>
+                Number(b.download_count ?? b.downloads_count ?? b.total_downloads ?? b.downloads ?? 0) -
+                Number(a.download_count ?? a.downloads_count ?? a.total_downloads ?? a.downloads ?? 0)
+            );
 
             if (featuredRail) {
                 featuredRail.innerHTML = available.slice(0, 12).map(track => `
@@ -53,11 +57,10 @@ let tracks = [];
             }
 
             if (originalsRail) {
-                originalsRail.innerHTML = available.slice(0, 14).map((track, index) => `
+                originalsRail.innerHTML = mostDownloaded.slice(0, 14).map((track, index) => `
                     <button class="original-poster" type="button" onclick="selectTrack(${track.id})" aria-label="Reproduzir ${escapeHTML(track.title)}">
                         <img src="${escapeHTML(track.coverUrl)}" alt="Capa de ${escapeHTML(track.title)}" loading="lazy">
                         <span class="poster-shade"></span>
-                        <span class="poster-label">SONARA ORIGINAL</span>
                         <span class="poster-copy"><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)}</small></span>
                         <span class="poster-number">${String(index + 1).padStart(2, "0")}</span>
                     </button>
