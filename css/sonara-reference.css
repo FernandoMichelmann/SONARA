@@ -276,3 +276,54 @@ body:has(#page-home.active) .featured-nav button.active:hover{
     font-size:9px!important;
   }
 }
+
+
+/* SONARA dedicated registration experience */
+.sonara-register-page{min-height:calc(100vh - 160px);padding:28px 18px 70px!important;background:radial-gradient(ellipse at 50% 0%,rgba(105,40,150,.16),transparent 48%)!important}
+.register-shell{width:min(100%,820px);margin:0 auto}
+.register-back{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#aaa2b2;font-size:12px;padding:8px 0;cursor:pointer}
+.register-back:hover,.register-existing button:hover{color:#fff}
+.register-brand{display:flex;justify-content:center;margin:22px 0 24px}
+.register-brand img{width:172px;height:auto;max-height:42px;object-fit:contain}
+.register-kicker{text-align:center;color:#e85a70;font-size:10px;font-weight:800;letter-spacing:.2em}
+.sonara-register-page h1{text-align:center;font-size:clamp(28px,4vw,42px);letter-spacing:-.055em;margin:9px 0}
+.register-intro{text-align:center;color:#aaa2b2;font-size:13px;margin:0 auto 22px;max-width:500px;line-height:1.6}
+.register-progress{display:flex;gap:7px;width:min(100%,350px);margin:0 auto 25px}
+.register-progress span{height:3px;flex:1;border-radius:99px;background:linear-gradient(90deg,#ed3438,#7c22b9 65%,#3325dc)}
+.register-progress span:not(:first-child){opacity:.22}
+.register-form{padding:clamp(18px,3vw,30px);border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(17,13,27,.94);box-shadow:0 22px 70px rgba(0,0,0,.22)}
+.register-section-heading{display:flex;align-items:center;gap:13px;margin-bottom:22px}
+.register-section-heading>span{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(237,52,56,.22),rgba(51,37,220,.22));color:#fff;font-size:12px;font-weight:800}
+.register-section-heading h2{font-size:16px;margin:0 0 4px}
+.register-section-heading p{font-size:11px;color:#928a9d;margin:0}
+.register-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.register-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.register-field.full{grid-column:1/-1}
+.register-field label{font-size:11px;color:#d7d0df;font-weight:650}
+.register-field input{width:100%;height:45px;padding:0 13px;border:1px solid rgba(220,211,237,.13);border-radius:9px;background:#0d0a15;color:#fff;font:inherit;font-size:12px;outline:none;color-scheme:dark}
+.register-field input:focus{border-color:#8b42c8;box-shadow:0 0 0 3px rgba(123,46,232,.13)}
+.register-field input::placeholder{color:#716a7c}
+.register-message{min-height:18px;color:#ff8993;font-size:11px;margin:12px 0 2px}
+.register-next-step{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-top:15px;border-top:1px solid rgba(255,255,255,.08)}
+.register-next-step>div{display:flex;align-items:flex-start;gap:8px;max-width:330px;color:#91899a;font-size:10px;line-height:1.5}
+.register-next-step>div i{flex:0 0 auto;width:15px;height:15px;color:#9e7ae0}
+.register-submit{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:0 19px;border:0;border-radius:999px;background:linear-gradient(105deg,#ed3438,#7c22b9 65%,#3325dc);color:#fff;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap}
+.register-submit:disabled{opacity:.65;cursor:wait}
+.register-existing{text-align:center;color:#aaa2b2;font-size:11px;margin:20px 0}
+.register-existing button{border:0;background:none;color:#fff;font-weight:700;cursor:pointer}
+.sonara-register-top{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 13px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:transparent;color:#fff;font-size:10px;font-weight:700;cursor:pointer}
+.sonara-register-top:hover{background:rgba(255,255,255,.09)}
+@media(max-width:760px){
+ .sonara-register-page{padding:16px 12px 55px!important}
+ .register-brand{margin:18px 0}
+ .register-brand img{width:145px}
+ .register-form{padding:17px 14px;border-radius:14px}
+ .register-fields{grid-template-columns:1fr;gap:13px}
+ .register-field.full{grid-column:auto}
+ .register-next-step{align-items:stretch;flex-direction:column}
+ .register-submit{width:100%}
+ .sonara-register-top{display:none!important}
+ body:has(#page-register.active) .topbar{display:none!important}
+ body:has(#page-register.active) .player,body:has(#page-register.active) .mobile-nav{display:none!important}
+ body:has(#page-register.active) .main{padding-bottom:0!important}
+}
