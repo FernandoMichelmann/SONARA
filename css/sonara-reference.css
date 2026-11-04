@@ -194,3 +194,8 @@ body:has(#page-home.active) .mobile-nav{display:none!important}
  body:has(#page-home.active) .home-catalog-section .music-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  body:has(#page-home.active) .player{bottom:0!important}
 }
+
+/* Keep the homepage wordmark identical to the approved SONARA logo */
+.home-wordmark{display:none!important}
+.home-wordmark-logo{display:none;width:132px;height:30px;object-fit:contain;object-position:left center;flex:0 0 auto}
+body:has(#page-home.active) .home-wordmark-logo{display:block}
