@@ -100,20 +100,12 @@ def stream_track_mix(track_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tracks/{track_id}/download")
-def download_track_multitrack(track_id: int, db: Session = Depends(get_db)):
-    track = db.get(Track, track_id)
-    if not track or not track.is_published or not track.stems_path:
-        raise HTTPException(status_code=404, detail="Multitrack não encontrado.")
-    stems_dir = Path(track.stems_path).resolve()
-    archive_path = (stems_dir.parent / "source.zip").resolve()
-    if archive_path.parent != stems_dir.parent or not archive_path.is_file():
-        raise HTTPException(status_code=404, detail="Pacote ZIP original indisponível.")
-    safe_title = "".join(char if char.isalnum() or char in "-_ " else "" for char in track.title).strip() or f"SONARA-{track.id}"
-    return FileResponse(
-        archive_path,
-        media_type="application/zip",
-        filename=f"{safe_title}-Multitrack.zip",
-        content_disposition_type="attachment",
+def download_track_multitrack(track_id: int):
+    # Bloqueio temporário e seguro até a implementação do sistema de assinaturas.
+    # A liberação deverá validar uma assinatura ativa no backend, nunca apenas no frontend.
+    raise HTTPException(
+        status_code=403,
+        detail="Downloads disponíveis apenas para usuários com assinatura ativa.",
     )
 
 
