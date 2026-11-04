@@ -1,0 +1,108 @@
+/* SONARA — faithful visual direction based on the supplied streaming dashboard reference. */
+:root{
+ --ref-bg:#090611;--ref-sidebar:#0b0815;--ref-panel:#100d1b;--ref-panel-2:#151120;
+ --ref-line:rgba(210,202,232,.10);--ref-text:#f7f4fb;--ref-muted:#aaa3b5;
+ --ref-red:#f04452;--ref-purple:#7b2ee8;--ref-blue:#3026d9;
+}
+html,body{background:var(--ref-bg)!important;color:var(--ref-text)!important}
+body{
+ background:radial-gradient(ellipse at 15% 0%,rgba(99,37,128,.12),transparent 35%),
+ repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 92px),
+ #090611!important;font-family:Inter,Arial,sans-serif!important;letter-spacing:-.012em
+}
+.app{min-height:100vh;background:transparent!important}
+.sidebar{
+ width:238px!important;padding:27px 16px 112px!important;background:rgba(10,7,18,.97)!important;
+ border-right:1px solid rgba(211,198,235,.09)!important;backdrop-filter:none!important
+}
+.brand{padding:0 12px 30px!important;margin-bottom:16px!important;gap:10px!important}
+.brand-symbol{width:34px!important;height:34px!important;filter:drop-shadow(0 0 12px rgba(229,50,93,.28))}
+.brand-name{font-size:20px!important;letter-spacing:-.035em!important;font-weight:800!important}
+.brand-caption{display:none!important}
+.nav-label{color:#777080!important;font-size:9px!important;letter-spacing:.16em!important;margin:17px 11px 9px!important}
+.nav-item{height:43px!important;margin:3px 0!important;padding:0 13px!important;border:0!important;border-radius:10px!important;color:#c1bacb!important;font-size:12px!important;font-weight:500!important;gap:12px!important}
+.nav-item i{color:#aaa2b5!important;width:16px!important;height:16px!important}
+.nav-item:hover{background:rgba(255,255,255,.055)!important;color:#fff!important}
+.nav-item.active{background:linear-gradient(105deg,#e72d32 0%,#7d176c 54%,#251bd1 100%)!important;color:white!important;box-shadow:none!important}
+.nav-item.active i{color:white!important}
+.sidebar-bottom{padding:18px 3px 0!important}
+.upgrade-card{padding:16px!important;border:1px solid rgba(255,255,255,.045)!important;border-radius:12px!important;background:#15111e!important;box-shadow:none!important}
+.upgrade-card h4{font-size:12px!important;font-weight:700!important}
+.upgrade-card p{font-size:10px!important;color:#a59daf!important;line-height:1.55!important;margin:7px 0 13px!important}
+.upgrade-card button,.primary-button{
+ border:1px solid rgba(239,65,81,.7)!important;border-radius:999px!important;
+ background:linear-gradient(100deg,rgba(235,51,57,.16),rgba(77,38,207,.16))!important;
+ color:#fff!important;padding:9px 15px!important;font-size:11px!important;font-weight:650!important;box-shadow:none!important
+}
+.main{margin-left:238px!important;min-width:0;padding-bottom:118px!important}
+.topbar{
+ height:75px!important;padding:0 32px!important;background:rgba(9,6,17,.96)!important;
+ border-bottom:1px solid rgba(211,198,235,.08)!important;backdrop-filter:none!important;gap:18px!important
+}
+.search{height:37px!important;max-width:410px!important;border-radius:999px!important;background:#171321!important;border:1px solid rgba(220,211,237,.12)!important;padding:0 13px!important}
+.search input{font-size:11px!important;color:#fff!important}
+.search input::placeholder{color:#898292!important}
+.top-right{gap:10px!important}
+.top-right .icon-button{display:none!important}
+.top-right .avatar{width:36px!important;height:36px!important;border:1px solid rgba(255,255,255,.14)!important;background:#211b2b!important;color:#fff!important}
+.sonara-upgrade-top{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 17px;border:0;border-radius:999px;background:linear-gradient(105deg,#ed3438,#7c22b9 65%,#3325dc);color:#fff;font-size:11px;font-weight:750}
+.content{max-width:none!important;padding:20px 22px 145px!important}
+.page-home-intro{display:none!important}
+.page.active#page-home{display:block!important}
+#page-home .hero.hero-banner-only,
+#page-home .section{
+ border:1px solid var(--ref-line)!important;border-radius:17px!important;background:rgba(15,11,25,.88)!important;
+ padding:16px 16px 14px!important;margin:0 0 19px!important;overflow:hidden!important;box-shadow:none!important
+}
+#page-home .hero.hero-banner-only{height:clamp(205px,20vw,258px)!important;min-height:0!important}
+#page-home .hero-banner-viewport{border-radius:11px!important;mask-image:none!important;-webkit-mask-image:none!important}
+#page-home .hero-banner-track{gap:12px!important;animation-duration:52s!important}
+#page-home .hero-banner-card{height:145px!important;aspect-ratio:1/1!important;border-radius:11px!important;border:0!important;background:#171321!important}
+#page-home .hero-banner-card img{object-fit:cover!important}
+#page-home .section-heading{margin:0 0 13px!important}
+#page-home .section-heading h2{font-size:16px!important;font-weight:700!important;letter-spacing:-.035em!important}
+#page-home .section-heading button{color:#eee8f4!important;text-decoration:underline!important;text-underline-offset:3px!important;font-size:10px!important;font-weight:500!important}
+#page-home .music-grid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important}
+#page-home .music-card{padding:9px!important;border:1px solid rgba(218,207,237,.055)!important;border-radius:13px!important;background:#15111e!important;box-shadow:none!important}
+#page-home .music-card:hover{transform:translateY(-3px)!important;border-color:rgba(222,52,92,.4)!important;box-shadow:0 8px 22px rgba(0,0,0,.24)!important}
+#page-home .music-card .cover{aspect-ratio:1/1!important;border-radius:9px!important;margin-bottom:9px!important;background:#211b2a!important}
+#page-home .music-card .cover::before{display:none!important}
+#page-home .music-card .cover-art{width:100%;height:100%;object-fit:cover}
+#page-home .music-card h3{font-size:11px!important;font-weight:700!important;margin:0 0 5px!important;white-space:normal!important;line-height:1.35!important}
+#page-home .music-card p{font-size:10px!important;color:#aaa2b2!important;line-height:1.4!important;margin:0!important}
+#page-home .music-card>.icon-button{margin-top:7px!important;background:transparent!important;border:0!important}
+#page-home .cover-play{background:linear-gradient(130deg,#e8324a,#612bd4)!important}
+#page-home .section:last-of-type{margin-bottom:24px!important}
+#page-home .track-table{border:0!important;background:transparent!important;border-radius:0!important}
+#page-home .track-table th{background:transparent!important;color:#81798d!important;border-bottom:1px solid var(--ref-line)!important}
+#page-home .track-table td{border-bottom:1px solid rgba(255,255,255,.055)!important;color:#c9c1d0!important}
+#page-home .mini-cover{background:linear-gradient(135deg,#e93445,#6526b8)!important;border-radius:8px!important}
+.page-title{font-size:27px!important;letter-spacing:-.045em!important}
+.page-subtitle{color:var(--ref-muted)!important}
+.page:not(#page-home) .music-card{background:#15111e!important;border-color:var(--ref-line)!important}
+.page:not(#page-home) .music-card .cover{border-radius:10px!important}
+.page:not(#page-home) .plan-card,.page:not(#page-home) .upgrade-card{background:#15111e!important;border-color:var(--ref-line)!important}
+.player{
+ left:238px!important;min-height:82px!important;padding:10px 25px!important;gap:20px!important;
+ background:rgba(12,9,20,.98)!important;border-top:1px solid rgba(221,210,237,.12)!important;
+ box-shadow:0 -10px 32px rgba(0,0,0,.3)!important
+}
+.player-cover{border-radius:8px!important;background:linear-gradient(135deg,#e83448,#6629bd)!important}
+.player-song h4{font-size:11px!important}.player-song p{color:#9991a3!important}
+.controls .play{background:linear-gradient(135deg,#f04452,#6429d0)!important;color:white!important}
+.progress-fill{background:linear-gradient(90deg,#f04452,#7726d1,#3828dc)!important}
+.mobile-nav{background:#100c19!important;border-top:1px solid var(--ref-line)!important}
+.mobile-nav button.active{color:#f34b65!important}
+@media(max-width:1100px){
+ #page-home .music-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:760px){
+ .sidebar{display:none!important}.main{margin-left:0!important;padding-bottom:150px!important}
+ .topbar{height:64px!important;padding:0 14px!important}.content{padding:16px 13px 145px!important}
+ #page-home .hero.hero-banner-only{height:185px!important;padding:12px!important}
+ #page-home .hero-banner-card{height:125px!important}
+ #page-home .section{padding:13px!important}
+ #page-home .music-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .player{left:0!important;bottom:58px!important;min-height:75px!important;padding:9px 12px!important}
+ .player-song{max-width:42%}
+}
