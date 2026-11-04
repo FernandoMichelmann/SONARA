@@ -177,12 +177,70 @@
     $("revenueTable").innerHTML = rows || '<tr><td colspan="5" class="empty-cell">Nenhum lançamento financeiro registrado.</td></tr>';
   }
 
+
+  let homepageFeatureTracks = [];
+  let homepageFeatureSelection = { launches: [], most_downloaded: [] };
+
+  function renderHomepageFeatureOptions() {
+    const renderGroup = (targetId, key, limit) => {
+      const container = $(targetId);
+      const selected = new Set(homepageFeatureSelection[key].map(Number));
+      container.innerHTML = homepageFeatureTracks.map(track => {
+        const id = Number(track.id);
+        return '<label class="homepage-feature-option"><input type="checkbox" data-home-feature="' + key + '" value="' + id + '" ' + (selected.has(id) ? "checked" : "") + '><span>' + escapeHtml(track.title) + '<small>' + escapeHtml(track.artist || "Artista não informado") + '</small></span></label>';
+      }).join("") || '<span class="muted">Nenhuma track publicada disponível.</span>';
+      container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
+        const checked = [...container.querySelectorAll("input:checked")];
+        if (checked.length > limit) {
+          input.checked = false;
+          setMessage($("homepageFeatureMessage"), "Selecione no máximo " + limit + " tracks nesta seção.", "error");
+          return;
+        }
+        homepageFeatureSelection[key] = checked.map(item => Number(item.value));
+        setMessage($("homepageFeatureMessage"), "");
+      }));
+    };
+    renderGroup("launchesFeatureOptions", "launches", 12);
+    renderGroup("mostDownloadedFeatureOptions", "most_downloaded", 14);
+  }
+
+  async function loadHomepageFeatures() {
+    const [tracksData, selection] = await Promise.all([
+      request("/developer/tracks"),
+      request("/developer/homepage-features")
+    ]);
+    homepageFeatureTracks = (tracksData.items || []).filter(track => track.is_published && track.cover_url);
+    homepageFeatureSelection = {
+      launches: selection.launches || [],
+      most_downloaded: selection.most_downloaded || []
+    };
+    renderHomepageFeatureOptions();
+  }
+
+  async function saveHomepageFeatures() {
+    const button = $("saveHomepageFeatures");
+    button.disabled = true;
+    try {
+      const saved = await request("/developer/homepage-features", {
+        method: "PUT",
+        body: JSON.stringify(homepageFeatureSelection)
+      });
+      homepageFeatureSelection = { launches: saved.launches, most_downloaded: saved.most_downloaded };
+      setMessage($("homepageFeatureMessage"), "Destaques salvos com sucesso.", "success");
+    } catch (error) {
+      setMessage($("homepageFeatureMessage"), error.message || "Não foi possível salvar os destaques.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+
   async function refreshAll() {
     if (refreshInProgress) return;
     refreshInProgress = true;
     $("refreshButton").disabled = true;
     setGlobalMessage("Atualizando dados...");
-    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue()]);
+    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue(), loadHomepageFeatures()]);
     const failed = results.filter(result => result.status === "rejected");
     if (failed.length) {
       setGlobalMessage("Alguns dados não puderam ser carregados. " + failed.map(result => result.reason?.message || "Erro desconhecido").join(" "), "error");
@@ -247,6 +305,7 @@
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
   $("refreshButton").addEventListener("click", refreshAll);
+  $("saveHomepageFeatures").addEventListener("click", saveHomepageFeatures);
   $("logoutButton").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
     identity = null;
