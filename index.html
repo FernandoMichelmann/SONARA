@@ -59,7 +59,15 @@
 
         <main class="main">
             <header class="topbar">
-                <div style="display:flex;align-items:center;gap:13px;width:100%">
+                <div class="topbar-left">
+                    <div class="home-wordmark">SONARA</div>
+                    <nav class="featured-nav" aria-label="Navegação principal">
+                        <button class="active" data-page="home">Início</button>
+                        <button data-page="explore">Multitracks</button>
+                        <button data-page="library">Minha biblioteca</button>
+                        <button data-page="favorites">Favoritos</button>
+                        <button data-page="playlists">Playlists</button>
+                    </nav>
                     <button class="icon-button mobile-menu" onclick="showToast('Navegue pela barra inferior.')">
                         <i data-lucide="menu"></i>
                     </button>
@@ -78,16 +86,19 @@
             <div class="content">
 
                 <section class="page active" id="page-home">
-                    <section class="hero hero-banner-only" aria-label="Destaques SONARA">
-                        <div class="section-heading reference-section-heading"><h2>Destaques SONARA</h2><button type="button" onclick="navigate('explore')">Ver catálogo</button></div>
-                        <div class="hero-banner-viewport" id="heroBannerViewport">
-                            <div class="hero-banner-track" id="heroBannerTrack"></div>
-                        </div>
+                    <section class="featured-rail-section">
+                        <div class="featured-rail-heading"><h1>Destaques</h1><button type="button" onclick="navigate('explore')">Ver catálogo</button></div>
+                        <div class="featured-horizontal-rail" id="featuredRail"></div>
                     </section>
 
-                    <section class="section">
+                    <section class="originals-section">
+                        <div class="originals-heading"><h2>Originais SONARA</h2><button type="button" onclick="navigate('explore')">Explorar tudo</button></div>
+                        <div class="originals-poster-rail" id="originalsRail"></div>
+                    </section>
+
+                    <section class="section home-catalog-section">
                         <div class="section-heading">
-                            <h2>Multitracks em alta</h2>
+                            <h2>Mais para descobrir</h2>
                             <button onclick="navigate('explore')">Ver catálogo →</button>
                         </div>
                         <div class="music-grid" id="musicGrid"></div>
