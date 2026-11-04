@@ -733,7 +733,7 @@ function normalizeCpf(value) {
 
 function isValidCpf(value) {
     const cpf = normalizeCpf(value);
-    if (cpf.length !== 11 || /^(\d)\\1{10}$/.test(cpf)) return false;
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
     const digit = length => {
         let sum = 0;
         for (let i = 0; i < length; i++) sum += Number(cpf[i]) * (length + 1 - i);
