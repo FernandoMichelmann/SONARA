@@ -62,3 +62,11 @@ class TrackCategory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(60), unique=True, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class HomepageFeatureSelection(Base):
+    __tablename__ = "homepage_feature_selections"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    launches_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    most_downloaded_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
