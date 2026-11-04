@@ -327,3 +327,14 @@ body:has(#page-home.active) .featured-nav button.active:hover{
  body:has(#page-register.active) .player,body:has(#page-register.active) .mobile-nav{display:none!important}
  body:has(#page-register.active) .main{padding-bottom:0!important}
 }
+
+
+@media(max-width:760px){
+ body:has(#page-home.active) .top-right{gap:5px!important;flex:0 0 auto!important}
+ body:has(#page-home.active) .top-right .sonara-upgrade-top,
+ body:has(#page-home.active) .top-right .sonara-register-top{display:inline-flex!important;align-items:center!important;height:27px!important;padding:0 8px!important;font-size:8px!important;white-space:nowrap!important}
+ body:has(#page-home.active) .home-wordmark-logo{width:98px!important;max-width:98px!important;flex-basis:98px!important}
+ body:has(#page-home.active) .topbar-left{gap:7px!important;flex:1 1 auto!important}
+ body:has(#page-home.active) .featured-nav{gap:3px!important}
+ body:has(#page-home.active) .featured-nav button{padding:5px 4px!important;font-size:8px!important}
+}
