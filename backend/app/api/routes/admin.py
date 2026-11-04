@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import RevenueEntry, Track, TrackCategory, User
+from app.models import HomepageFeatureSelection, RevenueEntry, Track, TrackCategory, User
 
 router = APIRouter(prefix="/developer", tags=["Administração do desenvolvedor"])
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
@@ -77,6 +77,58 @@ def track_payload(track: Track):
         "preview_duration_seconds": max(0, getattr(track, "preview_end_seconds", 30) - getattr(track, "preview_start_seconds", 0)),
         "preview_ready": bool(track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() and any((Path(track.stems_path).parent / "previews").glob("*.mp3"))),
     }
+
+
+class HomepageFeatureUpdate(BaseModel):
+    launches: list[int] = Field(default_factory=list, max_length=12)
+    most_downloaded: list[int] = Field(default_factory=list, max_length=14)
+
+
+def _homepage_selection_payload(db: Session):
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        selection = HomepageFeatureSelection(id=1, launches_json="[]", most_downloaded_json="[]")
+        db.add(selection)
+        db.commit()
+        db.refresh(selection)
+    try:
+        launches = json.loads(selection.launches_json or "[]")
+        most_downloaded = json.loads(selection.most_downloaded_json or "[]")
+    except (TypeError, json.JSONDecodeError):
+        launches, most_downloaded = [], []
+    return {"launches": launches, "most_downloaded": most_downloaded}
+
+
+@router.get("/homepage-features")
+def get_homepage_features(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    return _homepage_selection_payload(db)
+
+
+@router.put("/homepage-features")
+def update_homepage_features(
+    payload: HomepageFeatureUpdate,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    launches = list(dict.fromkeys(payload.launches))
+    most_downloaded = list(dict.fromkeys(payload.most_downloaded))
+    requested_ids = set(launches + most_downloaded)
+    if any(track_id <= 0 for track_id in requested_ids):
+        raise HTTPException(status_code=422, detail="Seleção de tracks inválida.")
+    valid_ids = set(db.scalars(select(Track.id).where(Track.id.in_(requested_ids), Track.is_published.is_(True))).all()) if requested_ids else set()
+    if valid_ids != requested_ids:
+        raise HTTPException(status_code=422, detail="Todas as tracks selecionadas precisam estar publicadas no catálogo.")
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        selection = HomepageFeatureSelection(id=1)
+        db.add(selection)
+    selection.launches_json = json.dumps(launches)
+    selection.most_downloaded_json = json.dumps(most_downloaded)
+    db.commit()
+    return {"launches": launches, "most_downloaded": most_downloaded, "saved": True}
 
 
 @router.get("/users")
