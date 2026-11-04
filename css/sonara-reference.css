@@ -218,3 +218,61 @@ body:has(#page-home.active) .featured-nav button.active{color:#fff!important;fon
  body:has(#page-home.active) .featured-nav{gap:10px!important}
  body:has(#page-home.active) .featured-nav button{font-size:9px!important}
 }
+
+
+/* Homepage navigation refinement — larger labels, balanced spacing and Upgrade gradient hover */
+body:has(#page-home.active) .topbar-left{
+  gap:clamp(18px,2.1vw,32px)!important;
+}
+body:has(#page-home.active) .featured-nav{
+  flex:1 1 auto!important;
+  min-width:0!important;
+  justify-content:space-between!important;
+  gap:clamp(12px,1.6vw,25px)!important;
+}
+body:has(#page-home.active) .featured-nav button{
+  flex:0 0 auto!important;
+  min-height:36px!important;
+  padding:8px 11px!important;
+  border:1px solid transparent!important;
+  border-radius:999px!important;
+  font-family:Inter,Arial,sans-serif!important;
+  font-size:13px!important;
+  font-weight:550!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  color:#d5d5d5!important;
+  background:transparent!important;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease!important;
+}
+body:has(#page-home.active) .featured-nav button:hover{
+  color:#fff!important;
+  background:linear-gradient(105deg,#ed3438 0%,#7c22b9 65%,#3325dc 100%)!important;
+  box-shadow:0 5px 18px rgba(124,34,185,.22)!important;
+}
+body:has(#page-home.active) .featured-nav button.active{
+  color:#fff!important;
+  font-weight:700!important;
+  background:rgba(255,255,255,.075)!important;
+  border-color:rgba(255,255,255,.09)!important;
+}
+body:has(#page-home.active) .featured-nav button.active:hover{
+  background:linear-gradient(105deg,#ed3438 0%,#7c22b9 65%,#3325dc 100%)!important;
+  border-color:transparent!important;
+}
+@media(max-width:1100px) and (min-width:761px){
+  body:has(#page-home.active) .featured-nav{gap:7px!important}
+  body:has(#page-home.active) .featured-nav button{font-size:11px!important;padding:7px 7px!important}
+}
+@media(max-width:760px){
+  body:has(#page-home.active) .featured-nav{
+    flex:0 1 auto!important;
+    justify-content:flex-start!important;
+    gap:6px!important;
+  }
+  body:has(#page-home.active) .featured-nav button{
+    min-height:30px!important;
+    padding:6px 7px!important;
+    font-size:9px!important;
+  }
+}
