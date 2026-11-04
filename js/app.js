@@ -1,5 +1,5 @@
 let tracks = [];
-        let homepageFeatureSelection = { launches: [], most_downloaded: [] };
+        let homepageFeatureSelection = { launches: [], most_downloaded: [], configured: false };
 
         // Conteúdo fictício exclusivamente para demonstração visual.
         let favorites = new Set();
@@ -43,8 +43,12 @@ let tracks = [];
             const originalsRail = document.getElementById("originalsRail");
             const available = tracks.filter(track => track.coverUrl);
             const byId = new Map(available.map(track => [Number(track.id), track]));
-            const launches = homepageFeatureSelection.launches.map(id => byId.get(Number(id))).filter(Boolean);
-            const mostDownloaded = homepageFeatureSelection.most_downloaded.map(id => byId.get(Number(id))).filter(Boolean);
+            const launches = homepageFeatureSelection.configured
+                ? homepageFeatureSelection.launches.map(id => byId.get(Number(id))).filter(Boolean)
+                : available.slice(0, 12);
+            const mostDownloaded = homepageFeatureSelection.configured
+                ? homepageFeatureSelection.most_downloaded.map(id => byId.get(Number(id))).filter(Boolean)
+                : [...available].sort((a, b) => Number(b.download_count || 0) - Number(a.download_count || 0)).slice(0, 14);
 
             if (featuredRail) {
                 featuredRail.innerHTML = launches.slice(0, 12).map(track => `
