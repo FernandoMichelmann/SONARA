@@ -1,0 +1,15 @@
+/* Unified SONARA identity: gradient musical note + custom wordmark */
+.brand-logo-image{
+ display:block;width:184px;height:auto;max-width:100%;object-fit:contain;
+ filter:drop-shadow(0 0 10px rgba(128,54,230,.16))
+}
+.brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;min-height:48px}
+.auth-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important}
+.auth-brand img{display:block;width:190px;height:auto;max-width:80%;object-fit:contain}
+.dev-brand{display:flex!important;align-items:center!important;gap:0!important}
+.dev-brand-logo{display:block;width:250px;height:auto;max-width:min(70vw,250px);object-fit:contain;filter:drop-shadow(0 0 14px rgba(117,53,225,.16))}
+@media(max-width:760px){
+ .brand-logo-image{width:160px}
+ .auth-brand img{width:170px}
+ .dev-brand-logo{width:220px}
+}
