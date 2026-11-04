@@ -245,7 +245,7 @@ let tracks = [];
             document.getElementById("stemCount").textContent = stems.length + (stems.length === 1 ? " track" : " tracks");
             const list = document.getElementById("stemList");
             list.innerHTML = stems.length ? stems.map((stem, index) => {
-                const label = stem.name.replace(/^\\d+_/, "").replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ");
+                const label = stem.name.replace(/^\d+_/, "").replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ");
                 return `<div class="stem-row">
                     <div class="stem-index">${String(index + 1).padStart(2, "0")}</div>
                     <div class="stem-details"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(stem.name)}</span></div>
@@ -728,12 +728,12 @@ document.getElementById("authLogout").addEventListener("click", () => {
 
 
 function normalizeCpf(value) {
-    return String(value || "").replace(/\\D/g, "");
+    return String(value || "").replace(/\D/g, "");
 }
 
 function isValidCpf(value) {
     const cpf = normalizeCpf(value);
-    if (cpf.length !== 11 || /^(\\d)\\1{10}$/.test(cpf)) return false;
+    if (cpf.length !== 11 || /^(\d)\\1{10}$/.test(cpf)) return false;
     const digit = length => {
         let sum = 0;
         for (let i = 0; i < length; i++) sum += Number(cpf[i]) * (length + 1 - i);
@@ -746,9 +746,9 @@ function isValidCpf(value) {
 const cpfField = document.getElementById("registerCpf");
 cpfField.addEventListener("input", () => {
     const digits = normalizeCpf(cpfField.value).slice(0, 11);
-    cpfField.value = digits.replace(/(\\d{3})(\\d)/, "$1.$2")
-        .replace(/(\\d{3})(\\d)/, "$1.$2")
-        .replace(/(\\d{3})(\\d{1,2})$/, "$1-$2");
+    cpfField.value = digits.replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 });
 
 document.getElementById("sonaraRegistrationForm").addEventListener("submit", async event => {
