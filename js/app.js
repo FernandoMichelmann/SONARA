@@ -47,7 +47,7 @@ let tracks = [];
             const mostDownloaded = homepageFeatureSelection.most_downloaded.map(id => byId.get(Number(id))).filter(Boolean);
 
             if (featuredRail) {
-                featuredRail.innerHTML = available.slice(0, 12).map(track => `
+                featuredRail.innerHTML = launches.slice(0, 12).map(track => `
                     <button class="featured-tile" type="button" onclick="selectTrack(${track.id})" aria-label="Abrir ${escapeHTML(track.title)}">
                         <img src="${escapeHTML(track.coverUrl)}" alt="" loading="lazy">
                         <span class="featured-tile-shade"></span>
