@@ -29,6 +29,21 @@ def migrate_track_columns():
             if column not in existing:
                 connection.execute(text(f"ALTER TABLE tracks ADD COLUMN {column} {definition}"))
 
+def migrate_user_profile_columns():
+    """Add profile fields without deleting or rewriting existing accounts."""
+    additions = {
+        "address": "VARCHAR(240)",
+        "birth_date": "DATE",
+        "cpf": "VARCHAR(11)",
+    }
+    with engine.begin() as connection:
+        existing = {column["name"] for column in inspect(engine).get_columns("users")}
+        for column, definition in additions.items():
+            if column not in existing:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cpf ON users (cpf)"))
+
+
 def bootstrap_developer():
     email = (settings.developer_email or "").strip().lower()
     password = settings.developer_password
@@ -55,6 +70,7 @@ def bootstrap_developer():
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     migrate_track_columns()
+    migrate_user_profile_columns()
     bootstrap_developer()
     yield
 
