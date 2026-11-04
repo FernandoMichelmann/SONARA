@@ -84,8 +84,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .progress{background:rgba(255,255,255,.12);height:4px;border-radius:10px}
 .progress-fill{background:linear-gradient(90deg,#6f9cff,#80dfd0);border-radius:10px}
 .auth-overlay{backdrop-filter:blur(16px);background:rgba(2,5,11,.76)}
-.auth-modal{border:1px solid var(--v-line-strong);border-radius:22px;background:linear-gradient(150deg,#1a2638,#0e1521);box-shadow:var(--v-shadow);padding:clamp(25px,4vw,40px)}
-.auth-modal h2,.auth-modal h3{letter-spacing:-.05em}
+.auth-dialog{border:1px solid var(--v-line-strong);border-radius:22px;background:linear-gradient(150deg,#1a2638,#0e1521);box-shadow:var(--v-shadow);padding:clamp(25px,4vw,40px)}
+.auth-dialog h2,.auth-dialog h3{letter-spacing:-.05em}
 .auth-input{background:#0b111b;border:1px solid var(--v-line-strong);border-radius:11px;color:#fff}
 .auth-submit{border-radius:11px;background:#7b9ff0;color:#0a1423;font-weight:800}
 .toast{border:1px solid var(--v-line-strong);border-radius:12px;background:#172337;color:#f5f7fb;box-shadow:var(--v-shadow)}
@@ -105,3 +105,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
  .hero.hero-banner-only{margin-bottom:28px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+.mobile-nav{background:rgba(10,15,24,.96)!important;border-top:1px solid var(--v-line)!important;backdrop-filter:blur(22px)}
+.mobile-nav button{color:#8493aa!important;font-weight:650;min-width:52px}
+.mobile-nav button.active{color:#a9c4ff!important}
+.mobile-nav button i{width:17px;height:17px}
