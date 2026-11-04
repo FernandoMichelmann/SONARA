@@ -14,8 +14,18 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     email = str(payload.email).lower().strip()
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status_code=409, detail="Já existe uma conta com este e-mail.")
-    user = User(email=email, full_name=payload.full_name.strip(),
-                password_hash=hash_password(payload.password), role="user", is_active=True)
+    if db.scalar(select(User).where(User.cpf == payload.cpf)):
+        raise HTTPException(status_code=409, detail="Este CPF já está vinculado a uma conta.")
+    user = User(
+        email=email,
+        full_name=payload.full_name,
+        password_hash=hash_password(payload.password),
+        address=payload.address,
+        birth_date=payload.birth_date,
+        cpf=payload.cpf,
+        role="user",
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
