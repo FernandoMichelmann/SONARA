@@ -35,6 +35,7 @@ def migrate_user_profile_columns():
         "address": "VARCHAR(240)",
         "birth_date": "DATE",
         "cpf_hash": "VARCHAR(64)",
+        "language": "VARCHAR(2) NOT NULL DEFAULT 'pt'",
     }
     with engine.begin() as connection:
         existing = {column["name"] for column in inspect(engine).get_columns("users")}
