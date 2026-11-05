@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import HomepageFeatureSelection, RevenueEntry, Track, TrackCategory, User
+from app.models import HomepageFeatureSelection, PasswordResetToken, RevenueEntry, Track, TrackCategory, User
 
 router = APIRouter(prefix="/developer", tags=["Administração do desenvolvedor"])
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
@@ -182,6 +182,9 @@ def delete_user(
     # com a conta excluída. Não há outras tabelas pessoais relacionadas ao usuário.
     db.query(RevenueEntry).filter(RevenueEntry.created_by == user_id).update(
         {RevenueEntry.created_by: None},
+        synchronize_session=False,
+    )
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete(
         synchronize_session=False,
     )
     db.delete(user)
