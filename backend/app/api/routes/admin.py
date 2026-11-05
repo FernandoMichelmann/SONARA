@@ -168,6 +168,27 @@ def update_user_status(
     return {"id": user.id, "is_active": user.is_active}
 
 
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    user = db.scalar(select(User).where(User.id == user_id, User.role == "user"))
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    # Preserve o histórico financeiro da plataforma, removendo apenas o vínculo
+    # com a conta excluída. Não há outras tabelas pessoais relacionadas ao usuário.
+    db.query(RevenueEntry).filter(RevenueEntry.created_by == user_id).update(
+        {RevenueEntry.created_by: None},
+        synchronize_session=False,
+    )
+    db.delete(user)
+    db.commit()
+    return {"id": user_id, "deleted": True, "message": "Usuário e dados da conta excluídos com sucesso."}
+
+
 @router.get("/tracks")
 def list_tracks(
     q: str = Query(default="", max_length=180),
