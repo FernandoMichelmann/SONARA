@@ -24,3 +24,119 @@
         padding-bottom: 80px !important;
     }
 }
+
+
+/* Rodape institucional, suporte e perguntas frequentes */
+.sonara-footer {
+    margin: 28px 38px 0;
+    padding: 34px 0 22px;
+    border-top: 1px solid rgba(148, 163, 184, .16);
+    color: #AAB4C5;
+}
+.sonara-footer-main {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(160px, .65fr) minmax(300px, 1.35fr);
+    gap: 42px;
+    align-items: start;
+}
+.sonara-footer-brand img {
+    display: block;
+    width: 164px;
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 16px;
+}
+.sonara-footer-brand p {
+    max-width: 290px;
+    margin: 0 0 17px;
+    color: #8793A8;
+    font-size: 12px;
+    line-height: 1.7;
+}
+.sonara-footer-email {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #AFC8FF;
+    font-size: 12px;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.sonara-footer-email:hover,
+.sonara-footer-column a:hover {
+    color: #FFFFFF;
+}
+.sonara-footer-column h3 {
+    margin: 3px 0 16px;
+    color: #F1F5FB;
+    font-size: 13px;
+    font-weight: 700;
+}
+.sonara-footer-column > a {
+    display: block;
+    width: fit-content;
+    margin: 0 0 13px;
+    color: #9AA6B9;
+    font-size: 12px;
+    text-decoration: none;
+}
+.sonara-footer-faq details {
+    padding: 0 0 12px;
+    margin: 0 0 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, .12);
+}
+.sonara-footer-faq summary {
+    color: #C9D3E2;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.sonara-footer-faq summary:hover {
+    color: #FFFFFF;
+}
+.sonara-footer-faq details p {
+    margin: 9px 0 0;
+    color: #8793A8;
+    font-size: 11px;
+    line-height: 1.7;
+}
+.sonara-footer-legal {
+    display: grid;
+    grid-template-columns: minmax(180px, .6fr) 1.4fr;
+    gap: 22px;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, .12);
+}
+.sonara-footer-legal p {
+    margin: 0;
+    color: #748197;
+    font-size: 10px;
+    line-height: 1.7;
+}
+@media (max-width: 1000px) {
+    .sonara-footer-main {
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    .sonara-footer-faq {
+        grid-column: 1 / -1;
+    }
+}
+@media (max-width: 760px) {
+    .sonara-footer {
+        margin: 18px 17px 0;
+        padding-top: 27px;
+    }
+    .sonara-footer-main {
+        grid-template-columns: 1fr;
+        gap: 27px;
+    }
+    .sonara-footer-faq {
+        grid-column: auto;
+    }
+    .sonara-footer-legal {
+        grid-template-columns: 1fr;
+        gap: 9px;
+    }
+}
