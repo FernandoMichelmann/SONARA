@@ -56,6 +56,8 @@
                         <button class="active" data-page="home">Início</button>
                         <button data-page="explore">Multitracks</button>
                         <button data-page="favorites" hidden>Favoritos</button>
+                        <button data-page="downloads" hidden>Downloads</button>
+                        <button data-page="playlists" hidden>Playlists</button>
                     </nav>
                     <button class="icon-button mobile-menu" onclick="showToast('Navegue pela barra inferior.')">
                         <i data-lucide="menu"></i>
@@ -127,6 +129,17 @@
                     <p class="downloads-notice" id="downloadsNotice">Suas solicitações aparecerão aqui.</p>
                     <div class="music-grid" id="downloadsGrid"></div>
                     <div class="empty-state" id="downloadsEmpty" hidden><i data-lucide="download"></i><p>Você ainda não solicitou downloads.</p></div>
+                </section>
+
+                <section class="page" id="page-playlists">
+                    <div class="page-title">Minhas Playlists</div>
+                    <p class="page-subtitle">Organize suas multitracks favoritas em coleções pessoais.</p>
+                    <form class="playlist-create-form" id="playlistCreateForm">
+                        <input id="playlistNameInput" type="text" maxlength="80" placeholder="Nome da nova playlist" required>
+                        <button type="submit"><i data-lucide="plus"></i> Criar playlist</button>
+                    </form>
+                    <div class="playlist-list" id="playlistList"></div>
+                    <div class="empty-state" id="playlistsEmpty"><i data-lucide="list-music"></i><p>Você ainda não criou playlists. Crie uma para organizar suas músicas.</p></div>
                 </section>
 
                 <section class="page" id="page-subscription">
