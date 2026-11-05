@@ -816,6 +816,7 @@ async function sonaraApi(path, options = {}, token = "") {
 
 let sonaraLanguage = "pt";
 const SONARA_TEXT_TRANSLATIONS = {
+"SONARA — Plataforma premium de multitracks para músicos e equipes de louvor.":"SONARA — Premium multitrack platform for musicians and worship teams.",
 "WORKSPACE":"WORKSPACE","Início":"Home","Explorar":"Explore","Favoritos":"Favorites","Assinatura":"Subscription","Configurações":"Settings","CONTA":"ACCOUNT",
 "Desbloqueie seu som.":"Unlock your sound.","Acesse a experiência completa de multitracks com a SONARA.":"Get the full multitrack experience with SONARA.","Ver acesso vitalício":"View lifetime access",
 "Entrar":"Log in","Criar conta":"Create account","Bem-vindo(a),":"Welcome,","Lançamentos":"New releases","Ver catálogo":"View catalog","Mais baixados":"Most downloaded","Explorar tudo":"Explore all","Mais para descobrir":"More to discover","Nenhuma música encontrada.":"No tracks found.",
@@ -906,13 +907,13 @@ function translateSonaraDocument(root = document) {
         if (node.nodeValue !== translated) node.nodeValue = translated;
     });
     const elements = [];
-    if (root.nodeType === Node.ELEMENT_NODE && root.matches?.("input[placeholder],textarea[placeholder],[aria-label],[title]")) elements.push(root);
-    root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title]").forEach(element => elements.push(element));
+    if (root.nodeType === Node.ELEMENT_NODE && root.matches?.("input[placeholder],textarea[placeholder],[aria-label],[title],meta[name=description]")) elements.push(root);
+    root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title],meta[name=description]").forEach(element => elements.push(element));
     elements.forEach(element => {
         if (element.closest("[data-i18n]")) return;
         let originals = sonaraOriginalAttributes.get(element);
         if (!originals) { originals = {}; sonaraOriginalAttributes.set(element, originals); }
-        ["placeholder","aria-label","title"].forEach(attribute => {
+        ["placeholder","aria-label","title","content"].forEach(attribute => {
             if (element.hasAttribute(attribute) && !(attribute in originals)) originals[attribute] = element.getAttribute(attribute);
             if (attribute in originals) {
                 const original = originals[attribute];
@@ -926,6 +927,7 @@ const SONARA_TRANSLATIONS = {"pt":{"settingsTitle":"Configurações","settingsSu
 function applySonaraLanguage(language) {
     sonaraLanguage = language === "en" ? "en" : "pt";
     document.documentElement.lang = sonaraLanguage === "en" ? "en" : "pt-BR";
+    document.title = sonaraLanguage === "en" ? "SONARA — Every Track. One Platform." : "SONARA — Every Track. One Platform.";
     document.querySelectorAll("[data-i18n]").forEach(element => {
         const key = element.dataset.i18n;
         const value = SONARA_TRANSLATIONS[sonaraLanguage][key];
