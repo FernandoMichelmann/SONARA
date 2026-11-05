@@ -18,6 +18,7 @@ class User(Base):
     address: Mapped[str | None] = mapped_column(String(240), nullable=True)
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     cpf_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    language: Mapped[str] = mapped_column(String(2), default="pt", nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
