@@ -843,6 +843,7 @@ function translateSonaraDocument(root = document) {
     const nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(node => {
+        if (node.parentElement?.closest("[data-i18n]")) return;
         if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
         const original = sonaraOriginalText.get(node);
         const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
@@ -852,6 +853,7 @@ function translateSonaraDocument(root = document) {
     if (root.nodeType === Node.ELEMENT_NODE && root.matches?.("input[placeholder],textarea[placeholder],[aria-label],[title]")) elements.push(root);
     root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title]").forEach(element => elements.push(element));
     elements.forEach(element => {
+        if (element.closest("[data-i18n]")) return;
         let originals = sonaraOriginalAttributes.get(element);
         if (!originals) { originals = {}; sonaraOriginalAttributes.set(element, originals); }
         ["placeholder","aria-label","title"].forEach(attribute => {
@@ -885,6 +887,7 @@ const sonaraLanguageObserver = new MutationObserver(records => {
     records.forEach(record => {
         if (record.type === "childList") record.addedNodes.forEach(node => {
             if (node.nodeType === Node.TEXT_NODE) {
+                if (node.parentElement?.closest("[data-i18n]")) return;
                 if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
                 const original = sonaraOriginalText.get(node);
                 const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
