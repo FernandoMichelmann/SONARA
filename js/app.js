@@ -604,9 +604,9 @@ function updateDownloadAccessButton() {
     if (!button) return;
     const isLoggedIn = Boolean(sonaraCurrentUser);
     button.innerHTML = isLoggedIn
-        ? '<i data-lucide="download"></i> Registrar em Downloads'
+        ? '<i data-lucide="download"></i> Baixar Multitrack'
         : '<i data-lucide="user-plus"></i> Cadastre-se para salvar';
-    button.setAttribute("aria-label", isLoggedIn ? "Registrar solicitação na área de Downloads" : "Cadastre-se para salvar downloads");
+    button.setAttribute("aria-label", isLoggedIn ? "Baixar arquivo ZIP da multitrack" : "Cadastre-se para baixar multitracks");
     updatePersonalNavigation();
     lucide.createIcons();
 }
@@ -695,8 +695,8 @@ async function loadUserDownloads() {
         renderAll();
         const note = document.getElementById("downloadsNotice");
         if (note) note.textContent = personalDownloadHistory.length
-            ? "Aqui ficam as músicas solicitadas nesta conta. A disponibilidade do arquivo depende do seu plano."
-            : "Suas solicitações de download aparecerão aqui.";
+            ? "Aqui ficam as multitracks que você baixou nesta conta."
+            : "As multitracks baixadas aparecerão aqui.";
         const empty = document.getElementById("downloadsEmpty");
         if (empty) empty.hidden = getDownloadedTracks().length > 0;
     } catch (error) { showToast(error.message || "Não foi possível carregar seus downloads."); }
@@ -709,15 +709,43 @@ async function handleDownloadAccess() {
     }
     if (!currentTrack) return;
     const button = document.getElementById("downloadMultitrack");
+    const trackBeingDownloaded = currentTrack;
     button.disabled = true;
+    button.innerHTML = '<i data-lucide="loader-circle"></i> Preparando ZIP...';
+    lucide.createIcons();
     try {
-        await sonaraApi("/account/downloads/" + currentTrack.id, { method: "POST" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        const token = sessionStorage.getItem(SONARA_USER_TOKEN);
+        const response = await fetch(SONARA_API_BASE + "/tracks/" + trackBeingDownloaded.id + "/download", {
+            method: "GET",
+            headers: { Authorization: "Bearer " + token }
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Não foi possível baixar esta multitrack.");
+        }
+
+        const zipBlob = await response.blob();
+        if (!zipBlob.size) throw new Error("O arquivo ZIP recebido está vazio.");
+        const objectUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = trackBeingDownloaded.title.replace(/[\\/:*?"<>|]/g, "_") + ".zip";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+
+        await sonaraApi("/account/downloads/" + trackBeingDownloaded.id, { method: "POST" }, token);
         await loadUserDownloads();
         closeMultitrack();
         navigate("downloads");
-        showToast("Música adicionada à sua área pessoal de Downloads.");
-    } catch (error) { showToast(error.message || "Não foi possível registrar esta solicitação."); }
-    finally { button.disabled = false; }
+        showToast("Download iniciado! Multitrack adicionada aos seus Downloads.");
+    } catch (error) {
+        showToast(error.message || "Não foi possível baixar esta multitrack.");
+    } finally {
+        button.disabled = false;
+        updateDownloadAccessButton();
+    }
 }
 
 function setAuthMode(mode) {
