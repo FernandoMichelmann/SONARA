@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     developer_email: str | None = None
     developer_password: str | None = None
     developer_name: str = "SONARA Owner"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "SONARA"
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    frontend_base_url: str = "http://127.0.0.1:5500"
 
 @lru_cache
 def get_settings() -> Settings:
