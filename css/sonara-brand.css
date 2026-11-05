@@ -231,3 +231,14 @@
  .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{min-width:90px;height:38px;padding:0 8px}
  .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search input{font-size:10px}
 }
+
+
+/* Navegação pública: aproxima Início e Multitracks sem reduzir a leitura. */
+.topbar:has(#headerLoginButton:not([hidden])) .topbar-left{gap:8px!important}
+.topbar:has(#headerLoginButton:not([hidden])) .featured-nav{gap:2px!important}
+.topbar:has(#headerLoginButton:not([hidden])) .featured-nav button{padding:10px 10px!important;font-size:13px!important}
+@media(max-width:760px){
+ .topbar:has(#headerLoginButton:not([hidden])) .topbar-left{gap:6px!important}
+ .topbar:has(#headerLoginButton:not([hidden])) .featured-nav{gap:1px!important}
+ .topbar:has(#headerLoginButton:not([hidden])) .featured-nav button{padding:8px 8px!important;font-size:12px!important}
+}
