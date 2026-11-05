@@ -575,6 +575,7 @@ const SONARA_API_BASE = "http://127.0.0.1:8000/api/v1";
 const SONARA_USER_TOKEN = "sonaraUserAccessToken";
 let sonaraCurrentUser = null;
 let authMode = "login";
+let passwordResetToken = new URLSearchParams(window.location.search).get("reset_token") || "";
 
 function updateDownloadAccessButton() {
     const button = document.getElementById("downloadMultitrack");
@@ -622,6 +623,8 @@ function openAuthModal() {
     overlay.setAttribute("aria-hidden", "false");
     const form = document.getElementById("userAuthForm");
     const account = document.getElementById("authAccount");
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("resetPasswordForm").hidden = true;
     if (sonaraCurrentUser) {
         form.hidden = true;
         document.getElementById("authTabs").hidden = true;
@@ -681,6 +684,96 @@ document.getElementById("authOverlay").addEventListener("click", event => {
 });
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") closeAuthModal();
+});
+
+function showForgotPassword() {
+    document.getElementById("userAuthForm").hidden = true;
+    document.getElementById("forgotPasswordForm").hidden = false;
+    document.getElementById("resetPasswordForm").hidden = true;
+    document.getElementById("authAccount").hidden = true;
+    document.getElementById("authTitle").textContent = "Recuperar senha";
+    document.getElementById("authDescription").textContent = "Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.";
+    document.getElementById("forgotEmail").value = document.getElementById("authEmail").value.trim();
+    document.getElementById("forgotMessage").textContent = "";
+    document.getElementById("forgotEmail").focus();
+}
+
+function showResetPassword() {
+    document.getElementById("userAuthForm").hidden = true;
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("resetPasswordForm").hidden = false;
+    document.getElementById("authAccount").hidden = true;
+    document.getElementById("authTitle").textContent = "Criar nova senha";
+    document.getElementById("authDescription").textContent = "Escolha uma nova senha para acessar sua conta SONARA.";
+    document.getElementById("resetMessage").textContent = "";
+}
+
+document.getElementById("forgotPasswordLink").addEventListener("click", showForgotPassword);
+document.getElementById("backToLoginFromReset").addEventListener("click", () => {
+    passwordResetToken = "";
+    window.history.replaceState({}, document.title, window.location.pathname);
+    document.getElementById("resetPasswordForm").hidden = true;
+    document.getElementById("userAuthForm").hidden = false;
+    setAuthMode("login");
+});
+document.getElementById("backToLoginFromForgot").addEventListener("click", () => {
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("userAuthForm").hidden = false;
+    setAuthMode("login");
+});
+
+document.getElementById("forgotPasswordForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("forgotSubmit");
+    const message = document.getElementById("forgotMessage");
+    button.disabled = true;
+    message.textContent = "";
+    try {
+        const result = await sonaraApi("/auth/forgot-password", {
+            method: "POST",
+            body: JSON.stringify({ email: document.getElementById("forgotEmail").value.trim() })
+        });
+        message.style.color = "#36C98F";
+        message.textContent = result.message || "Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.";
+    } catch (error) {
+        message.style.color = "";
+        message.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("resetPasswordForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("resetSubmit");
+    const message = document.getElementById("resetMessage");
+    const password = document.getElementById("resetNewPassword").value;
+    const confirmation = document.getElementById("resetConfirmPassword").value;
+    if (password !== confirmation) {
+        message.textContent = "As senhas não coincidem.";
+        return;
+    }
+    button.disabled = true;
+    message.textContent = "";
+    try {
+        const result = await sonaraApi("/auth/reset-password", {
+            method: "POST",
+            body: JSON.stringify({ token: passwordResetToken, new_password: password })
+        });
+        passwordResetToken = "";
+        window.history.replaceState({}, document.title, window.location.pathname);
+        document.getElementById("resetPasswordForm").reset();
+        document.getElementById("resetPasswordForm").hidden = true;
+        document.getElementById("userAuthForm").hidden = false;
+        setAuthMode("login");
+        document.getElementById("authMessage").style.color = "#36C98F";
+        document.getElementById("authMessage").textContent = result.message || "Senha redefinida. Faça login com sua nova senha.";
+    } catch (error) {
+        message.style.color = "";
+        message.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
 });
 
 document.getElementById("userAuthForm").addEventListener("submit", async event => {
@@ -787,4 +880,8 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
     }
 });
 
+if (passwordResetToken) {
+    openAuthModal();
+    showResetPassword();
+}
 restoreSonaraUserSession();
