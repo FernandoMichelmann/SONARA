@@ -630,11 +630,11 @@ function updateHeaderAuthState() {
     if (registerButton) registerButton.hidden = loggedIn;
     if (welcomeButton) welcomeButton.hidden = !loggedIn;
     if (loggedIn) {
-        const fullName = (sonaraCurrentUser.full_name || "Músico").trim();
-        const firstName = fullName.split(/\s+/)[0] || "Músico";
-        if (welcomeName) welcomeName.textContent = firstName;
-        if (welcomeAvatar) welcomeAvatar.textContent = firstName.charAt(0).toUpperCase();
-        if (welcomeButton) welcomeButton.setAttribute("aria-label", "Bem-vindo(a), " + fullName + ". Abrir minha conta");
+        const fullName = (sonaraCurrentUser.full_name || "").trim();
+        const displayName = fullName || "Usuário";
+        if (welcomeName) welcomeName.textContent = displayName;
+        if (welcomeAvatar) welcomeAvatar.textContent = displayName.charAt(0).toUpperCase();
+        if (welcomeButton) welcomeButton.setAttribute("aria-label", "Bem-vindo(a), " + displayName + ". Abrir minha conta");
     }
 }
 async function loadUserFavorites() {
