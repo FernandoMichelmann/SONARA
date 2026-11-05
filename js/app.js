@@ -828,28 +828,39 @@ const SONARA_TEXT_TRANSLATIONS = {
 "Recuperar senha":"Reset password","Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.":"Enter your account email. We'll send you a secure link to create a new password.","Criar nova senha":"Create a new password","Escolha uma nova senha para acessar sua conta SONARA.":"Choose a new password to access your SONARA account.",
 "Login realizado com sucesso!":"Successfully logged in!","Você saiu da sua conta.":"You have logged out.","Conta criada! Continue para o acesso vitalício SONARA.":"Account created! Continue to SONARA lifetime access.","Não foi possível conectar à SONARA. Verifique se o backend está iniciado.":"Could not connect to SONARA. Make sure the backend is running.","E-mail ou senha inválidos.":"Invalid email or password.","Este e-mail já possui uma conta.":"An account with this email already exists.","As senhas não coincidem.":"Passwords do not match.","As senhas não coincidem.":"Passwords do not match.","Senha redefinida. Faça login com sua nova senha.":"Password reset. Log in with your new password.","Você ainda não salvou músicas nos favoritos.":"You haven't saved any tracks to your favorites yet."
 };
+const sonaraOriginalText = new WeakMap();
+const sonaraOriginalAttributes = new WeakMap();
 function translateSonaraText(value) {
-    if (sonaraLanguage !== "en" || !value) return value;
+    if (!value) return value;
     const leading = String(value).match(/^\\s*/)?.[0] || "";
     const trailing = String(value).match(/\\s*$/)?.[0] || "";
     const core = String(value).trim();
-    if (SONARA_TEXT_TRANSLATIONS[core]) return leading + SONARA_TEXT_TRANSLATIONS[core] + trailing;
-    return String(value).replace(/[^\\S\\r\\n]*[^\\S\\r\\n]+/g, " ").replace(/[A-Za-zÀ-ÿ][^<>]*/g, part => SONARA_TEXT_TRANSLATIONS[part.trim()] || part);
+    if (sonaraLanguage === "en" && SONARA_TEXT_TRANSLATIONS[core]) return leading + SONARA_TEXT_TRANSLATIONS[core] + trailing;
+    return value;
 }
 function translateSonaraDocument(root = document) {
-    if (sonaraLanguage !== "en") return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(node => {
-        const translated = translateSonaraText(node.nodeValue);
-        if (translated !== node.nodeValue) node.nodeValue = translated;
+        if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
+        const original = sonaraOriginalText.get(node);
+        const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+        if (node.nodeValue !== translated) node.nodeValue = translated;
     });
-    root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title]").forEach(element => {
+    const elements = [];
+    if (root.nodeType === Node.ELEMENT_NODE && root.matches?.("input[placeholder],textarea[placeholder],[aria-label],[title]")) elements.push(root);
+    root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title]").forEach(element => elements.push(element));
+    elements.forEach(element => {
+        let originals = sonaraOriginalAttributes.get(element);
+        if (!originals) { originals = {}; sonaraOriginalAttributes.set(element, originals); }
         ["placeholder","aria-label","title"].forEach(attribute => {
-            const original = element.getAttribute(attribute);
-            const translated = translateSonaraText(original);
-            if (translated !== original) element.setAttribute(attribute, translated);
+            if (element.hasAttribute(attribute) && !(attribute in originals)) originals[attribute] = element.getAttribute(attribute);
+            if (attribute in originals) {
+                const original = originals[attribute];
+                const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+                if (element.getAttribute(attribute) !== translated) element.setAttribute(attribute, translated);
+            }
         });
     });
 }
@@ -868,8 +879,21 @@ function applySonaraLanguage(language) {
     });
     const selector = document.getElementById("accountLanguage");
     if (selector) selector.value = sonaraLanguage;
-    if (sonaraLanguage === "en") translateSonaraDocument();
+    translateSonaraDocument();
 }
+const sonaraLanguageObserver = new MutationObserver(records => {
+    records.forEach(record => {
+        if (record.type === "childList") record.addedNodes.forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
+                const original = sonaraOriginalText.get(node);
+                const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+                if (node.nodeValue !== translated) node.nodeValue = translated;
+            } else if (node.nodeType === Node.ELEMENT_NODE) translateSonaraDocument(node);
+        });
+    });
+});
+sonaraLanguageObserver.observe(document.body, { childList: true, subtree: true });
 function loadSettingsForm() {
     if (!sonaraCurrentUser) return;
     const name = document.getElementById("settingsFullName");
