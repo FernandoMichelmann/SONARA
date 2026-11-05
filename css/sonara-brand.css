@@ -217,19 +217,17 @@
 @media(max-width:760px){.topbar-left{gap:8px}.featured-nav{gap:2px}.featured-nav button{padding:8px 7px;font-size:11px}.topbar-left .search{min-width:0;margin-left:0;height:42px}}
 
 
-/* Ajuste fino do cabeçalho: evita sobreposição da busca com Playlists após login. */
-.topbar-left{gap:10px!important}
-.featured-nav{gap:5px!important}
-.featured-nav button{padding:8px 9px!important}
-.topbar-left .search{margin-left:4px;min-width:260px}
-.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){height:auto!important;min-height:112px;padding-top:12px!important;padding-bottom:12px!important}
-.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left{display:flex;flex-wrap:wrap;align-content:center;row-gap:9px}
-.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav{order:1;flex:0 0 100%;width:100%}
-.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{order:2;flex:1 1 100%;width:100%;max-width:none;min-width:0;margin:0}
+/* Cabeçalho em uma única linha: busca compacta para caber ao lado das playlists. */
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){height:75px!important;min-height:75px!important;padding-top:0!important;padding-bottom:0!important}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left{display:flex;flex-wrap:nowrap;align-items:center;gap:7px!important}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav{order:0;flex:0 1 auto;width:auto;gap:2px!important;min-width:0}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav button{padding:7px 6px!important;font-size:10px!important}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{order:0;flex:1 1 260px;width:auto;max-width:360px;min-width:150px;height:42px;margin:0 0 0 3px;padding:0 11px}
 @media(max-width:760px){
- .topbar-left{gap:7px!important}
- .featured-nav{gap:3px!important}
- .featured-nav button{padding:7px 7px!important;font-size:10px}
- .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){min-height:104px}
- .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{height:40px}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){height:64px!important;min-height:64px!important}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left{gap:4px!important}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav{gap:1px!important}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav button{padding:6px 4px!important;font-size:9px!important}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{min-width:90px;height:38px;padding:0 8px}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search input{font-size:10px}
 }
