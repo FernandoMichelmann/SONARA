@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Track
+from app.dependencies import get_current_user
+from app.models import Track, User
 
 router = APIRouter(tags=["Catálogo de áudio"])
 
@@ -100,12 +101,35 @@ def stream_track_mix(track_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tracks/{track_id}/download")
-def download_track_multitrack(track_id: int):
-    # Bloqueio temporário e seguro até a implementação do sistema de assinaturas.
-    # A liberação deverá validar uma assinatura ativa no backend, nunca apenas no frontend.
-    raise HTTPException(
-        status_code=403,
-        detail="Downloads disponíveis apenas para usuários com assinatura ativa.",
+def download_track_multitrack(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "user":
+        raise HTTPException(status_code=403, detail="Download disponível apenas para contas de clientes.")
+    track = db.get(Track, track_id)
+    if not track or not track.is_published:
+        raise HTTPException(status_code=404, detail="Multitrack não encontrada no catálogo.")
+    if not track.stems_path:
+        raise HTTPException(status_code=404, detail="Arquivo ZIP indisponível para esta multitrack.")
+
+    uploads_root = (Path(__file__).resolve().parents[3] / "uploads" / "tracks").resolve()
+    track_dir = Path(track.stems_path).resolve().parent
+    try:
+        track_dir.relative_to(uploads_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Arquivo ZIP indisponível.")
+    archive_path = (track_dir / "source.zip").resolve()
+    if archive_path.parent != track_dir or not archive_path.is_file() or archive_path.stat().st_size == 0:
+        raise HTTPException(status_code=404, detail="O arquivo ZIP desta multitrack não está disponível.")
+
+    safe_title = "".join(char if char.isalnum() or char in " -_." else "_" for char in track.title).strip(" ._")
+    filename = (safe_title or f"multitrack-{track.id}") + ".zip"
+    return FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=filename,
     )
 
 
