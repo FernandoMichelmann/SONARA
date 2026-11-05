@@ -950,9 +950,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         });
         sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
-        document.getElementById("userAccountButton").textContent =
-            sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
-        document.getElementById("userAccountButton").hidden = false;
+        updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
         form.reset();
