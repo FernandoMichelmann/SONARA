@@ -29,3 +29,4 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    language: str = "pt"
