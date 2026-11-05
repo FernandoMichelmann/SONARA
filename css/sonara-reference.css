@@ -338,3 +338,21 @@ body:has(#page-home.active) .featured-nav button.active:hover{
  body:has(#page-home.active) .featured-nav{gap:3px!important}
  body:has(#page-home.active) .featured-nav button{padding:5px 4px!important;font-size:8px!important}
 }
+
+
+/* SONARA — plano único com acesso vitalício */
+#page-subscription .plan-grid{grid-template-columns:minmax(0,620px)!important;justify-content:center!important;gap:0!important}
+#page-subscription .lifetime-plan{position:relative;overflow:hidden;padding:clamp(25px,4vw,38px)!important;border:1px solid rgba(139,92,246,.62)!important;border-radius:18px!important;background:radial-gradient(ellipse at 100% 0%,rgba(124,58,237,.22),transparent 42%),linear-gradient(145deg,#171326 0%,#111622 62%,#101522 100%)!important;box-shadow:0 24px 70px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)}
+#page-subscription .lifetime-plan-topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:23px}
+#page-subscription .lifetime-plan-label{color:#d8c5ff;font-size:10px;font-weight:800;letter-spacing:.16em}
+#page-subscription .lifetime-plan-onetime{padding:7px 10px;border:1px solid rgba(54,201,143,.3);border-radius:999px;background:rgba(54,201,143,.09);color:#65e0ad;font-size:9px;font-weight:800;letter-spacing:.08em}
+#page-subscription .lifetime-plan h3{font-size:22px;margin-bottom:9px}
+#page-subscription .lifetime-plan .price{color:#fff;font-size:clamp(38px,6vw,50px);letter-spacing:-.055em;margin-bottom:12px}
+#page-subscription .lifetime-plan-description{max-width:480px;font-size:13px;line-height:1.8}
+#page-subscription .lifetime-plan ul{margin:25px 0 27px;padding-top:17px;border-top:1px solid rgba(255,255,255,.09)}
+#page-subscription .lifetime-plan li{display:flex;align-items:center;gap:10px;font-size:12px;margin:15px 0}
+#page-subscription .lifetime-plan li::before{content:"✓";display:grid;place-items:center;flex:0 0 19px;width:19px;height:19px;margin:0;border-radius:50%;background:rgba(54,201,143,.12);color:#65e0ad;font-size:11px;font-weight:800}
+#page-subscription .lifetime-plan button{min-height:48px;border:0;border-radius:9px;background:linear-gradient(105deg,#6d45d8,#3478f6);color:#fff;font-size:12px;font-weight:800;box-shadow:0 9px 25px rgba(76,91,220,.22)}
+#page-subscription .lifetime-plan button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+#page-subscription .lifetime-plan-footnote{margin-top:13px;text-align:center;color:#8f98ab;font-size:10px}
+@media(max-width:760px){#page-subscription .lifetime-plan{padding:23px 19px!important}#page-subscription .lifetime-plan-topline{align-items:flex-start}}
