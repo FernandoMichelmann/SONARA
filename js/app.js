@@ -93,10 +93,10 @@ let tracks = [];
         }
 
         function navigate(page) {
-            if (["favorites", "downloads", "playlists"].includes(page) && !sonaraCurrentUser) {
+            if (["favorites", "downloads", "playlists", "settings"].includes(page) && !sonaraCurrentUser) {
                 openAuthModal();
                 setAuthMode("register");
-                showToast("Crie sua conta para usar sua área pessoal.");
+                showToast("Entre na sua conta para acessar sua área pessoal.");
                 return;
             }
             if (page === "favorites") loadUserFavorites();
@@ -822,7 +822,7 @@ function applySonaraLanguage(language) {
     document.querySelectorAll("[data-i18n]").forEach(element => {
         const key = element.dataset.i18n;
         const value = SONARA_TRANSLATIONS[sonaraLanguage][key];
-        if (value) element.textContent = value;
+        if (value) {\n            const textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());\n            if (textNode) textNode.textContent = " " + value;\n            else element.textContent = value;\n        }
     });
     const selector = document.getElementById("accountLanguage");
     if (selector) selector.value = sonaraLanguage;
