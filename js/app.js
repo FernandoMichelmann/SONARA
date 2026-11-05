@@ -3,6 +3,7 @@ let tracks = [];
 
         // Conteúdo fictício exclusivamente para demonstração visual.
         let favorites = new Set();
+        let personalDownloadHistory = [];
         let currentTrack = null;
         let playing = false;
         let stemPlayers = [];
@@ -81,8 +82,9 @@ let tracks = [];
             renderFeaturedRails();
             renderCards("musicGrid", filtered);
             renderCards("exploreGrid", filtered);
-            renderCards("libraryGrid", tracks);
+            
             renderCards("favoritesGrid", tracks.filter(t => favorites.has(t.id)));
+            renderCards("downloadsGrid", getDownloadedTracks());
 
             document.getElementById("emptyState").style.display =
                 filtered.length ? "none" : "block";
@@ -91,6 +93,14 @@ let tracks = [];
         }
 
         function navigate(page) {
+            if (["favorites", "downloads"].includes(page) && !sonaraCurrentUser) {
+                openAuthModal();
+                setAuthMode("register");
+                showToast("Crie sua conta para usar sua área pessoal.");
+                return;
+            }
+            if (page === "favorites") loadUserFavorites();
+            if (page === "downloads") loadUserDownloads();
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.querySelectorAll("[data-page]").forEach(el => el.classList.remove("active"));
 
@@ -528,12 +538,23 @@ let tracks = [];
             }
         }
 
-        function toggleFavorite(id) {
-            if (favorites.has(id)) favorites.delete(id);
-            else favorites.add(id);
-
-            renderAll();
-            showToast(favorites.has(id) ? "Adicionada aos favoritos." : "Removida dos favoritos.");
+        async function toggleFavorite(id) {
+            if (!sonaraCurrentUser) {
+                openAuthModal();
+                setAuthMode("register");
+                showToast("Crie sua conta para salvar músicas nos favoritos.");
+                return;
+            }
+            const wasFavorite = favorites.has(Number(id));
+            try {
+                await sonaraApi("/account/favorites/" + id, { method: wasFavorite ? "DELETE" : "POST" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+                if (wasFavorite) favorites.delete(Number(id));
+                else favorites.add(Number(id));
+                renderAll();
+                showToast(wasFavorite ? "Removida dos favoritos." : "Adicionada aos favoritos.");
+                const empty = document.getElementById("favoritesEmpty");
+                if (empty) empty.hidden = favorites.size > 0;
+            } catch (error) { showToast(error.message || "Não foi possível atualizar seus favoritos."); }
         }
 
         function showToast(message) {
@@ -582,20 +603,70 @@ function updateDownloadAccessButton() {
     if (!button) return;
     const isLoggedIn = Boolean(sonaraCurrentUser);
     button.innerHTML = isLoggedIn
-        ? '<i data-lucide="lock-keyhole"></i> Assine para baixar'
-        : '<i data-lucide="user-plus"></i> Cadastre-se para baixar';
-    button.setAttribute("aria-label", isLoggedIn ? "Assine para baixar" : "Cadastre-se para baixar");
+        ? '<i data-lucide="download"></i> Registrar em Downloads'
+        : '<i data-lucide="user-plus"></i> Cadastre-se para salvar';
+    button.setAttribute("aria-label", isLoggedIn ? "Registrar solicitação na área de Downloads" : "Cadastre-se para salvar downloads");
+    updatePersonalNavigation();
     lucide.createIcons();
 }
-
-function handleDownloadAccess() {
+function updatePersonalNavigation() {
+    const isLoggedIn = Boolean(sonaraCurrentUser);
+    document.querySelectorAll('[data-page="favorites"], [data-page="downloads"]').forEach(button => {
+        button.hidden = !isLoggedIn;
+        button.setAttribute("aria-hidden", String(!isLoggedIn));
+    });
+}
+async function loadUserFavorites() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/favorites", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        favorites = new Set((result.items || []).map(item => Number(item.id)));
+        renderAll();
+        const empty = document.getElementById("favoritesEmpty");
+        if (empty) empty.hidden = favorites.size > 0;
+    } catch (error) { showToast(error.message || "Não foi possível carregar seus favoritos."); }
+}
+function getDownloadedTracks() {
+    const byId = new Map(tracks.map(track => [Number(track.id), track]));
+    const seen = new Set();
+    return personalDownloadHistory.filter(item => {
+        const id = Number(item.id);
+        if (seen.has(id) || !byId.has(id)) return false;
+        seen.add(id);
+        return true;
+    }).map(item => byId.get(Number(item.id)));
+}
+async function loadUserDownloads() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/downloads", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        personalDownloadHistory = result.items || [];
+        renderAll();
+        const note = document.getElementById("downloadsNotice");
+        if (note) note.textContent = personalDownloadHistory.length
+            ? "Aqui ficam as músicas solicitadas nesta conta. A disponibilidade do arquivo depende do seu plano."
+            : "Suas solicitações de download aparecerão aqui.";
+        const empty = document.getElementById("downloadsEmpty");
+        if (empty) empty.hidden = getDownloadedTracks().length > 0;
+    } catch (error) { showToast(error.message || "Não foi possível carregar seus downloads."); }
+}
+async function handleDownloadAccess() {
     if (!sonaraCurrentUser) {
         openAuthModal();
         setAuthMode("register");
         return;
     }
-    navigate("subscription");
-    showToast("O download será liberado após a ativação de um plano compatível.");
+    if (!currentTrack) return;
+    const button = document.getElementById("downloadMultitrack");
+    button.disabled = true;
+    try {
+        await sonaraApi("/account/downloads/" + currentTrack.id, { method: "POST" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        await loadUserDownloads();
+        closeMultitrack();
+        navigate("downloads");
+        showToast("Música adicionada à sua área pessoal de Downloads.");
+    } catch (error) { showToast(error.message || "Não foi possível registrar esta solicitação."); }
+    finally { button.disabled = false; }
 }
 
 function setAuthMode(mode) {
@@ -672,9 +743,14 @@ async function restoreSonaraUserSession() {
         avatar.hidden = false;
         avatar.setAttribute("aria-label", "Conta de " + sonaraCurrentUser.full_name);
         updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
     } catch {
         sessionStorage.removeItem(SONARA_USER_TOKEN);
         sonaraCurrentUser = null;
+        favorites = new Set();
+        personalDownloadHistory = [];
+        updatePersonalNavigation();
+        renderAll();
     }
 }
 
@@ -796,6 +872,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
         document.getElementById("userAccountButton").hidden = false;
         updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
         document.getElementById("userAuthForm").reset();
         closeAuthModal();
         showToast("Login realizado com sucesso!");
@@ -815,6 +892,9 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
 document.getElementById("authLogout").addEventListener("click", () => {
     sessionStorage.removeItem(SONARA_USER_TOKEN);
     sonaraCurrentUser = null;
+    favorites = new Set();
+    personalDownloadHistory = [];
+    renderAll();
     updateDownloadAccessButton();
     document.getElementById("userAccountButton").textContent = "S";
     document.getElementById("userAccountButton").hidden = true;
@@ -863,6 +943,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
             sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
         document.getElementById("userAccountButton").hidden = false;
         updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
         form.reset();
         navigate("subscription");
         showToast("Conta criada! Continue para o acesso vitalício SONARA.");
