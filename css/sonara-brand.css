@@ -242,3 +242,23 @@
  .topbar:has(#headerLoginButton:not([hidden])) .featured-nav{gap:1px!important}
  .topbar:has(#headerLoginButton:not([hidden])) .featured-nav button{padding:8px 8px!important;font-size:12px!important}
 }
+
+
+/* Correção definitiva: a navegação pública não deve distribuir os links pela largura disponível. */
+body:has(#page-home.active) .featured-nav{
+  flex:0 0 auto!important;
+  justify-content:flex-start!important;
+  gap:9px!important;
+  width:auto!important;
+}
+body:has(#page-home.active) .featured-nav button{
+  flex:0 0 auto!important;
+  font-size:12px!important;
+  padding:8px 9px!important;
+}
+body:has(#page-home.active) .topbar-left{gap:18px!important}
+@media(max-width:760px){
+  body:has(#page-home.active) .featured-nav{gap:5px!important}
+  body:has(#page-home.active) .featured-nav button{font-size:10px!important;padding:6px 6px!important}
+  body:has(#page-home.active) .topbar-left{gap:9px!important}
+}
