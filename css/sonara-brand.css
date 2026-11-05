@@ -186,3 +186,18 @@
 .sonara-welcome-top[hidden]{display:none!important}
 @media(max-width:1100px){.topbar-left .search{min-width:220px;width:auto}}
 @media(max-width:760px){.topbar-left .search{min-width:0;width:auto;flex:1 1 auto;height:42px;padding:0 12px}.topbar-left .search input{font-size:12px}.sonara-welcome-top{min-height:40px;gap:7px;padding-right:9px}.sonara-welcome-avatar{width:30px;height:30px;flex-basis:30px}.sonara-welcome-copy small{display:none}.sonara-welcome-copy strong{max-width:82px;font-size:11px}}
+
+
+/* Corrige a prioridade do atributo hidden nos controles de autenticação */
+#headerLoginButton[hidden],
+#headerRegisterButton[hidden],
+#userWelcomeButton[hidden] {
+    display: none !important;
+}
+#headerLoginButton:not([hidden]),
+#headerRegisterButton:not([hidden]) {
+    display: inline-flex;
+}
+#userWelcomeButton:not([hidden]) {
+    display: inline-flex;
+}
