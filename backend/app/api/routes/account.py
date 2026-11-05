@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, delete
+import json
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_user
-from app.models import Track, User, UserDownload, UserFavorite
+from app.models import Track, User, UserDownload, UserFavorite, UserPlaylist
 
 router = APIRouter(prefix="/account", tags=["Área pessoal"])
 
@@ -89,3 +90,49 @@ def register_download_request(track_id: int, db: Session = Depends(get_db), user
         "track": _track_payload(track),
         "download_available": False,
     }
+
+
+@router.get("/playlists")
+def list_playlists(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    rows = db.scalars(select(UserPlaylist).where(UserPlaylist.user_id == user.id).order_by(UserPlaylist.created_at.desc())).all()
+    return {"items": [{"id": row.id, "name": row.name, "track_ids": json.loads(row.track_ids_json or "[]"), "created_at": row.created_at} for row in rows]}
+
+
+@router.post("/playlists")
+def create_playlist(payload: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    name = str(payload.get("name", "")).strip()
+    if not name or len(name) > 80:
+        raise HTTPException(status_code=422, detail="Informe um nome de até 80 caracteres.")
+    playlist = UserPlaylist(user_id=user.id, name=name, track_ids_json="[]")
+    db.add(playlist)
+    db.commit()
+    db.refresh(playlist)
+    return {"id": playlist.id, "name": playlist.name, "track_ids": []}
+
+
+@router.post("/playlists/{playlist_id}/tracks/{track_id}")
+def add_track_to_playlist(playlist_id: int, track_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    playlist = db.scalar(select(UserPlaylist).where(UserPlaylist.id == playlist_id, UserPlaylist.user_id == user.id))
+    track = db.scalar(select(Track).where(Track.id == track_id, Track.is_published.is_(True)))
+    if not playlist or not track:
+        raise HTTPException(status_code=404, detail="Playlist ou música não encontrada.")
+    ids = json.loads(playlist.track_ids_json or "[]")
+    if track_id not in ids:
+        ids.append(track_id)
+        playlist.track_ids_json = json.dumps(ids)
+        db.commit()
+    return {"message": "Música adicionada à playlist.", "track_ids": ids}
+
+
+@router.delete("/playlists/{playlist_id}")
+def delete_playlist(playlist_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    playlist = db.scalar(select(UserPlaylist).where(UserPlaylist.id == playlist_id, UserPlaylist.user_id == user.id))
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist não encontrada.")
+    db.delete(playlist)
+    db.commit()
+    return {"message": "Playlist removida."}
