@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import Track, User, UserDownload, UserFavorite, UserPlaylist
+from app.security import hash_password, verify_password
 
 router = APIRouter(prefix="/account", tags=["Área pessoal"])
 
@@ -136,3 +137,36 @@ def delete_playlist(playlist_id: int, db: Session = Depends(get_db), user: User 
     db.delete(playlist)
     db.commit()
     return {"message": "Playlist removida."}
+
+@router.patch("/profile")
+def update_profile(payload: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    if "full_name" in payload:
+        full_name = str(payload.get("full_name") or "").strip()
+        if len(full_name) < 2 or len(full_name) > 120:
+            raise HTTPException(status_code=422, detail="O nome deve ter entre 2 e 120 caracteres.")
+        user.full_name = full_name
+    if "language" in payload:
+        language = str(payload.get("language") or "").strip().lower()
+        if language not in {"pt", "en"}:
+            raise HTTPException(status_code=422, detail="Idioma inválido. Escolha português ou inglês.")
+        user.language = language
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "full_name": user.full_name, "language": user.language}
+
+
+@router.post("/change-password")
+def change_password(payload: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_customer(user)
+    current_password = str(payload.get("current_password") or "")
+    new_password = str(payload.get("new_password") or "")
+    if not verify_password(current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="A senha atual está incorreta.")
+    if len(new_password) < 10 or len(new_password) > 128:
+        raise HTTPException(status_code=422, detail="A nova senha deve ter entre 10 e 128 caracteres.")
+    if verify_password(new_password, user.password_hash):
+        raise HTTPException(status_code=422, detail="A nova senha deve ser diferente da senha atual.")
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    return {"message": "Senha atualizada com sucesso."}
