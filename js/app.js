@@ -615,6 +615,25 @@ function updatePersonalNavigation() {
         button.hidden = !isLoggedIn;
         button.setAttribute("aria-hidden", String(!isLoggedIn));
     });
+    updateHeaderAuthState();
+}
+function updateHeaderAuthState() {
+    const loginButton = document.getElementById("headerLoginButton");
+    const registerButton = document.getElementById("headerRegisterButton");
+    const welcomeButton = document.getElementById("userWelcomeButton");
+    const welcomeName = document.getElementById("userWelcomeName");
+    const welcomeAvatar = document.getElementById("userWelcomeAvatar");
+    const loggedIn = Boolean(sonaraCurrentUser);
+    if (loginButton) loginButton.hidden = loggedIn;
+    if (registerButton) registerButton.hidden = loggedIn;
+    if (welcomeButton) welcomeButton.hidden = !loggedIn;
+    if (loggedIn) {
+        const fullName = (sonaraCurrentUser.full_name || "Músico").trim();
+        const firstName = fullName.split(/\\s+/)[0] || "Músico";
+        if (welcomeName) welcomeName.textContent = firstName;
+        if (welcomeAvatar) welcomeAvatar.textContent = firstName.charAt(0).toUpperCase();
+        if (welcomeButton) welcomeButton.setAttribute("aria-label", "Bem-vindo(a), " + fullName + ". Abrir minha conta");
+    }
 }
 async function loadUserFavorites() {
     if (!sonaraCurrentUser) return;
@@ -738,10 +757,7 @@ async function restoreSonaraUserSession() {
     if (!token) return;
     try {
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, token);
-        const avatar = document.getElementById("userAccountButton");
-        avatar.textContent = (sonaraCurrentUser.full_name || "S").trim().charAt(0).toUpperCase();
-        avatar.hidden = false;
-        avatar.setAttribute("aria-label", "Conta de " + sonaraCurrentUser.full_name);
+        updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
     } catch {
@@ -754,7 +770,6 @@ async function restoreSonaraUserSession() {
     }
 }
 
-document.getElementById("userAccountButton").addEventListener("click", openAuthModal);
 document.getElementById("authClose").addEventListener("click", closeAuthModal);
 document.getElementById("authOverlay").addEventListener("click", event => {
     if (event.target.id === "authOverlay") closeAuthModal();
@@ -868,9 +883,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
         });
         sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
-        document.getElementById("userAccountButton").textContent =
-            sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
-        document.getElementById("userAccountButton").hidden = false;
+        updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
         document.getElementById("userAuthForm").reset();
@@ -896,9 +909,7 @@ document.getElementById("authLogout").addEventListener("click", () => {
     personalDownloadHistory = [];
     renderAll();
     updateDownloadAccessButton();
-    document.getElementById("userAccountButton").textContent = "S";
-    document.getElementById("userAccountButton").hidden = true;
-    document.getElementById("userAccountButton").setAttribute("aria-label", "Entrar ou acessar minha conta");
+    updatePersonalNavigation();
     closeAuthModal();
     showToast("Você saiu da sua conta.");
 });
