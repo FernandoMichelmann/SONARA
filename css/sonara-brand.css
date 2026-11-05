@@ -166,3 +166,10 @@
 .favorite-toggle[aria-pressed="true"] {
     background: rgba(240, 106, 120, .08);
 }
+
+.sonara-footer,
+.nav-item[hidden],
+.featured-nav button[hidden],
+.mobile-nav button[hidden] {
+    display: none !important;
+}
