@@ -32,10 +32,8 @@
             <div class="nav-label">WORKSPACE</div>
             <button class="nav-item active" data-page="home"><i data-lucide="layout-dashboard"></i> Início</button>
             <button class="nav-item" data-page="explore"><i data-lucide="compass"></i> Explorar</button>
-            <button class="nav-item" data-page="library"><i data-lucide="library"></i> Biblioteca</button>
-            <button class="nav-item" data-page="favorites"><i data-lucide="heart"></i> Favoritos</button>
-            <button class="nav-item" data-page="playlists"><i data-lucide="list-music"></i> Playlists</button>
-            <button class="nav-item" data-page="downloads"><i data-lucide="download"></i> Downloads</button>
+            <button class="nav-item" data-page="favorites" hidden><i data-lucide="heart"></i> Favoritos</button>
+            <button class="nav-item" data-page="downloads" hidden><i data-lucide="download"></i> Downloads</button>
 
             <div class="nav-label">ACCOUNT</div>
             <button class="nav-item" data-page="subscription"><i data-lucide="credit-card"></i> Assinatura</button>
@@ -57,9 +55,7 @@
                     <nav class="featured-nav" aria-label="Navegação principal">
                         <button class="active" data-page="home">Início</button>
                         <button data-page="explore">Multitracks</button>
-                        <button data-page="library">Minha biblioteca</button>
-                        <button data-page="favorites">Favoritos</button>
-                        <button data-page="playlists">Playlists</button>
+                        <button data-page="favorites" hidden>Favoritos</button>
                     </nav>
                     <button class="icon-button mobile-menu" onclick="showToast('Navegue pela barra inferior.')">
                         <i data-lucide="menu"></i>
@@ -114,35 +110,19 @@
                     <div class="music-grid" id="exploreGrid"></div>
                 </section>
 
-                <section class="page" id="page-library">
-                    <div class="page-title">Minha biblioteca</div>
-                    <p class="page-subtitle">Sua coleção musical em um só lugar.</p>
-                    <div class="music-grid" id="libraryGrid"></div>
-                </section>
-
                 <section class="page" id="page-favorites">
                     <div class="page-title">Favoritos</div>
                     <p class="page-subtitle">As músicas que você marcou para guardar.</p>
                     <div class="music-grid" id="favoritesGrid"></div>
-                </section>
-
-                <section class="page" id="page-playlists">
-                    <div class="page-title">Playlists</div>
-                    <p class="page-subtitle">Organize seu repertório.</p>
-                    <button class="primary-button"
-                        onclick="showToast('Criação de playlists será implementada na próxima etapa.')">
-                        <i data-lucide="plus" size="15"></i> Nova playlist
-                    </button>
+                    <div class="empty-state" id="favoritesEmpty" hidden><i data-lucide="heart"></i><p>Você ainda não salvou músicas nos favoritos.</p></div>
                 </section>
 
                 <section class="page" id="page-downloads">
-                    <div class="page-title">Downloads</div>
-                    <p class="page-subtitle">Gerencie seus arquivos musicais.</p>
-                    <div class="upgrade-card" style="max-width:500px">
-                        <h4>Downloads protegidos</h4>
-                        <p>O sistema de downloads será conectado ao armazenamento privado e às permissões da assinatura.
-                        </p>
-                    </div>
+                    <div class="page-title">Meus Downloads</div>
+                    <p class="page-subtitle">Seu histórico pessoal de músicas solicitadas para download.</p>
+                    <p class="downloads-notice" id="downloadsNotice">Suas solicitações aparecerão aqui.</p>
+                    <div class="music-grid" id="downloadsGrid"></div>
+                    <div class="empty-state" id="downloadsEmpty" hidden><i data-lucide="download"></i><p>Você ainda não solicitou downloads.</p></div>
                 </section>
 
                 <section class="page" id="page-subscription">
@@ -293,8 +273,8 @@
         <nav class="mobile-nav">
             <button class="active" data-page="home"><i data-lucide="house"></i>Início</button>
             <button data-page="explore"><i data-lucide="compass"></i>Explorar</button>
-            <button data-page="library"><i data-lucide="library"></i>Biblioteca</button>
-            <button data-page="downloads"><i data-lucide="download"></i>Downloads</button>
+            <button data-page="favorites" hidden><i data-lucide="heart"></i>Favoritos</button>
+            <button data-page="downloads" hidden><i data-lucide="download"></i>Downloads</button>
             <button data-page="subscription"><i data-lucide="credit-card"></i>Acesso</button>
         </nav>
 
