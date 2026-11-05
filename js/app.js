@@ -776,9 +776,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
         } else if (error.status === 409) {
-            message.textContent = error.message.includes("CPF")
-                ? "Este CPF já está vinculado a uma conta."
-                : "Este e-mail já possui uma conta.";
+            message.textContent = "Este e-mail já possui uma conta.";
         } else {
             message.textContent = error.message;
         }
