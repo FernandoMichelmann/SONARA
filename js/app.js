@@ -610,7 +610,7 @@ function setAuthMode(mode) {
     document.querySelectorAll(".auth-name-field").forEach(field => field.hidden = !registering);
     document.getElementById("authPassword").autocomplete = registering ? "new-password" : "current-password";
     document.getElementById("authSubmit").innerHTML = registering
-        ? 'Criar minha conta <i data-lucide="arrow-right"></i>'
+        ? 'Criar conta e continuar <i data-lucide="arrow-right"></i>'
         : 'Entrar <i data-lucide="arrow-right"></i>';
     document.getElementById("authMessage").textContent = "";
     lucide.createIcons();
@@ -730,30 +730,6 @@ document.getElementById("authLogout").addEventListener("click", () => {
 });
 
 
-function normalizeCpf(value) {
-    return String(value || "").replace(/\D/g, "");
-}
-
-function isValidCpf(value) {
-    const cpf = normalizeCpf(value);
-    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-    const digit = length => {
-        let sum = 0;
-        for (let i = 0; i < length; i++) sum += Number(cpf[i]) * (length + 1 - i);
-        const remainder = (sum * 10) % 11;
-        return remainder === 10 ? 0 : remainder;
-    };
-    return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
-}
-
-const cpfField = document.getElementById("registerCpf");
-cpfField.addEventListener("input", () => {
-    const digits = normalizeCpf(cpfField.value).slice(0, 11);
-    cpfField.value = digits.replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-});
-
 document.getElementById("sonaraRegistrationForm").addEventListener("submit", async event => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -764,11 +740,6 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
     if (values.password !== values.password_confirm) {
         message.textContent = "As senhas não coincidem.";
         document.getElementById("registerPasswordConfirm").focus();
-        return;
-    }
-    if (!isValidCpf(values.cpf)) {
-        message.textContent = "Informe um CPF válido.";
-        cpfField.focus();
         return;
     }
     if (!values.full_name.trim().includes(" ")) {
@@ -786,9 +757,6 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
                 full_name: values.full_name.trim(),
                 email: values.email.trim(),
                 password: values.password,
-                address: values.address.trim(),
-                birth_date: values.birth_date,
-                cpf: normalizeCpf(values.cpf)
             })
         });
         const tokenResult = await sonaraApi("/auth/login", {
@@ -803,7 +771,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         updateDownloadAccessButton();
         form.reset();
         navigate("subscription");
-        showToast("Conta criada! Agora você pode conhecer os planos SONARA.");
+        showToast("Conta criada! Continue para o acesso vitalício SONARA.");
     } catch (error) {
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
