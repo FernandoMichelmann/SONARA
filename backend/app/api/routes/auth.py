@@ -107,10 +107,13 @@ def forgot_password(payload: dict, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     recent = db.scalar(select(PasswordResetToken).where(
         PasswordResetToken.user_id == user.id,
-        PasswordResetToken.created_at >= now - timedelta(seconds=60),
     ).order_by(PasswordResetToken.created_at.desc()))
     if recent:
-        return generic_response
+        recent_created_at = recent.created_at
+        if recent_created_at.tzinfo is None:
+            recent_created_at = recent_created_at.replace(tzinfo=timezone.utc)
+        if recent_created_at >= now - timedelta(seconds=60):
+            return generic_response
 
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
     raw_token = secrets.token_urlsafe(32)
