@@ -107,7 +107,7 @@
         <td><div class="cell-primary">${escapeHtml(user.full_name)}</div><div class="cell-secondary">${escapeHtml(user.email)}</div></td>
         <td>${escapeHtml(formatDate(user.created_at))}</td>
         <td><span class="status-pill ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Ativo" : "Desativado"}</span></td>
-        <td><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button></td>
+        <td><div class="user-actions"><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button><button class="table-action danger" data-user-delete="${user.id}" data-user-name="${escapeHtml(user.full_name)}">Excluir</button></div></td>
       </tr>`).join("");
     $("usersTable").innerHTML = rows || '<tr><td colspan="4" class="empty-cell">Nenhum usuário encontrado.</td></tr>';
   }
@@ -324,6 +324,23 @@
   });
 
   $("usersTable").addEventListener("click", async event => {
+    const deleteButton = event.target.closest("[data-user-delete]");
+    if (deleteButton) {
+      const userId = deleteButton.dataset.userDelete;
+      const userName = deleteButton.dataset.userName || "este usuário";
+      if (!window.confirm('Excluir permanentemente a conta de "' + userName + '"? Os dados da conta serão apagados e esta ação não pode ser desfeita.')) return;
+      deleteButton.disabled = true;
+      try {
+        await request("/developer/users/" + userId, { method: "DELETE" });
+        setGlobalMessage("Usuário e dados da conta excluídos permanentemente.", "success");
+        await loadUsers();
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível excluir o usuário.", "error");
+        deleteButton.disabled = false;
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-user-status]");
     if (!button) return;
     button.disabled = true;
