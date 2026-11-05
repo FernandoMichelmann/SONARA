@@ -102,6 +102,7 @@ let tracks = [];
             if (page === "favorites") loadUserFavorites();
             if (page === "downloads") loadUserDownloads();
             if (page === "playlists") loadUserPlaylists();
+            if (page === "settings") loadSettingsForm();
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.querySelectorAll("[data-page]").forEach(el => el.classList.remove("active"));
 
@@ -812,11 +813,78 @@ async function sonaraApi(path, options = {}, token = "") {
     return data;
 }
 
+
+let sonaraLanguage = "pt";
+const SONARA_TRANSLATIONS = {"pt":{"settingsTitle":"Configurações","settingsSubtitle":"Gerencie seu idioma e os dados da sua conta.","languageTitle":"Idioma","languageDescription":"Escolha o idioma da SONARA.","languageLabel":"Idioma da plataforma","languageHint":"A preferência será salva na sua conta.","profileTitle":"Nome de usuário","profileDescription":"Atualize como seu nome aparece na SONARA.","fullNameLabel":"Nome completo","saveName":"Salvar nome","passwordTitle":"Alterar senha","passwordDescription":"Confirme sua senha atual para criar uma nova.","currentPasswordLabel":"Senha atual","newPasswordLabel":"Nova senha","confirmPasswordLabel":"Confirmar nova senha","passwordHint":"Use pelo menos 10 caracteres.","changePassword":"Atualizar senha","navHome":"Início","navExplore":"Multitracks","navFavorites":"Favoritos","navDownloads":"Downloads","navSubscription":"Assinatura","navSettings":"Configurações","accountLabel":"CONTA"},"en":{"settingsTitle":"Settings","settingsSubtitle":"Manage your language and account details.","languageTitle":"Language","languageDescription":"Choose the SONARA language.","languageLabel":"Platform language","languageHint":"Your preference will be saved to your account.","profileTitle":"Username","profileDescription":"Update the name displayed across SONARA.","fullNameLabel":"Full name","saveName":"Save name","passwordTitle":"Change password","passwordDescription":"Confirm your current password to create a new one.","currentPasswordLabel":"Current password","newPasswordLabel":"New password","confirmPasswordLabel":"Confirm new password","passwordHint":"Use at least 10 characters.","changePassword":"Update password","navHome":"Home","navExplore":"Multitracks","navFavorites":"Favorites","navDownloads":"Downloads","navSubscription":"Subscription","navSettings":"Settings","accountLabel":"ACCOUNT"}};
+function applySonaraLanguage(language) {
+    sonaraLanguage = language === "en" ? "en" : "pt";
+    document.documentElement.lang = sonaraLanguage === "en" ? "en" : "pt-BR";
+    document.querySelectorAll("[data-i18n]").forEach(element => {
+        const key = element.dataset.i18n;
+        const value = SONARA_TRANSLATIONS[sonaraLanguage][key];
+        if (value) element.textContent = value;
+    });
+    const selector = document.getElementById("accountLanguage");
+    if (selector) selector.value = sonaraLanguage;
+}
+function loadSettingsForm() {
+    if (!sonaraCurrentUser) return;
+    const name = document.getElementById("settingsFullName");
+    if (name) name.value = sonaraCurrentUser.full_name || "";
+    applySonaraLanguage(sonaraCurrentUser.language || "pt");
+}
+document.getElementById("accountLanguage")?.addEventListener("change", async event => {
+    if (!sonaraCurrentUser) return;
+    const language = event.target.value;
+    try {
+        const updated = await sonaraApi("/account/profile", {method:"PATCH",body:JSON.stringify({language})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        sonaraCurrentUser.language = updated.language;
+        applySonaraLanguage(updated.language);
+        showToast(updated.language === "en" ? "Language preference saved." : "Idioma atualizado com sucesso.");
+    } catch(error) {
+        event.target.value = sonaraLanguage;
+        showToast(error.message || "Não foi possível salvar o idioma.");
+    }
+});
+document.getElementById("profileSettingsForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("settingsFullName");
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+        const updated = await sonaraApi("/account/profile", {method:"PATCH",body:JSON.stringify({full_name:input.value.trim()})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        sonaraCurrentUser.full_name = updated.full_name;
+        updateHeaderAuthState();
+        if (document.getElementById("authAccountName")) document.getElementById("authAccountName").textContent = updated.full_name;
+        showToast(sonaraLanguage === "en" ? "Name updated successfully." : "Nome atualizado com sucesso.");
+    } catch(error) { showToast(error.message || "Não foi possível atualizar o nome."); }
+    finally { button.disabled = false; }
+});
+document.getElementById("changePasswordForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const current = document.getElementById("settingsCurrentPassword");
+    const next = document.getElementById("settingsNewPassword");
+    const confirm = document.getElementById("settingsConfirmPassword");
+    if (next.value !== confirm.value) {
+        showToast(sonaraLanguage === "en" ? "The new passwords do not match." : "A confirmação da nova senha não confere.");
+        confirm.focus(); return;
+    }
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+        await sonaraApi("/account/change-password", {method:"POST",body:JSON.stringify({current_password:current.value,new_password:next.value})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        event.currentTarget.reset();
+        showToast(sonaraLanguage === "en" ? "Password updated successfully." : "Senha atualizada com sucesso.");
+    } catch(error) { showToast(error.message || "Não foi possível atualizar a senha."); }
+    finally { button.disabled = false; }
+});
+
 async function restoreSonaraUserSession() {
     const token = sessionStorage.getItem(SONARA_USER_TOKEN);
     if (!token) return;
     try {
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, token);
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
         updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
@@ -943,6 +1011,7 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
         });
         sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
         updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
@@ -1010,6 +1079,7 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         });
         sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
         updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
