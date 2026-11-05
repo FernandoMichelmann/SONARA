@@ -13,3 +13,14 @@
  .auth-brand img{width:170px}
  .dev-brand-logo{width:220px}
 }
+
+/* Remove o player fixo da interface sem interromper o motor de áudio interno. */
+.player {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .main {
+        padding-bottom: 80px !important;
+    }
+}
