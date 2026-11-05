@@ -93,7 +93,7 @@ let tracks = [];
         }
 
         function navigate(page) {
-            if (["favorites", "downloads"].includes(page) && !sonaraCurrentUser) {
+            if (["favorites", "downloads", "playlists"].includes(page) && !sonaraCurrentUser) {
                 openAuthModal();
                 setAuthMode("register");
                 showToast("Crie sua conta para usar sua área pessoal.");
@@ -101,6 +101,7 @@ let tracks = [];
             }
             if (page === "favorites") loadUserFavorites();
             if (page === "downloads") loadUserDownloads();
+            if (page === "playlists") loadUserPlaylists();
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.querySelectorAll("[data-page]").forEach(el => el.classList.remove("active"));
 
@@ -611,7 +612,7 @@ function updateDownloadAccessButton() {
 }
 function updatePersonalNavigation() {
     const isLoggedIn = Boolean(sonaraCurrentUser);
-    document.querySelectorAll('[data-page="favorites"], [data-page="downloads"]').forEach(button => {
+    document.querySelectorAll('[data-page="favorites"], [data-page="downloads"], [data-page="playlists"]').forEach(button => {
         button.hidden = !isLoggedIn;
         button.setAttribute("aria-hidden", String(!isLoggedIn));
     });
@@ -655,6 +656,37 @@ function getDownloadedTracks() {
         return true;
     }).map(item => byId.get(Number(item.id)));
 }
+let personalPlaylists = [];
+async function loadUserPlaylists() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/playlists", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        personalPlaylists = result.items || [];
+        renderUserPlaylists();
+    } catch (error) { showToast(error.message || "Não foi possível carregar suas playlists."); }
+}
+function renderUserPlaylists() {
+    const list = document.getElementById("playlistList");
+    const empty = document.getElementById("playlistsEmpty");
+    if (!list) return;
+    list.innerHTML = personalPlaylists.map(item => '<article class="playlist-card"><h3></h3><p>' + item.track_ids.length + ' música(s)</p><button type="button" data-delete-playlist="' + item.id + '">Excluir</button></article>').join("");
+    list.querySelectorAll(".playlist-card h3").forEach((node, index) => { node.textContent = personalPlaylists[index].name; });
+    if (empty) empty.hidden = personalPlaylists.length > 0;
+    list.querySelectorAll("[data-delete-playlist]").forEach(button => button.addEventListener("click", async () => {
+        await sonaraApi("/account/playlists/" + button.dataset.deletePlaylist, { method: "DELETE" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        await loadUserPlaylists();
+    }));
+}
+document.getElementById("playlistCreateForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("playlistNameInput");
+    try {
+        await sonaraApi("/account/playlists", { method: "POST", body: JSON.stringify({ name: input.value.trim() }) }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        input.value = "";
+        await loadUserPlaylists();
+        showToast("Playlist criada com sucesso.");
+    } catch (error) { showToast(error.message || "Não foi possível criar a playlist."); }
+});
 async function loadUserDownloads() {
     if (!sonaraCurrentUser) return;
     try {
