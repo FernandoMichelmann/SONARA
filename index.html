@@ -189,16 +189,13 @@
                 </section>
 
                 <section class="page" id="page-settings">
-                    <div class="page-title">Configurações</div>
-                    <p class="page-subtitle">Preferências da plataforma.</p>
-                    <div class="plan-card" style="max-width:500px">
-                        <h3>SONARA — Midnight Audio</h3>
-                        <p>Versão inicial de desenvolvimento.</p>
-                        <p style="margin-top:12px">Idioma: Português (Brasil)</p>
-                        <p>Moeda: BRL</p>
-                        <p>Tema: Midnight</p>
-                    </div>
-                </section>
+<div class="page-title" data-i18n="settingsTitle">Configurações</div>
+<p class="page-subtitle" data-i18n="settingsSubtitle">Gerencie seu idioma e os dados da sua conta.</p>
+<div class="settings-grid">
+<section class="settings-card"><div class="settings-card-heading"><i data-lucide="languages"></i><div><h3 data-i18n="languageTitle">Idioma</h3><p data-i18n="languageDescription">Escolha o idioma da SONARA.</p></div></div><label for="accountLanguage" data-i18n="languageLabel">Idioma da plataforma</label><select id="accountLanguage" class="settings-input"><option value="pt">Português (Brasil)</option><option value="en">English</option></select><p class="settings-hint" data-i18n="languageHint">A preferência será salva na sua conta.</p></section>
+<section class="settings-card"><div class="settings-card-heading"><i data-lucide="user-round"></i><div><h3 data-i18n="profileTitle">Nome de usuário</h3><p data-i18n="profileDescription">Atualize como seu nome aparece na SONARA.</p></div></div><form id="profileSettingsForm"><label for="settingsFullName" data-i18n="fullNameLabel">Nome completo</label><input id="settingsFullName" class="settings-input" type="text" minlength="2" maxlength="120" autocomplete="name" required><button class="settings-primary-button" type="submit" data-i18n="saveName">Salvar nome</button></form></section>
+<section class="settings-card"><div class="settings-card-heading"><i data-lucide="lock-keyhole"></i><div><h3 data-i18n="passwordTitle">Alterar senha</h3><p data-i18n="passwordDescription">Confirme sua senha atual para criar uma nova.</p></div></div><form id="changePasswordForm"><label for="settingsCurrentPassword" data-i18n="currentPasswordLabel">Senha atual</label><input id="settingsCurrentPassword" class="settings-input" type="password" maxlength="128" autocomplete="current-password" required><label for="settingsNewPassword" data-i18n="newPasswordLabel">Nova senha</label><input id="settingsNewPassword" class="settings-input" type="password" minlength="10" maxlength="128" autocomplete="new-password" required><label for="settingsConfirmPassword" data-i18n="confirmPasswordLabel">Confirmar nova senha</label><input id="settingsConfirmPassword" class="settings-input" type="password" minlength="10" maxlength="128" autocomplete="new-password" required><p class="settings-hint" data-i18n="passwordHint">Use pelo menos 10 caracteres.</p><button class="settings-primary-button" type="submit" data-i18n="changePassword">Atualizar senha</button></form></section>
+</div></section>
 
             </div>
 
