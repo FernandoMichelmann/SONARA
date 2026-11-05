@@ -201,3 +201,17 @@
 #userWelcomeButton:not([hidden]) {
     display: inline-flex;
 }
+
+/* Navegação compacta e busca com maior destaque */
+.topbar-left{gap:clamp(12px,1.35vw,22px);min-width:0;flex:1 1 auto}
+.featured-nav{display:flex;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap}
+.featured-nav button{padding:10px 12px}
+.topbar-left .search{flex:1 1 640px;width:auto;max-width:none;min-width:300px;margin-left:8px;height:52px}
+@media(min-width:1200px){.topbar-left .search{min-width:420px}}
+.playlist-create-form{display:flex;gap:12px;max-width:620px;margin:24px 0}
+.playlist-create-form input{flex:1;min-width:0;padding:14px 16px;border:1px solid rgba(157,171,198,.25);border-radius:12px;background:#171923;color:#fff}
+.playlist-create-form button{display:flex;align-items:center;gap:8px;padding:0 18px;border:0;border-radius:12px;background:linear-gradient(120deg,#7847e8,#bd3c91);color:white;font-weight:700;cursor:pointer}
+.playlist-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.playlist-card{padding:20px;border:1px solid rgba(157,171,198,.18);border-radius:16px;background:linear-gradient(145deg,#1b1d2a,#12141d)}
+.playlist-card h3{margin:0 0 8px;color:#f7f8fc}.playlist-card p{margin:0;color:#9ba7bc;font-size:13px}
+@media(max-width:760px){.topbar-left{gap:8px}.featured-nav{gap:2px}.featured-nav button{padding:8px 7px;font-size:11px}.topbar-left .search{min-width:0;margin-left:0;height:42px}}
