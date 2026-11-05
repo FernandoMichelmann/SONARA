@@ -629,7 +629,7 @@ function updateHeaderAuthState() {
     if (welcomeButton) welcomeButton.hidden = !loggedIn;
     if (loggedIn) {
         const fullName = (sonaraCurrentUser.full_name || "Músico").trim();
-        const firstName = fullName.split(/\\s+/)[0] || "Músico";
+        const firstName = fullName.split(/\s+/)[0] || "Músico";
         if (welcomeName) welcomeName.textContent = firstName;
         if (welcomeAvatar) welcomeAvatar.textContent = firstName.charAt(0).toUpperCase();
         if (welcomeButton) welcomeButton.setAttribute("aria-label", "Bem-vindo(a), " + fullName + ". Abrir minha conta");
