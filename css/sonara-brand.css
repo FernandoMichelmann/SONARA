@@ -215,3 +215,21 @@
 .playlist-card{padding:20px;border:1px solid rgba(157,171,198,.18);border-radius:16px;background:linear-gradient(145deg,#1b1d2a,#12141d)}
 .playlist-card h3{margin:0 0 8px;color:#f7f8fc}.playlist-card p{margin:0;color:#9ba7bc;font-size:13px}
 @media(max-width:760px){.topbar-left{gap:8px}.featured-nav{gap:2px}.featured-nav button{padding:8px 7px;font-size:11px}.topbar-left .search{min-width:0;margin-left:0;height:42px}}
+
+
+/* Ajuste fino do cabeçalho: evita sobreposição da busca com Playlists após login. */
+.topbar-left{gap:10px!important}
+.featured-nav{gap:5px!important}
+.featured-nav button{padding:8px 9px!important}
+.topbar-left .search{margin-left:4px;min-width:260px}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){height:auto!important;min-height:112px;padding-top:12px!important;padding-bottom:12px!important}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left{display:flex;flex-wrap:wrap;align-content:center;row-gap:9px}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .featured-nav{order:1;flex:0 0 100%;width:100%}
+.topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{order:2;flex:1 1 100%;width:100%;max-width:none;min-width:0;margin:0}
+@media(max-width:760px){
+ .topbar-left{gap:7px!important}
+ .featured-nav{gap:3px!important}
+ .featured-nav button{padding:7px 7px!important;font-size:10px}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])){min-height:104px}
+ .topbar:has(.featured-nav [data-page="playlists"]:not([hidden])) .topbar-left .search{height:40px}
+}
