@@ -16,7 +16,7 @@
         <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/visuvate.css?v=2">
     <link rel="stylesheet" href="css/sonara-redesign.css?v=2">
-    <link rel="stylesheet" href="css/sonara-reference.css?v=1">
+    <link rel="stylesheet" href="css/sonara-reference.css?v=2">
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
 </head>
@@ -45,7 +45,7 @@
                 <div class="upgrade-card">
                     <h4>Desbloqueie seu som.</h4>
                     <p>Acesse a experiência completa de multitracks com a SONARA.</p>
-                    <button onclick="navigate('subscription')">Conhecer planos</button>
+                    <button onclick="navigate('subscription')">Ver acesso vitalício</button>
                 </div>
             </div>
         </aside>
@@ -146,41 +146,23 @@
                 </section>
 
                 <section class="page" id="page-subscription">
-                    <div class="page-title">Planos SONARA</div>
-                    <p class="page-subtitle">Encontre o plano ideal para sua jornada musical.</p>
+                    <div class="page-title">Acesso vitalício SONARA</div>
+                    <p class="page-subtitle">Um único pagamento. Sua experiência musical sem mensalidades ou renovações.</p>
                     <div class="plan-grid">
-                        <div class="plan-card">
-                            <h3>Individual</h3>
-                            <div class="price">A definir</div>
-                            <p>Para músicos que desejam organizar sua experiência.</p>
+                        <div class="plan-card featured lifetime-plan">
+                            <div class="lifetime-plan-topline"><span class="lifetime-plan-label">ACESSO VITALÍCIO</span><span class="lifetime-plan-onetime">PAGAMENTO ÚNICO</span></div>
+                            <h3>SONARA Vitalício</h3>
+                            <div class="price">R$ 49,90</div>
+                            <p class="lifetime-plan-description">Pague uma única vez e tenha acesso vitalício à plataforma SONARA, com todos os recursos incluídos neste plano.</p>
                             <ul>
+                                <li>Acesso vitalício à plataforma</li>
+                                <li>Todas as multitracks disponíveis</li>
                                 <li>Biblioteca pessoal</li>
-                                <li>Catálogo musical</li>
+                                <li>Catálogo musical completo</li>
                                 <li>Favoritos</li>
                             </ul>
-                            <button onclick="showToast('Planos comerciais ainda não configurados.')">Em breve</button>
-                        </div>
-                        <div class="plan-card featured">
-                            <h3>Professional</h3>
-                            <div class="price">A definir</div>
-                            <p>Para músicos e profissionais de palco.</p>
-                            <ul>
-                                <li>Recursos multitrack</li>
-                                <li>Downloads autorizados</li>
-                                <li>Biblioteca avançada</li>
-                            </ul>
-                            <button onclick="showToast('Planos comerciais ainda não configurados.')">Em breve</button>
-                        </div>
-                        <div class="plan-card">
-                            <h3>Church & Team</h3>
-                            <div class="price">A definir</div>
-                            <p>Para igrejas e equipes musicais.</p>
-                            <ul>
-                                <li>Recursos para equipes</li>
-                                <li>Organização de repertório</li>
-                                <li>Gestão de integrantes</li>
-                            </ul>
-                            <button onclick="showToast('Planos comerciais ainda não configurados.')">Em breve</button>
+                            <button type="button" onclick="showToast('A compra online do acesso vitalício será liberada assim que a integração de pagamento estiver disponível.')">Adquirir acesso vitalício</button>
+                            <p class="lifetime-plan-footnote">Pagamento único de R$ 49,90 · Sem mensalidade · Sem renovação automática</p>
                         </div>
                     </div>
                 </section>
@@ -206,7 +188,7 @@
                                 <div class="register-field"><label for="registerPasswordConfirm">Repetir senha</label><input id="registerPasswordConfirm" name="password_confirm" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="10" maxlength="128" required></div>
                             </div>
                             <p class="register-message" id="registerMessage" role="alert" aria-live="polite"></p>
-                            <div class="register-next-step"><div><i data-lucide="shield-check"></i><span>Seus dados são enviados com conexão segura. Os planos atuais permanecem como estão e o pagamento será integrado em uma próxima etapa.</span></div><button class="register-submit" id="registerSubmit" type="submit">Criar minha conta <i data-lucide="arrow-right"></i></button></div>
+                            <div class="register-next-step"><div><i data-lucide="shield-check"></i><span>Seus dados são enviados com conexão segura. O pagamento do acesso vitalício será integrado em uma próxima etapa.</span></div><button class="register-submit" id="registerSubmit" type="submit">Criar minha conta <i data-lucide="arrow-right"></i></button></div>
                         </form>
                         <p class="register-existing">Já tem uma conta? <button type="button" onclick="navigate('home');openAuthModal()">Fazer login</button></p>
                     </div>
@@ -263,7 +245,7 @@
             <button data-page="explore"><i data-lucide="compass"></i>Explorar</button>
             <button data-page="library"><i data-lucide="library"></i>Biblioteca</button>
             <button data-page="downloads"><i data-lucide="download"></i>Downloads</button>
-            <button data-page="subscription"><i data-lucide="credit-card"></i>Planos</button>
+            <button data-page="subscription"><i data-lucide="credit-card"></i>Acesso</button>
         </nav>
 
         <section class="multitrack-overlay" id="multitrackOverlay" aria-hidden="true">
