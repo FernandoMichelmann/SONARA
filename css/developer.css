@@ -84,7 +84,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .status-pill.active,.status-pill.published,.status-pill.received{color:var(--green);border-color:#36c98f30;background:#36c98f0b}
 .status-pill.inactive,.status-pill.unpublished{color:var(--muted)}
 .status-pill.pending{color:var(--amber);border-color:#f5bf6730;background:#f5bf670b}
-.table-action{border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:9px;padding:7px 9px}
+.user-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.table-action{border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:9px;padding:7px 9px}
 .table-action:hover{border-color:var(--blue);color:var(--white)}
 .table-action.danger{border-color:rgba(255,123,134,.35);color:var(--danger)}.table-action.danger:hover{border-color:var(--danger);background:rgba(255,123,134,.08);color:var(--danger)}
 .table-foot{margin-top:10px;color:var(--muted);font-size:10px}
