@@ -614,6 +614,7 @@ function setAuthMode(mode) {
         ? 'Criar conta e continuar <i data-lucide="arrow-right"></i>'
         : 'Entrar <i data-lucide="arrow-right"></i>';
     document.getElementById("authMessage").textContent = "";
+    document.getElementById("authMessage").style.color = "";
     lucide.createIcons();
 }
 
