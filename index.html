@@ -66,10 +66,14 @@
                         <span style="font-size:9px;white-space:nowrap">⌘ K</span>
                     </div>
                 </div>
-                <div class="top-right">
-                    <button class="sonara-upgrade-top" id="headerLoginButton" type="button" onclick="openAuthModal()">Login</button>
-                    <button class="sonara-register-top" id="headerRegisterButton" type="button" onclick="openRegistrationPage()">Cadastre-se</button>
-                    <button class="avatar account-avatar" id="userAccountButton" type="button" aria-label="Acessar minha conta" hidden>S</button>
+                <div class="top-right sonara-header-account">
+                    <button class="sonara-upgrade-top" id="headerLoginButton" type="button" onclick="openAuthModal()">Entrar</button>
+                    <button class="sonara-register-top" id="headerRegisterButton" type="button" onclick="openRegistrationPage()">Criar conta</button>
+                    <button class="sonara-welcome-top" id="userWelcomeButton" type="button" onclick="openAuthModal()" aria-label="Abrir minha conta" hidden>
+                        <span class="sonara-welcome-avatar" id="userWelcomeAvatar">S</span>
+                        <span class="sonara-welcome-copy"><small>Bem-vindo(a),</small><strong id="userWelcomeName">Músico</strong></span>
+                        <i data-lucide="chevron-down" aria-hidden="true"></i>
+                    </button>
                 </div>
             </header>
 
