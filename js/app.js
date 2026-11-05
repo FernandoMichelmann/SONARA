@@ -822,7 +822,8 @@ function applySonaraLanguage(language) {
     document.querySelectorAll("[data-i18n]").forEach(element => {
         const key = element.dataset.i18n;
         const value = SONARA_TRANSLATIONS[sonaraLanguage][key];
-        if (value) {\n            const textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());\n            if (textNode) textNode.textContent = " " + value;\n            else element.textContent = value;\n        }
+        if (value) {
+            const textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());\n            if (textNode) textNode.textContent = " " + value;\n            else element.textContent = value;\n        }
     });
     const selector = document.getElementById("accountLanguage");
     if (selector) selector.value = sonaraLanguage;
