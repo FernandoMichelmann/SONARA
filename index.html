@@ -281,7 +281,23 @@
                     <label for="authPassword">Senha</label>
                     <input class="auth-input" id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Mínimo de 10 caracteres" minlength="10" required>
                     <button class="auth-submit" id="authSubmit" type="submit">Entrar <i data-lucide="arrow-right"></i></button>
+                    <button class="auth-text-link" id="forgotPasswordLink" type="button">Esqueceu sua senha?</button>
                     <p class="auth-message" id="authMessage" role="alert" aria-live="polite"></p>
+                </form>
+                <form id="forgotPasswordForm" hidden>
+                    <label for="forgotEmail">E-mail cadastrado</label>
+                    <input class="auth-input" id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="254" required>
+                    <button class="auth-submit" id="forgotSubmit" type="submit">Enviar link de recuperação <i data-lucide="mail"></i></button>
+                    <button class="auth-text-link" id="backToLoginFromForgot" type="button">Voltar para o login</button>
+                    <p class="auth-message" id="forgotMessage" role="alert" aria-live="polite"></p>
+                </form>
+                <form id="resetPasswordForm" hidden>
+                    <label for="resetNewPassword">Nova senha</label>
+                    <input class="auth-input" id="resetNewPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="Mínimo de 10 caracteres" required>
+                    <label for="resetConfirmPassword">Repita a nova senha</label>
+                    <input class="auth-input" id="resetConfirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="Digite novamente" required>
+                    <button class="auth-submit" id="resetSubmit" type="submit">Salvar nova senha <i data-lucide="check"></i></button>
+                    <p class="auth-message" id="resetMessage" role="alert" aria-live="polite"></p>
                 </form>
                 <div class="auth-account" id="authAccount" hidden>
                     <div class="auth-account-icon"><i data-lucide="user-round-check"></i></div>
