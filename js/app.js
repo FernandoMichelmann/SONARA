@@ -634,11 +634,14 @@ function updateDownloadAccessButton() {
     const button = document.getElementById("downloadMultitrack");
     if (!button) return;
     const isLoggedIn = Boolean(sonaraCurrentUser);
-    button.innerHTML = isLoggedIn
+    const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+    button.innerHTML = hasAccess
         ? '<i data-lucide="download"></i> Baixar Multitrack'
-        : '<i data-lucide="user-plus"></i> Cadastre-se para salvar';
-    button.setAttribute("aria-label", isLoggedIn ? "Baixar arquivo ZIP da multitrack" : "Cadastre-se para baixar multitracks");
+        : '<i data-lucide="credit-card"></i> Adquirir acesso';
+    button.setAttribute("aria-label", hasAccess ? "Baixar arquivo ZIP da multitrack" : "Adquirir acesso vitalício para baixar multitracks");
+    if (!isLoggedIn) button.innerHTML = '<i data-lucide="user-plus"></i> Entre para baixar';
     updatePersonalNavigation();
+    updateLifetimePlanUI();
     lucide.createIcons();
 }
 function updatePersonalNavigation() {
@@ -736,6 +739,11 @@ async function handleDownloadAccess() {
     if (!sonaraCurrentUser) {
         openAuthModal();
         setAuthMode("register");
+        return;
+    }
+    if (!sonaraCurrentUser?.lifetime_access) {
+        navigate("subscription");
+        showToast("Adquira o acesso vitalício para baixar as multitracks.");
         return;
     }
     if (!currentTrack) return;
@@ -844,6 +852,64 @@ async function sonaraApi(path, options = {}, token = "") {
 }
 
 
+function updateLifetimePlanUI() {
+    const button = document.getElementById("lifetimeCheckoutButton");
+    const status = document.getElementById("lifetimeAccessStatus");
+    const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+    if (button) {
+        button.disabled = hasAccess;
+        button.textContent = hasAccess ? "Acesso vitalício ativo" : "Adquirir acesso vitalício";
+    }
+    if (status) {
+        status.textContent = hasAccess
+            ? "Sua conta já possui acesso vitalício. Obrigado por fazer parte da SONARA!"
+            : (sonaraCurrentUser ? "Finalize o pagamento para liberar os downloads de todas as multitracks." : "Entre ou crie sua conta para concluir a compra.");
+    }
+}
+
+async function startLifetimeCheckout() {
+    if (!sonaraCurrentUser) {
+        openAuthModal();
+        showToast("Entre ou crie sua conta para adquirir o acesso vitalício.");
+        return;
+    }
+    if (sonaraCurrentUser.lifetime_access) {
+        showToast("Sua conta já possui acesso vitalício.");
+        return;
+    }
+    const button = document.getElementById("lifetimeCheckoutButton");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Preparando pagamento...";
+    }
+    try {
+        const result = await sonaraApi("/payments/checkout", {
+            method: "POST",
+            body: JSON.stringify({})
+        }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        if (result.already_active) {
+            sonaraCurrentUser.lifetime_access = true;
+            updateLifetimePlanUI();
+            showToast(result.message || "Seu acesso vitalício já está ativo.");
+            return;
+        }
+        if (!result.checkout_url || !result.checkout_url.startsWith("https://")) {
+            throw new Error("A InfinitePay não retornou um link de pagamento válido.");
+        }
+        window.location.assign(result.checkout_url);
+    } catch (error) {
+        showToast(error.message || "Não foi possível iniciar o pagamento.");
+        updateLifetimePlanUI();
+    } finally {
+        if (button && !sonaraCurrentUser?.lifetime_access) {
+            button.disabled = false;
+            button.textContent = "Adquirir acesso vitalício";
+        }
+    }
+}
+
+
+
 let sonaraLanguage = "pt";
 const SONARA_TEXT_TRANSLATIONS = {
 "SONARA — Plataforma premium de multitracks para músicos e equipes de louvor.":"SONARA — Premium multitrack platform for musicians and worship teams.",
@@ -852,8 +918,8 @@ const SONARA_TEXT_TRANSLATIONS = {
 "Entrar":"Log in","Criar conta":"Create account","Bem-vindo(a),":"Welcome,","Lançamentos":"New releases","Ver catálogo":"View catalog","Mais baixados":"Most downloaded","Explorar tudo":"Explore all","Mais para descobrir":"More to discover","Nenhuma música encontrada.":"No tracks found.",
 "Encontre a música ideal para sua próxima apresentação.":"Find the perfect track for your next performance.","Catálogo musical":"Music catalog","CARREGANDO CATÁLOGO":"LOADING CATALOG","As músicas que você marcou para guardar.":"Tracks you saved for later.","Meus Downloads":"My Downloads","Sua biblioteca de multitracks baixadas.":"Your downloaded multitrack library.","Suas solicitações aparecerão aqui.":"Your requests will appear here.","Você ainda não salvou músicas nos favoritos.":"You haven't saved any favorites yet.","Você ainda não baixou nenhuma multitrack.":"You haven't downloaded any multitrack yet.",
 "Minhas Playlists":"My Playlists","Organize suas multitracks favoritas em coleções pessoais.":"Organize your favorite multitracks into personal collections.","Nome da nova playlist":"New playlist name","Criar playlist":"Create playlist","Você ainda não criou playlists. Crie uma para organizar suas músicas.":"You haven't created any playlists yet. Create one to organize your tracks.",
-"Acesso vitalício SONARA":"SONARA Lifetime Access","Um único pagamento. Sua experiência musical sem mensalidades ou renovações.":"One payment. Your music experience with no monthly fees or renewals.","ACESSO VITALÍCIO":"LIFETIME ACCESS","PAGAMENTO ÚNICO":"ONE-TIME PAYMENT","SONARA Vitalício":"SONARA Lifetime","Pague uma única vez e tenha acesso vitalício à plataforma SONARA, com todos os recursos incluídos neste plano.":"Pay once and get lifetime access to the SONARA platform, with all features included in this plan.","Acesso vitalício à plataforma":"Lifetime platform access","Todas as multitracks disponíveis":"All available multitracks","Biblioteca pessoal":"Personal library","Catálogo musical completo":"Full music catalog","Favoritos":"Favorites","Adquirir acesso vitalício":"Get lifetime access","Pagamento único de R$ 49,90 · Sem mensalidade · Sem renovação automática":"One-time payment of BRL 49.90 · No monthly fee · No automatic renewal",
-"Voltar para a SONARA":"Back to SONARA","CRIE SUA CONTA":"CREATE YOUR ACCOUNT","Seu som começa aqui.":"Your sound starts here.","Preencha os dados abaixo. Depois de criar sua conta, você irá direto para o acesso vitalício.":"Fill in the details below. After creating your account, you'll go straight to lifetime access.","Dados pessoais":"Personal details","Só precisamos do essencial para criar seu acesso.":"We only need the essentials to set up your access.","Nome completo":"Full name","Digite seu nome completo":"Enter your full name","E-mail":"Email","Senha":"Password","Mínimo de 10 caracteres":"At least 10 characters","Repetir senha":"Confirm password","Digite a senha novamente":"Enter your password again","Seus dados são enviados com conexão segura. O pagamento do acesso vitalício será integrado em uma próxima etapa.":"Your data is sent over a secure connection. Lifetime access payment will be integrated in a later step.","Criar conta e continuar":"Create account and continue","Já tem uma conta?":"Already have an account?","Fazer login":"Log in",
+"Acesso vitalício SONARA":"SONARA Lifetime Access","Um único pagamento. Sua experiência musical sem mensalidades ou renovações.":"One payment. Your music experience with no monthly fees or renewals.","ACESSO VITALÍCIO":"LIFETIME ACCESS","PAGAMENTO ÚNICO":"ONE-TIME PAYMENT","SONARA Vitalício":"SONARA Lifetime","Pague uma única vez e tenha acesso vitalício à plataforma SONARA, com todos os recursos incluídos neste plano.":"Pay once and get lifetime access to the SONARA platform, with all features included in this plan.","Acesso vitalício à plataforma":"Lifetime platform access","Todas as multitracks disponíveis":"All available multitracks","Biblioteca pessoal":"Personal library","Catálogo musical completo":"Full music catalog","Favoritos":"Favorites","Adquirir acesso vitalício":"Get lifetime access","Acesso vitalício ativo":"Lifetime access active","Entre para baixar":"Log in to download","Adquirir acesso":"Get access","Pagamento único de R$ 49,90 · Sem mensalidade · Sem renovação automática":"One-time payment of BRL 49.90 · No monthly fee · No automatic renewal",
+"Voltar para a SONARA":"Back to SONARA","CRIE SUA CONTA":"CREATE YOUR ACCOUNT","Seu som começa aqui.":"Your sound starts here.","Preencha os dados abaixo. Depois de criar sua conta, você irá direto para o acesso vitalício.":"Fill in the details below. After creating your account, you'll go straight to lifetime access.","Dados pessoais":"Personal details","Só precisamos do essencial para criar seu acesso.":"We only need the essentials to set up your access.","Nome completo":"Full name","Digite seu nome completo":"Enter your full name","E-mail":"Email","Senha":"Password","Mínimo de 10 caracteres":"At least 10 characters","Repetir senha":"Confirm password","Digite a senha novamente":"Enter your password again","Seus dados são enviados com conexão segura. Depois do cadastro, você poderá concluir a compra do acesso vitalício.":"Your data is sent securely. After registration, you can complete your lifetime access purchase.","Criar conta e continuar":"Create account and continue","Já tem uma conta?":"Already have an account?","Fazer login":"Log in",
 "Uma plataforma criada para facilitar a preparação musical de músicos e equipes.":"A platform designed to make musical preparation easier for musicians and teams.","Ajuda e suporte":"Help & Support","Perguntas frequentes":"Frequently Asked Questions","Falar com o suporte":"Contact support","Problemas de acesso":"Access issues","Como faço para criar uma conta?":"How do I create an account?","Clique em “Cadastre-se”, informe seus dados e conclua o cadastro. Use o mesmo e-mail para entrar na plataforma.":"Click “Sign up”, enter your details, and complete registration. Use the same email to log in to the platform.","Esqueci minha senha. Como recuperar?":"I forgot my password. How can I reset it?","Na tela de login, selecione “Esqueceu sua senha?”. Enviaremos um link de recuperação para o e-mail cadastrado.":"On the login screen, select “Forgot your password?”. We'll send a reset link to your registered email address.","O que é uma multitrack?":"What is a multitrack?","É uma música dividida em faixas individuais, como bateria, baixo, guitarras, teclas e vozes, para controlar cada instrumento durante a reprodução.":"A song divided into individual stems, such as drums, bass, guitars, keys, and vocals, so you can control each instrument during playback.","Posso ouvir instrumentos separadamente?":"Can I listen to instruments separately?","Quando a multitrack estiver disponível, abra a música e use os controles de reprodução e SOLO para escolher as faixas que deseja ouvir.":"When a multitrack is available, open the song and use the playback and SOLO controls to choose which stems to hear.","Como funciona o acesso vitalício?":"How does lifetime access work?","Consulte a página “Assinatura” para ver as condições do plano. Se tiver dúvidas sobre disponibilidade ou aquisição, fale com nosso suporte antes de realizar qualquer pagamento.":"Visit the “Subscription” page to review the plan terms. If you have questions about availability or purchase, contact support before making any payment.","Preciso de ajuda com minha conta ou meus arquivos?":"Need help with your account or files?","Envie uma mensagem para sonaramultitracks@gmail.com, descrevendo o problema. Não envie sua senha.":"Email sonaramultitracks@gmail.com and describe the issue. Do not send your password.","Todos os direitos reservados.":"All rights reserved.","Selecione uma música":"Select a track","Faixa anterior em breve.":"Previous track coming soon.","Próxima faixa em breve.":"Next track coming soon.","Volume":"Volume","Fechar":"Close","Tocar seleção":"Play selection","Pausar seleção":"Pause selection","Baixar Multitrack ZIP":"Download Multitrack ZIP","Marque SOLO nos instrumentos que deseja ouvir. Sem nenhum SOLO ativo, todos os instrumentos serão reproduzidos.":"Enable SOLO on the instruments you want to hear. If no SOLO is active, all instruments will play.",
 "SUA EXPERIÊNCIA MUSICAL":"YOUR MUSIC EXPERIENCE","Entre na sua conta":"Log in to your account","Acesse sua biblioteca e organize sua jornada musical.":"Access your library and organize your musical journey.","Seu nome":"Your name","Esqueceu sua senha?":"Forgot your password?","E-mail cadastrado":"Registered email","Enviar link de recuperação":"Send recovery link","Voltar para o login":"Back to login","Nova senha":"New password","Repita a nova senha":"Confirm new password","Digite novamente":"Enter it again","Salvar nova senha":"Save new password","Sair da conta":"Log out","Sua sessão é protegida pela SONARA.":"Your session is protected by SONARA.",
 "Recuperar senha":"Reset password","Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.":"Enter your account email. We'll send you a secure link to create a new password.","Criar nova senha":"Create a new password","Escolha uma nova senha para acessar sua conta SONARA.":"Choose a new password to access your SONARA account.",
@@ -1046,6 +1112,7 @@ async function restoreSonaraUserSession() {
         updatePersonalNavigation();
         updateDownloadAccessButton();
         await Promise.all([loadUserFavorites(), loadUserDownloads()]);
+        await handlePaymentReturn();
     } catch {
         sessionStorage.removeItem(SONARA_USER_TOKEN);
         sonaraCurrentUser = null;
@@ -1053,6 +1120,35 @@ async function restoreSonaraUserSession() {
         personalDownloadHistory = [];
         updatePersonalNavigation();
         renderAll();
+    }
+}
+
+
+async function handlePaymentReturn() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment_return") !== "1") return;
+    const orderNsu = params.get("order_nsu") || "";
+    const transactionNsu = params.get("transaction_nsu") || "";
+    const slug = params.get("slug") || "";
+    if (!orderNsu || !transactionNsu || !slug) {
+        showToast("Retorno recebido. Não foi possível identificar os dados do pagamento.");
+        return;
+    }
+    try {
+        const result = await sonaraApi("/payments/confirm", {
+            method: "POST",
+            body: JSON.stringify({ order_nsu: orderNsu, transaction_nsu: transactionNsu, slug })
+        }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        if (result.paid) {
+            sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+            updateDownloadAccessButton();
+            showToast("Pagamento confirmado! Seu acesso vitalício está liberado.");
+        } else {
+            showToast(result.message || "Pagamento ainda não confirmado. Tente atualizar em instantes.");
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+        showToast(error.message || "Não foi possível confirmar o pagamento.");
     }
 }
 
