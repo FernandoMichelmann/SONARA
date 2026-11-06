@@ -742,6 +742,7 @@ async function handleDownloadAccess() {
         return;
     }
     if (!sonaraCurrentUser?.lifetime_access) {
+        closeMultitrack();
         navigate("subscription");
         showToast("Adquira o acesso vitalício para baixar as multitracks.");
         return;
@@ -1359,4 +1360,5 @@ if (passwordResetToken) {
     openAuthModal();
     showResetPassword();
 }
+updateLifetimePlanUI();
 restoreSonaraUserSession();
