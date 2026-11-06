@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
     frontend_base_url: str = "http://127.0.0.1:5500"
+    infinitepay_api_key: str | None = None
+    infinitepay_handle: str | None = None
+    infinitepay_webhook_url: str | None = None
 
 @lru_cache
 def get_settings() -> Settings:
