@@ -7,6 +7,14 @@ let tracks = [];
         let currentTrack = null;
         let playing = false;
         let stemPlayers = [];
+        let stemAudioContext = null;
+        let stemAudioBuffers = [];
+        let stemAudioSources = [];
+        let stemGainNodes = [];
+        let stemPlaybackStartAt = 0;
+        let stemPlaybackOffset = 0;
+        let stemPlaybackActive = false;
+        let stemBufferTrackId = null;
         const audioPlayer = new Audio();
         const SONARA_CATALOG_API = "http://127.0.0.1:8000/api/v1";
 
@@ -141,19 +149,21 @@ let tracks = [];
         function stopStemPlayers(reset = true) {
             audioPlayer.pause();
             if (reset) { try { audioPlayer.currentTime = 0; } catch {} }
-            if (stemSyncTimer) {
-                clearInterval(stemSyncTimer);
-                stemSyncTimer = null;
-            }
-            stemPlayers.forEach(player => {
+            stopProgressSync();
+            stemAudioSources.forEach(source => {
+                try { source.onended = null; source.stop(); } catch {}
+                try { source.disconnect(); } catch {}
+            });
+            stemAudioSources = [];
+            stemPlaybackActive = false;
+            if (reset) stemPlaybackOffset = 0;
+            stemPlayers.forEach((player, index) => {
                 player.pause();
-                if (reset) {
-                    try { player.currentTime = 0; } catch {}
-                }
+                if (reset) { try { player.currentTime = 0; } catch {} }
+                updateStemButton(index, false);
             });
             activeStemIndex = null;
             updateAllStemsButton(false);
-            stemPlayers.forEach((_, index) => updateStemButton(index, false));
         }
 
         function updateAllStemsButton(isPlaying, loading = false) {
@@ -166,20 +176,28 @@ let tracks = [];
                     ? '<i data-lucide="square"></i> STOP'
                     : '<i data-lucide="play"></i> PLAY';
             const footerPlay = document.getElementById("playButton");
-            if (footerPlay) {
-                const hasActiveAudio = isPlaying || !audioPlayer.paused || stemPlayers.some(player => !player.paused);
-                footerPlay.innerHTML = hasActiveAudio
-                    ? '<i data-lucide="pause" size="17"></i>'
-                    : '<i data-lucide="play" size="17"></i>';
-            }
+            if (footerPlay) footerPlay.innerHTML = isPlaying
+                ? '<i data-lucide="pause" size="17"></i>'
+                : '<i data-lucide="play" size="17"></i>';
             lucide.createIcons();
+        }
+
+        function ensureStemAudioContext() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) throw new Error("Seu navegador não oferece suporte ao player de áudio sincronizado.");
+            if (!stemAudioContext) stemAudioContext = new AudioContextClass();
+            return stemAudioContext;
         }
 
         function applyStemVolumes() {
             stemPlayers.forEach((player, index) => {
-                const isAudible = !soloStemIndices.size || soloStemIndices.has(index);
-                const trackLevel = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
-                player.volume = isAudible ? trackLevel * masterStemVolume : 0;
+                const audible = !soloStemIndices.size || soloStemIndices.has(index);
+                const level = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
+                const gain = audible ? level * masterStemVolume : 0;
+                player.volume = gain;
+                if (stemGainNodes[index] && stemAudioContext) {
+                    stemGainNodes[index].gain.setTargetAtTime(gain, stemAudioContext.currentTime, 0.008);
+                }
             });
         }
 
@@ -190,89 +208,76 @@ let tracks = [];
                 player.preload = "none";
                 player.src = stem.url;
                 player.volume = masterStemVolume;
-                player.addEventListener("ended", () => {
-                    const index = stemPlayers.indexOf(player);
-                    if (index >= 0) updateStemButton(index, false);
-                    if (stemPlayers.every(item => item.paused || item.ended)) {
-                        updateAllStemsButton(false);
-                        stopProgressSync();
-                    }
-                });
-                player.addEventListener("error", () => {
-                    const index = stemPlayers.indexOf(player);
-                    if (index >= 0) {
-                        updateStemButton(index, false);
-                        showToast("Falha ao carregar: " + (currentTrack?.stems?.[index]?.name || "track"));
-                    }
-                });
                 return player;
             });
+        }
+
+        async function loadStemBuffers() {
+            if (stemBufferTrackId === currentTrack.id && stemAudioBuffers.length === stemPlayers.length) return;
+            const context = ensureStemAudioContext();
+            const stems = currentTrack.stems || [];
+            const buffers = await Promise.all(stems.map(async (stem, index) => {
+                const response = await fetch(stem.url, { cache: "force-cache" });
+                if (!response.ok) throw new Error("Não foi possível carregar " + (stem.name || "a faixa " + (index + 1)) + ".");
+                const bytes = await response.arrayBuffer();
+                try {
+                    return await context.decodeAudioData(bytes.slice(0));
+                } catch {
+                    throw new Error("O áudio de " + (stem.name || "uma das faixas") + " está inválido ou em formato incompatível. Reenvie esse instrumento.");
+                }
+            }));
+            stemAudioBuffers = buffers;
+            stemBufferTrackId = currentTrack.id;
         }
 
         function startProgressSync() {
             stopProgressSync();
             stemSyncTimer = setInterval(() => {
-                const playingStems = stemPlayers.filter(item => !item.paused && !item.ended);
-                const player = activeStemIndex === null
-                    ? playingStems[0]
-                    : stemPlayers[activeStemIndex];
-
-                if (!player || !Number.isFinite(player.duration)) return;
-
-                // Mantém todas as faixas presas ao mesmo relógio de reprodução.
-                // Pequenas diferenças de carregamento/reprodução são corrigidas sem reiniciar o áudio.
-                if (playingStems.length > 1) {
-                    const referenceTime = player.currentTime;
-                    playingStems.forEach(item => {
-                        if (item === player || item.seeking || item.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-                        const drift = item.currentTime - referenceTime;
-                        if (Math.abs(drift) > 0.045) {
-                            try { item.currentTime = referenceTime; } catch {}
-                        }
-                    });
-                }
-
-                document.getElementById("currentTime").textContent = formatAudioTime(player.currentTime);
-                document.getElementById("durationTime").textContent = formatAudioTime(player.duration);
+                if (!stemPlaybackActive || !stemAudioContext) return;
+                const elapsed = Math.max(0, stemAudioContext.currentTime - stemPlaybackStartAt);
+                const position = stemPlaybackOffset + elapsed;
+                const duration = Math.max(0, ...stemAudioBuffers.map(buffer => buffer.duration));
+                document.getElementById("currentTime").textContent = formatAudioTime(position);
+                document.getElementById("durationTime").textContent = formatAudioTime(duration);
                 document.getElementById("progressFill").style.width =
-                    player.duration ? (player.currentTime / player.duration * 100) + "%" : "0%";
-            }, 200);
-        }
-
-        function waitForStemReady(player, index, timeoutMs = 30000) {
-            if (player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return Promise.resolve();
-
-            return new Promise((resolve, reject) => {
-                let timeout;
-                const cleanup = () => {
-                    clearTimeout(timeout);
-                    player.removeEventListener("canplay", onReady);
-                    player.removeEventListener("error", onError);
-                };
-                const onReady = () => {
-                    cleanup();
-                    resolve();
-                };
-                const onError = () => {
-                    cleanup();
-                    reject(new Error("Não foi possível carregar a faixa " + (currentTrack?.stems?.[index]?.name || (index + 1)) + "."));
-                };
-
-                player.addEventListener("canplay", onReady, { once: true });
-                player.addEventListener("error", onError, { once: true });
-                timeout = setTimeout(() => {
-                    cleanup();
-                    reject(new Error("O carregamento das tracks demorou demais. Verifique sua conexão e tente novamente."));
-                }, timeoutMs);
-
-                // Evita perder o evento caso o áudio tenha ficado pronto entre a checagem e o listener.
-                if (player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) onReady();
-            });
+                    duration ? Math.min(100, position / duration * 100) + "%" : "0%";
+                if (position >= duration) {
+                    stopStemPlayers(true);
+                }
+            }, 100);
         }
 
         function stopProgressSync() {
             if (stemSyncTimer) clearInterval(stemSyncTimer);
             stemSyncTimer = null;
+        }
+
+        function startSynchronizedStems(offset = 0) {
+            const context = ensureStemAudioContext();
+            stemAudioSources.forEach(source => { try { source.stop(); } catch {} });
+            stemAudioSources = [];
+            stemGainNodes = [];
+            const startAt = context.currentTime + 0.12;
+            stemAudioBuffers.forEach((buffer, index) => {
+                const source = context.createBufferSource();
+                const gain = context.createGain();
+                source.buffer = buffer;
+                source.connect(gain);
+                gain.connect(context.destination);
+                const audible = !soloStemIndices.size || soloStemIndices.has(index);
+                const level = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
+                gain.gain.value = audible ? level * masterStemVolume : 0;
+                source.start(startAt, Math.min(offset, Math.max(0, buffer.duration - 0.01)));
+                stemAudioSources.push(source);
+                stemGainNodes.push(gain);
+            });
+            stemPlaybackOffset = offset;
+            stemPlaybackStartAt = startAt;
+            stemPlaybackActive = true;
+            activeStemIndex = 0;
+            stemPlayers.forEach((_, index) => updateStemButton(index, true));
+            updateAllStemsButton(true);
+            startProgressSync();
         }
 
         function selectTrack(id) {
@@ -283,6 +288,12 @@ let tracks = [];
             currentTrack = selected;
             audioPlayer.pause(); audioPlayer.removeAttribute('src'); audioPlayer.load();
             stemPlayers = [];
+            stemAudioBuffers = [];
+            stemAudioSources = [];
+            stemGainNodes = [];
+            stemBufferTrackId = null;
+            stemPlaybackOffset = 0;
+            stemPlaybackActive = false;
             soloStemIndices = new Set();
             document.getElementById("playerTitle").textContent = currentTrack.title;
             document.getElementById("playerArtist").textContent = currentTrack.artist || "SONARA";
@@ -367,9 +378,9 @@ let tracks = [];
                     : '<i data-lucide="headphones"></i> SOLO';
             });
 
-            // SOLO nunca pausa nem reinicia a reprodução: apenas silencia as demais faixas.
+            // SOLO altera apenas o ganho de cada canal, sem reiniciar o relógio comum.
             applyStemVolumes();
-            updateAllStemsButton(stemPlayers.some(player => !player.paused));
+            updateAllStemsButton(stemPlaybackActive);
             lucide.createIcons();
         }
 
@@ -423,62 +434,21 @@ let tracks = [];
                 return;
             }
 
-            const isPlaying = stemPlayers.some(player => !player.paused && !player.ended);
-            if (isPlaying || !audioPlayer.paused) {
-                // STOP encerra todas as faixas e retorna a reprodução ao início.
-                audioPlayer.pause();
-                try { audioPlayer.currentTime = 0; } catch {}
-                stemPlayers.forEach(player => {
-                    player.pause();
-                    try { player.currentTime = 0; } catch {}
-                });
-                activeStemIndex = null;
-                stopProgressSync();
-                stemPlayers.forEach((_, index) => updateStemButton(index, false));
-                updateAllStemsButton(false);
+            if (stemPlaybackActive) {
+                stopStemPlayers(true);
                 return;
             }
 
             stemLoading = true;
             updateAllStemsButton(false, true);
             try {
-                audioPlayer.pause();
-                // Primeiro carrega TODAS as faixas até haver dados suficientes.
-                // Nenhuma delas pode começar enquanto outra ainda estiver carregando.
-                stemPlayers.forEach(player => {
-                    player.pause();
-                    player.preload = "auto";
-                    try { player.currentTime = 0; } catch {}
-                    player.load();
-                });
+                const context = ensureStemAudioContext();
+                await context.resume();
+                await loadStemBuffers();
                 applyStemVolumes();
-                await Promise.all(stemPlayers.map((player, index) => waitForStemReady(player, index)));
-
-                // Todos os play() são disparados no mesmo ciclo, com os arquivos já prontos.
-                const startResults = await Promise.allSettled(stemPlayers.map(player => {
-                    try { player.currentTime = 0; } catch {}
-                    return player.play();
-                }));
-                const failedIndex = startResults.findIndex(result => result.status === "rejected");
-                if (failedIndex !== -1) {
-                    stemPlayers.forEach(player => {
-                        player.pause();
-                        try { player.currentTime = 0; } catch {}
-                    });
-                    throw new Error("Não foi possível iniciar a faixa " + (currentTrack.stems[failedIndex]?.name || (failedIndex + 1)) + ".");
-                }
-
-                activeStemIndex = stemPlayers.findIndex(player => !player.paused);
-                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
-                updateAllStemsButton(true);
-                startProgressSync();
+                startSynchronizedStems(0);
             } catch (error) {
-                stemPlayers.forEach((player, index) => {
-                    player.pause();
-                    updateStemButton(index, false);
-                });
-                activeStemIndex = null;
-                updateAllStemsButton(false);
+                stopStemPlayers(true);
                 showToast(error.message || "Não foi possível iniciar a multitrack.");
             } finally {
                 stemLoading = false;
