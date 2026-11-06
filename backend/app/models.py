@@ -21,6 +21,8 @@ class User(Base):
     language: Mapped[str] = mapped_column(String(2), default="pt", nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    lifetime_access: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    lifetime_access_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -112,3 +114,22 @@ class UserPlaylist(Base):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     track_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class PaymentOrder(Base):
+    __tablename__ = "payment_orders"
+    __table_args__ = (UniqueConstraint("order_nsu", name="uq_payment_order_nsu"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_nsu: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    paid_amount_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="creating", nullable=False, index=True)
+    checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    invoice_slug: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    transaction_nsu: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    capture_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    installments: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
