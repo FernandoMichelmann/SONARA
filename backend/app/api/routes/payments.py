@@ -218,5 +218,7 @@ def infinitepay_webhook(payload: dict, db: Session = Depends(get_db)):
     order = db.scalar(select(PaymentOrder).where(PaymentOrder.order_nsu == order_nsu))
     if not order:
         raise HTTPException(status_code=400, detail="Pedido não reconhecido.")
-    _confirm_order(db, order, transaction_nsu, slug)
+    verified = _confirm_order(db, order, transaction_nsu, slug)
+    if not verified:
+        raise HTTPException(status_code=400, detail="O pagamento ainda não foi validado pela InfinitePay.")
     return {"received": True}
