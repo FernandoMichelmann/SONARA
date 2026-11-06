@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, inspect, text
-from app.api.routes import account, admin, auth, catalog, developer
+from app.api.routes import account, admin, auth, catalog, developer, payments
 from app.core.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import RevenueEntry, Track, TrackCategory, User
@@ -36,6 +36,8 @@ def migrate_user_profile_columns():
         "birth_date": "DATE",
         "cpf_hash": "VARCHAR(64)",
         "language": "VARCHAR(2) NOT NULL DEFAULT 'pt'",
+        "lifetime_access": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "lifetime_access_at": "TIMESTAMP",
     }
     with engine.begin() as connection:
         existing = {column["name"] for column in inspect(engine).get_columns("users")}
@@ -90,3 +92,4 @@ app.include_router(developer.router, prefix=settings.api_v1_prefix)
 app.include_router(admin.router, prefix=settings.api_v1_prefix)
 app.include_router(catalog.router, prefix=settings.api_v1_prefix)
 app.include_router(account.router, prefix=settings.api_v1_prefix)
+app.include_router(payments.router, prefix=settings.api_v1_prefix)
