@@ -118,7 +118,6 @@ class UserPlaylist(Base):
 
 class PaymentOrder(Base):
     __tablename__ = "payment_orders"
-    __table_args__ = (UniqueConstraint("order_nsu", name="uq_payment_order_nsu"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     order_nsu: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
