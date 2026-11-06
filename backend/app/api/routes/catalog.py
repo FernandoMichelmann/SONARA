@@ -108,6 +108,8 @@ def download_track_multitrack(
 ):
     if user.role != "user":
         raise HTTPException(status_code=403, detail="Download disponível apenas para contas de clientes.")
+    if not user.lifetime_access:
+        raise HTTPException(status_code=403, detail="O acesso vitalício SONARA é necessário para baixar multitracks.")
     track = db.get(Track, track_id)
     if not track or not track.is_published:
         raise HTTPException(status_code=404, detail="Multitrack não encontrada no catálogo.")
