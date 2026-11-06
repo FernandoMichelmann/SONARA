@@ -3,6 +3,7 @@ import json
 import logging
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -134,7 +135,7 @@ def create_lifetime_checkout(
     if previous:
         return {"checkout_url": previous.checkout_url, "order_nsu": previous.order_nsu, "reused": True}
 
-    order_nsu = f"sonara-{user.id}-{__import__('uuid').uuid4().hex}"
+    order_nsu = f"sonara-{user.id}-{uuid4().hex}"
     valid_until = (now + timedelta(hours=48)).isoformat()
     payload = {
         "order_nsu": order_nsu,
