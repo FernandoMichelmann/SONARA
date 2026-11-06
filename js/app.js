@@ -212,13 +212,62 @@ let tracks = [];
         function startProgressSync() {
             stopProgressSync();
             stemSyncTimer = setInterval(() => {
-                const player = !audioPlayer.paused ? audioPlayer : (activeStemIndex === null ? stemPlayers.find(item => !item.paused) : stemPlayers[activeStemIndex]);
+                const playingStems = stemPlayers.filter(item => !item.paused && !item.ended);
+                const player = activeStemIndex === null
+                    ? playingStems[0]
+                    : stemPlayers[activeStemIndex];
+
                 if (!player || !Number.isFinite(player.duration)) return;
+
+                // Mantém todas as faixas presas ao mesmo relógio de reprodução.
+                // Pequenas diferenças de carregamento/reprodução são corrigidas sem reiniciar o áudio.
+                if (playingStems.length > 1) {
+                    const referenceTime = player.currentTime;
+                    playingStems.forEach(item => {
+                        if (item === player || item.seeking || item.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+                        const drift = item.currentTime - referenceTime;
+                        if (Math.abs(drift) > 0.045) {
+                            try { item.currentTime = referenceTime; } catch {}
+                        }
+                    });
+                }
+
                 document.getElementById("currentTime").textContent = formatAudioTime(player.currentTime);
                 document.getElementById("durationTime").textContent = formatAudioTime(player.duration);
                 document.getElementById("progressFill").style.width =
                     player.duration ? (player.currentTime / player.duration * 100) + "%" : "0%";
             }, 200);
+        }
+
+        function waitForStemReady(player, index, timeoutMs = 30000) {
+            if (player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return Promise.resolve();
+
+            return new Promise((resolve, reject) => {
+                let timeout;
+                const cleanup = () => {
+                    clearTimeout(timeout);
+                    player.removeEventListener("canplay", onReady);
+                    player.removeEventListener("error", onError);
+                };
+                const onReady = () => {
+                    cleanup();
+                    resolve();
+                };
+                const onError = () => {
+                    cleanup();
+                    reject(new Error("Não foi possível carregar a faixa " + (currentTrack?.stems?.[index]?.name || (index + 1)) + "."));
+                };
+
+                player.addEventListener("canplay", onReady, { once: true });
+                player.addEventListener("error", onError, { once: true });
+                timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("O carregamento das tracks demorou demais. Verifique sua conexão e tente novamente."));
+                }, timeoutMs);
+
+                // Evita perder o evento caso o áudio tenha ficado pronto entre a checagem e o listener.
+                if (player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) onReady();
+            });
         }
 
         function stopProgressSync() {
@@ -394,16 +443,23 @@ let tracks = [];
             updateAllStemsButton(false, true);
             try {
                 audioPlayer.pause();
+                // Primeiro carrega TODAS as faixas até haver dados suficientes.
+                // Nenhuma delas pode começar enquanto outra ainda estiver carregando.
                 stemPlayers.forEach(player => {
+                    player.pause();
                     player.preload = "auto";
-                    player.load();
                     try { player.currentTime = 0; } catch {}
+                    player.load();
                 });
                 applyStemVolumes();
+                await Promise.all(stemPlayers.map((player, index) => waitForStemReady(player, index)));
 
-                // Inicia todas as faixas juntas; SOLO apenas controla o volume de cada uma.
-                const results = await Promise.allSettled(stemPlayers.map(player => player.play()));
-                const failedIndex = results.findIndex(result => result.status === "rejected");
+                // Todos os play() são disparados no mesmo ciclo, com os arquivos já prontos.
+                const startResults = await Promise.allSettled(stemPlayers.map(player => {
+                    try { player.currentTime = 0; } catch {}
+                    return player.play();
+                }));
+                const failedIndex = startResults.findIndex(result => result.status === "rejected");
                 if (failedIndex !== -1) {
                     stemPlayers.forEach(player => {
                         player.pause();
