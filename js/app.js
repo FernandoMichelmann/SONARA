@@ -161,10 +161,10 @@ let tracks = [];
             if (!button) return;
             button.disabled = loading;
             button.innerHTML = loading
-                ? '<i data-lucide="loader-circle"></i> Carregando tracks...'
+                ? '<i data-lucide="loader-circle"></i> LOADING'
                 : isPlaying
-                    ? '<i data-lucide="pause"></i> Pausar seleção'
-                    : '<i data-lucide="play"></i> Tocar seleção';
+                    ? '<i data-lucide="square"></i> STOP'
+                    : '<i data-lucide="play"></i> PLAY';
             const footerPlay = document.getElementById("playButton");
             if (footerPlay) {
                 const hasActiveAudio = isPlaying || !audioPlayer.paused || stemPlayers.some(player => !player.paused);
@@ -173,6 +173,14 @@ let tracks = [];
                     : '<i data-lucide="play" size="17"></i>';
             }
             lucide.createIcons();
+        }
+
+        function applyStemVolumes() {
+            stemPlayers.forEach((player, index) => {
+                const isAudible = !soloStemIndices.size || soloStemIndices.has(index);
+                const trackLevel = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
+                player.volume = isAudible ? trackLevel * masterStemVolume : 0;
+            });
         }
 
         function createStemPlayers() {
@@ -295,10 +303,12 @@ let tracks = [];
         }
 
 
-        function toggleSolo(index) {
-            if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); }
+        async function toggleSolo(index) {
+            if (!Number.isInteger(index) || index < 0 || index >= (currentTrack?.stems?.length || 0)) return;
+
             if (soloStemIndices.has(index)) soloStemIndices.delete(index);
             else soloStemIndices.add(index);
+
             document.querySelectorAll(".stem-solo").forEach((button, buttonIndex) => {
                 const active = soloStemIndices.has(buttonIndex);
                 button.classList.toggle("solo-active", active);
@@ -307,11 +317,9 @@ let tracks = [];
                     ? '<i data-lucide="headphones"></i> SOLO ATIVO'
                     : '<i data-lucide="headphones"></i> SOLO';
             });
-            stemPlayers.forEach((player, playerIndex) => {
-                const audible = !soloStemIndices.size || soloStemIndices.has(playerIndex);
-                player.volume = (stemVolumeLevels[playerIndex] ?? 1) * masterStemVolume * (audible ? 1 : 0);
-                if (!audible) player.pause();
-            });
+
+            // SOLO nunca pausa nem reinicia a reprodução: apenas silencia as demais faixas.
+            applyStemVolumes();
             updateAllStemsButton(stemPlayers.some(player => !player.paused));
             lucide.createIcons();
         }
@@ -353,10 +361,9 @@ let tracks = [];
         }
 
         function setStemVolume(index, value) {
-            if (stemPlayers[index]) {
-                stemVolumeLevels[index] = Number(value) / 100;
-                stemPlayers[index].volume = stemVolumeLevels[index] * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
-            }
+            if (!stemPlayers[index]) return;
+            stemVolumeLevels[index] = Number(value) / 100;
+            applyStemVolumes();
         }
 
         async function toggleAllStems() {
@@ -366,49 +373,47 @@ let tracks = [];
                 showToast("Esta música não possui tracks de áudio disponíveis.");
                 return;
             }
-            if (!soloStemIndices.size) {
-                if (!currentTrack.mixUrl) { showToast('Mixagem desta música indisponível.'); return; }
-                if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); stopProgressSync(); return; }
-                stemLoading = true; updateAllStemsButton(false, true);
-                try {
-                    if (audioPlayer.src !== currentTrack.mixUrl) { audioPlayer.src = currentTrack.mixUrl; audioPlayer.preload = 'auto'; audioPlayer.load(); }
-                    audioPlayer.volume = masterStemVolume;
-                    await audioPlayer.play();
-                    activeStemIndex = null; updateAllStemsButton(true); startProgressSync();
-                } catch (error) { audioPlayer.pause(); updateAllStemsButton(false); showToast(error.message || 'Não foi possível reproduzir a mixagem.'); }
-                finally { stemLoading = false; }
-                return;
-            }
-            const selectedIndices = [...soloStemIndices];
-            const selectedPlayers = selectedIndices.map(index => stemPlayers[index]).filter(Boolean);
-            const allPlaying = selectedPlayers.length > 0 && selectedPlayers.every(player => !player.paused);
-            if (allPlaying) {
-                selectedPlayers.forEach(player => player.pause());
-                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
-                updateAllStemsButton(false);
+
+            const isPlaying = stemPlayers.some(player => !player.paused && !player.ended);
+            if (isPlaying || !audioPlayer.paused) {
+                // STOP encerra todas as faixas e retorna a reprodução ao início.
+                audioPlayer.pause();
+                try { audioPlayer.currentTime = 0; } catch {}
+                stemPlayers.forEach(player => {
+                    player.pause();
+                    try { player.currentTime = 0; } catch {}
+                });
+                activeStemIndex = null;
                 stopProgressSync();
+                stemPlayers.forEach((_, index) => updateStemButton(index, false));
+                updateAllStemsButton(false);
                 return;
             }
 
             stemLoading = true;
             updateAllStemsButton(false, true);
             try {
-                stemPlayers.forEach(player => player.pause());
-                selectedPlayers.forEach(player => {
+                audioPlayer.pause();
+                stemPlayers.forEach(player => {
                     player.preload = "auto";
                     player.load();
-                    player.currentTime = 0;
-                    const index = stemPlayers.indexOf(player);
-                    player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
+                    try { player.currentTime = 0; } catch {}
                 });
-                const results = await Promise.allSettled(selectedPlayers.map(player => player.play()));
-                const failed = results.findIndex(result => result.status === "rejected");
-                if (failed !== -1) {
-                    selectedPlayers.forEach(player => player.pause());
-                    throw new Error("Não foi possível iniciar a prévia de " + (currentTrack.stems[selectedIndices[failed]]?.name || "um instrumento") + ".");
+                applyStemVolumes();
+
+                // Inicia todas as faixas juntas; SOLO apenas controla o volume de cada uma.
+                const results = await Promise.allSettled(stemPlayers.map(player => player.play()));
+                const failedIndex = results.findIndex(result => result.status === "rejected");
+                if (failedIndex !== -1) {
+                    stemPlayers.forEach(player => {
+                        player.pause();
+                        try { player.currentTime = 0; } catch {}
+                    });
+                    throw new Error("Não foi possível iniciar a faixa " + (currentTrack.stems[failedIndex]?.name || (failedIndex + 1)) + ".");
                 }
+
+                activeStemIndex = stemPlayers.findIndex(player => !player.paused);
                 stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
-                activeStemIndex = selectedIndices[0] ?? null;
                 updateAllStemsButton(true);
                 startProgressSync();
             } catch (error) {
@@ -416,8 +421,9 @@ let tracks = [];
                     player.pause();
                     updateStemButton(index, false);
                 });
+                activeStemIndex = null;
                 updateAllStemsButton(false);
-                showToast(error.message || "Falha ao iniciar a prévia.");
+                showToast(error.message || "Não foi possível iniciar a multitrack.");
             } finally {
                 stemLoading = false;
             }
@@ -471,9 +477,7 @@ let tracks = [];
         });
         document.querySelector('.player-volume input[type="range"]').addEventListener("input", event => {
             masterStemVolume = Number(event.target.value) / 100;
-            stemPlayers.forEach((player, index) => {
-                player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume;
-            });
+            applyStemVolumes();
             audioPlayer.volume = masterStemVolume;
         });
         audioPlayer.volume = 0.7;
