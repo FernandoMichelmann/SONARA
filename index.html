@@ -158,7 +158,8 @@
                                 <li>Catálogo musical completo</li>
                                 <li>Favoritos</li>
                             </ul>
-                            <button type="button" onclick="showToast('A compra online do acesso vitalício será liberada assim que a integração de pagamento estiver disponível.')">Adquirir acesso vitalício</button>
+                            <button type="button" id="lifetimeCheckoutButton" onclick="startLifetimeCheckout()">Adquirir acesso vitalício</button>
+                            <p class="lifetime-plan-status" id="lifetimeAccessStatus" aria-live="polite"></p>
                             <p class="lifetime-plan-footnote">Pagamento único de R$ 49,90 · Sem mensalidade · Sem renovação automática</p>
                         </div>
                     </div>
@@ -182,7 +183,7 @@
                                 <div class="register-field"><label for="registerPasswordConfirm">Repetir senha</label><input id="registerPasswordConfirm" name="password_confirm" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="10" maxlength="128" required></div>
                             </div>
                             <p class="register-message" id="registerMessage" role="alert" aria-live="polite"></p>
-                            <div class="register-next-step"><div><i data-lucide="shield-check"></i><span>Seus dados são enviados com conexão segura. O pagamento do acesso vitalício será integrado em uma próxima etapa.</span></div><button class="register-submit" id="registerSubmit" type="submit">Criar conta e continuar <i data-lucide="arrow-right"></i></button></div>
+                            <div class="register-next-step"><div><i data-lucide="shield-check"></i><span>Seus dados são enviados com conexão segura. Depois do cadastro, você poderá concluir a compra do acesso vitalício.</span></div><button class="register-submit" id="registerSubmit" type="submit">Criar conta e continuar <i data-lucide="arrow-right"></i></button></div>
                         </form>
                         <p class="register-existing">Já tem uma conta? <button type="button" onclick="navigate('home');openAuthModal()">Fazer login</button></p>
                     </div>
