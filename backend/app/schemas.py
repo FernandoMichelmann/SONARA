@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
@@ -30,3 +32,5 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     language: str = "pt"
+    lifetime_access: bool = False
+    lifetime_access_at: datetime | None = None
