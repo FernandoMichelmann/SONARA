@@ -116,7 +116,6 @@
     const results = await Promise.all([request("/developer/tracks"), request("/developer/track-categories")]);
     const tracks = results[0].items || [];
     renderCategoryOptions(results[1].items || []);
-    $("overviewTracks").textContent = tracks.length;
     const published = tracks.filter(track => track.is_published).length;
     $("overviewTracks").textContent = published;
     const rows = tracks.map(track => {
