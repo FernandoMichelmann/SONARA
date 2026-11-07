@@ -991,7 +991,7 @@
     const renderProgress = data => {
       const total = Number(data.total || 0);
       const completed = Number(data.completed || 0);
-      const percent = total ? Math.min(100, Math.round(completed / total * 100)) : 0;
+      const percent = total ? Math.min(100, Math.round((completed + Number(data.item_percent || 0) / 100) / total * 100)) : 0;
       const details = `${completed} de ${total || "…"} item(ns) processado(s) · ${data.imported || 0} importada(s) · ${data.skipped || 0} ignorada(s) · ${data.errors || 0} erro(s)`;
       setMessage($("driveStatusMessage"), `Importação em andamento: ${percent}%\n${details}\nAgora: ${data.current || "Preparando..."}`);
       const bar = $("driveProgressBar");
