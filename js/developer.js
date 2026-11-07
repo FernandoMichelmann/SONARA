@@ -873,13 +873,13 @@
         const isZip = folder.item_type === "zip";
         const isRar = folder.item_type === "rar";
         const hasAudio = Number(folder.audio_count) > 0;
-        const hasRar = isRar || Number(folder.archive_count) > 0;
+        const hasArchives = isRar || Number(folder.archive_count) > 0;
         const isArchive = isZip || isRar;
-        const disabled = folder.already_imported || (!isArchive && !hasAudio && !hasRar);
+        const disabled = folder.already_imported || (!isArchive && !hasAudio && !hasArchives);
         const detail = folder.already_imported ? "Já importada" :
           isZip ? "ZIP · será extraído automaticamente" :
           isRar ? "RAR detectado · conteúdo será validado na importação" :
-          hasRar ? "RAR(s) detectado(s) · conteúdo será validado na importação" :
+          hasArchives ? "ZIP/RAR detectado(s) · conteúdo será validado na importação" :
           hasAudio ? "Pronta para importar" : "Sem áudio compatível";
         return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
           '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
@@ -887,7 +887,7 @@
           (isZip ? "ZIP com extração automática" :
             isRar ? "Arquivo RAR · extração na importação" :
             (Number(folder.audio_count || 0) + " arquivo(s) de áudio" +
-              (Number(folder.archive_count) ? " + " + folder.archive_count + " RAR(s)" : ""))) + ' · ' + detail +
+              (Number(folder.archive_count) ? " + " + folder.archive_count + " ZIP/RAR(s)" : ""))) + ' · ' + detail +
           '</small></span></label>';
       }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
       $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported &&
