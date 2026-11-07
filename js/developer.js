@@ -1,5 +1,5 @@
 (() => {
-  const API_BASE = (window.SONARA_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+  const API_BASE = (window.SONARA_API_BASE_URL || "").replace(/\/$/, "");
   const TOKEN_KEY = "sonaraDeveloperAccessToken";
   const $ = id => document.getElementById(id);
   const loginCard = $("loginCard");
@@ -8,6 +8,7 @@
   const loginMessage = $("formMessage");
   const loginButton = $("submitButton");
   const passwordInput = $("developerPassword");
+  const driveCallbackState = new URLSearchParams(window.location.search).get("drive");
   let identity = null;
   let userQuery = "";
   let refreshInProgress = false;
@@ -50,11 +51,18 @@
   }
 
   async function request(path, options = {}, token = sessionStorage.getItem(TOKEN_KEY) || "") {
+    if (!API_BASE) throw new Error("Backend da SONARA não configurado. Configure o endereço público de testes.");
     const headers = { ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     if (options.body && !isFormData && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    const response = await fetch(API_BASE + path, { ...options, headers });
+    const response = await fetch(API_BASE + path, {
+      ...options,
+      headers,
+      // Dados administrativos nunca devem vir de cache: a biblioteca precisa refletir
+      // imediatamente uma importação recém-confirmada pelo backend.
+      cache: options.cache || "no-store"
+    });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.detail || data.message || "Não foi possível concluir a operação.");
@@ -68,9 +76,21 @@
     identity = user || identity;
     loginCard.hidden = true;
     dashboardCard.hidden = false;
-    $("developerIdentity").textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
+    const developerIdentity = $("developerIdentity");
+    if (developerIdentity) developerIdentity.textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
+    if (driveCallbackState === "connected" || driveCallbackState === "error") {
+      setActiveTab("drive");
+    }
+    loadDriveStatus().finally(() => {
+      if (driveCallbackState === "error") {
+        setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
+      }
+    });
+    if (driveCallbackState === "connected") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }
 
   function showLogin() {
@@ -89,6 +109,7 @@
       overview: ["Visão geral", "Acompanhe os principais números da plataforma."],
       users: ["Usuários", "Acompanhe as contas que se cadastraram na SONARA."],
       tracks: ["Biblioteca de tracks", "Envie arquivos e controle a publicação no catálogo."],
+      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],
       revenue: ["Receitas", "Acompanhe os lançamentos financeiros registrados."]
     };
     $("pageTitle").textContent = labels[tab][0];
@@ -99,26 +120,43 @@
   async function loadUsers() {
     const params = new URLSearchParams({ q: userQuery, limit: "200" });
     const data = await request("/developer/users?" + params.toString());
+    $("overviewUsers").textContent = Number(data.total ?? data.items.length).toLocaleString("pt-BR");
     $("navUserCount").textContent = data.total ?? data.items.length;
-    $("overviewUsers").textContent = data.total ?? data.items.length;
     $("usersCount").textContent = (data.total ?? data.items.length) + " usuário(s) encontrado(s).";
     const rows = data.items.map(user => `
       <tr>
         <td><div class="cell-primary">${escapeHtml(user.full_name)}</div><div class="cell-secondary">${escapeHtml(user.email)}</div></td>
         <td>${escapeHtml(formatDate(user.created_at))}</td>
         <td><span class="status-pill ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Ativo" : "Desativado"}</span></td>
-        <td><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button></td>
+        <td><div class="user-actions"><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button><button class="table-action danger" data-user-delete="${user.id}" data-user-name="${escapeHtml(user.full_name)}">Excluir</button></div></td>
       </tr>`).join("");
     $("usersTable").innerHTML = rows || '<tr><td colspan="4" class="empty-cell">Nenhum usuário encontrado.</td></tr>';
   }
 
-  async function loadTracks() {
-    const results = await Promise.all([request("/developer/tracks"), request("/developer/track-categories")]);
-    const tracks = results[0].items || [];
-    renderCategoryOptions(results[1].items || []);
-    $("overviewTracks").textContent = tracks.length;
+  async function loadTracks(extraTracks = []) {
+    // Prioriza a resposta da própria importação. Assim, a música aparece mesmo
+    // se a consulta subsequente da biblioteca demorar ou falhar temporariamente.
+    let tracks = [];
+    try {
+      const tracksData = await request("/developer/tracks", { cache: "no-store" });
+      tracks = tracksData.items || [];
+    } catch (error) {
+      if (!extraTracks.length) throw error;
+      console.warn("Consulta da biblioteca indisponível; exibindo as tracks confirmadas pela importação.", error);
+    }
+    const merged = new Map();
+    [...tracks, ...extraTracks].forEach(track => {
+      if (track && track.id != null) merged.set(String(track.id), track);
+    });
+    tracks = [...merged.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    try {
+      const categoriesData = await request("/developer/track-categories", { cache: "no-store" });
+      renderCategoryOptions(categoriesData.items || []);
+    } catch (error) {
+      console.warn("Não foi possível atualizar as categorias; a biblioteca de tracks foi carregada.", error);
+    }
     const published = tracks.filter(track => track.is_published).length;
-    $("publishedTracks").textContent = published + " publicada(s) no catálogo";
+    $("overviewTracks").textContent = published.toLocaleString("pt-BR");
     const rows = tracks.map(track => {
       const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
       return '<tr>' +
@@ -128,12 +166,14 @@
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
         '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
         '<td>' +
+          '<button class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
           '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
           (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
           '<button class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
         '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
+    return tracks;
   }
 
   function renderCategoryOptions(categories) {
@@ -161,11 +201,10 @@
       request("/developer/revenue-summary"),
       request("/developer/revenues?limit=200")
     ]);
+    $("overviewRevenue").textContent = formatMoney(summary.received_total);
     $("revenueReceived").textContent = formatMoney(summary.received_total);
     $("revenuePending").textContent = formatMoney(summary.pending_total);
     $("revenueEntries").textContent = summary.entries_count ?? (data.items || []).length;
-    $("overviewRevenue").textContent = formatMoney(summary.received_total);
-    $("overviewPending").textContent = formatMoney(summary.pending_total);
     const rows = (data.items || []).map(entry => `
       <tr>
         <td><div class="cell-primary">${escapeHtml(entry.description)}</div></td>
@@ -177,12 +216,70 @@
     $("revenueTable").innerHTML = rows || '<tr><td colspan="5" class="empty-cell">Nenhum lançamento financeiro registrado.</td></tr>';
   }
 
+
+  let homepageFeatureTracks = [];
+  let homepageFeatureSelection = { launches: [], most_downloaded: [] };
+
+  function renderHomepageFeatureOptions() {
+    const renderGroup = (targetId, key, limit) => {
+      const container = $(targetId);
+      const selected = new Set(homepageFeatureSelection[key].map(Number));
+      container.innerHTML = homepageFeatureTracks.map(track => {
+        const id = Number(track.id);
+        return '<label class="homepage-feature-option"><input type="checkbox" data-home-feature="' + key + '" value="' + id + '" ' + (selected.has(id) ? "checked" : "") + '><span>' + escapeHtml(track.title) + '<small>' + escapeHtml(track.artist || "Artista não informado") + '</small></span></label>';
+      }).join("") || '<span class="muted">Nenhuma track publicada disponível.</span>';
+      container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
+        const checked = [...container.querySelectorAll("input:checked")];
+        if (checked.length > limit) {
+          input.checked = false;
+          setMessage($("homepageFeatureMessage"), "Selecione no máximo " + limit + " tracks nesta seção.", "error");
+          return;
+        }
+        homepageFeatureSelection[key] = checked.map(item => Number(item.value));
+        setMessage($("homepageFeatureMessage"), "");
+      }));
+    };
+    renderGroup("launchesFeatureOptions", "launches", 12);
+    renderGroup("mostDownloadedFeatureOptions", "most_downloaded", 14);
+  }
+
+  async function loadHomepageFeatures() {
+    const [tracksData, selection] = await Promise.all([
+      request("/developer/tracks"),
+      request("/developer/homepage-features")
+    ]);
+    homepageFeatureTracks = (tracksData.items || []).filter(track => track.is_published && track.cover_url);
+    homepageFeatureSelection = {
+      launches: selection.launches || [],
+      most_downloaded: selection.most_downloaded || []
+    };
+    renderHomepageFeatureOptions();
+  }
+
+  async function saveHomepageFeatures() {
+    const button = $("saveHomepageFeatures");
+    button.disabled = true;
+    try {
+      const saved = await request("/developer/homepage-features", {
+        method: "PUT",
+        body: JSON.stringify(homepageFeatureSelection)
+      });
+      homepageFeatureSelection = { launches: saved.launches, most_downloaded: saved.most_downloaded };
+      setMessage($("homepageFeatureMessage"), "Destaques salvos com sucesso.", "success");
+    } catch (error) {
+      setMessage($("homepageFeatureMessage"), error.message || "Não foi possível salvar os destaques.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+
   async function refreshAll() {
     if (refreshInProgress) return;
     refreshInProgress = true;
     $("refreshButton").disabled = true;
     setGlobalMessage("Atualizando dados...");
-    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue()]);
+    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue(), loadHomepageFeatures()]);
     const failed = results.filter(result => result.status === "rejected");
     if (failed.length) {
       setGlobalMessage("Alguns dados não puderam ser carregados. " + failed.map(result => result.reason?.message || "Erro desconhecido").join(" "), "error");
@@ -195,14 +292,31 @@
 
   async function validateSession() {
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (!token) return;
+    if (!token) {
+      showLogin();
+      return;
+    }
+
     try {
       identity = await request("/developer/me", { method: "GET" }, token);
       showDashboard(identity);
       await refreshAll();
-    } catch {
-      sessionStorage.removeItem(TOKEN_KEY);
-      showLogin();
+    } catch (error) {
+      // Só encerra a sessão quando a API confirma que o token não é mais válido.
+      // Falhas de rede, indisponibilidade ou erros 5xx não podem expulsar o admin.
+      if (error.status === 401 || error.status === 403) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin();
+        setMessage(loginMessage, "Sua sessão administrativa expirou. Entre novamente.", "error");
+        return;
+      }
+
+      showDashboard(identity || { name: "Sessão administrativa", email: "Conexão temporariamente indisponível" });
+      setGlobalMessage(
+        "Não foi possível validar a sessão agora. Seu acesso foi preservado; verifique o backend e tente atualizar os dados. " +
+        (error.message || ""),
+        "error"
+      );
     }
   }
 
@@ -247,6 +361,7 @@
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
   $("refreshButton").addEventListener("click", refreshAll);
+  $("saveHomepageFeatures").addEventListener("click", saveHomepageFeatures);
   $("logoutButton").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
     identity = null;
@@ -265,6 +380,23 @@
   });
 
   $("usersTable").addEventListener("click", async event => {
+    const deleteButton = event.target.closest("[data-user-delete]");
+    if (deleteButton) {
+      const userId = deleteButton.dataset.userDelete;
+      const userName = deleteButton.dataset.userName || "este usuário";
+      if (!window.confirm('Excluir permanentemente a conta de "' + userName + '"? Os dados da conta serão apagados e esta ação não pode ser desfeita.')) return;
+      deleteButton.disabled = true;
+      try {
+        await request("/developer/users/" + userId, { method: "DELETE" });
+        setGlobalMessage("Usuário e dados da conta excluídos permanentemente.", "success");
+        await loadUsers();
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível excluir o usuário.", "error");
+        deleteButton.disabled = false;
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-user-status]");
     if (!button) return;
     button.disabled = true;
@@ -421,6 +553,56 @@
     audio.load();
   }
 
+  async function openTrackMetadataEditor(track) {
+    $("trackMetadataEditor").hidden = false;
+    $("editTrackTitle").value = track.title || "";
+    $("editTrackArtist").value = track.artist || "";
+    $("editTrackCover").value = "";
+    $("trackMetadataForm").dataset.trackId = String(track.id);
+    setMessage($("trackMetadataMessage"), "Edite o nome e, se desejar, escolha uma nova capa. Os stems importados serão mantidos.");
+    $("trackMetadataEditor").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  $("cancelTrackMetadata").addEventListener("click", () => {
+    $("trackMetadataEditor").hidden = true;
+    $("trackMetadataForm").reset();
+  });
+
+  $("trackMetadataForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const trackId = form.dataset.trackId;
+    if (!trackId) return;
+    const button = $("saveTrackMetadata");
+    const body = new FormData();
+    body.set("title", $("editTrackTitle").value.trim());
+    body.set("artist", $("editTrackArtist").value.trim());
+    const cover = $("editTrackCover").files[0];
+    if (cover) body.set("cover", cover);
+    button.disabled = true;
+    setMessage($("trackMetadataMessage"), "Salvando informações da música...");
+    try {
+      await request("/developer/tracks/" + trackId, { method: "PATCH", body });
+      setMessage($("trackMetadataMessage"), "Nome e capa salvos com sucesso.", "success");
+      await loadTracks();
+      $("trackMetadataEditor").hidden = true;
+      const refreshed = await request("/developer/tracks");
+      const savedTrack = (refreshed.items || []).find(track => String(track.id) === String(trackId));
+      if (savedTrack) {
+        previewPublishAfter = Boolean(savedTrack.is_published);
+        $("previewPublishToggle").checked = previewPublishAfter;
+        await openPreviewEditor(savedTrack);
+        setGlobalMessage("Nome e capa salvos. Agora escolha o trecho de áudio da prévia.", "success");
+      } else {
+        setGlobalMessage("Informações salvas. Abra a configuração de prévia na lista de tracks.", "success");
+      }
+    } catch (error) {
+      setMessage($("trackMetadataMessage"), error.message || "Não foi possível salvar os dados da música.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   $("previewSourceAudio").addEventListener("loadedmetadata", () => {
     const audio = $("previewSourceAudio");
     previewSourceDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
@@ -530,6 +712,22 @@
       return;
     }
 
+    const editButton = event.target.closest("[data-track-edit]");
+    if (editButton) {
+      editButton.disabled = true;
+      try {
+        const data = await request("/developer/tracks");
+        const track = (data.items || []).find(item => String(item.id) === editButton.dataset.trackEdit);
+        if (!track) throw new Error("Multitrack não encontrada na biblioteca.");
+        await openTrackMetadataEditor(track);
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível abrir a edição da música.", "error");
+      } finally {
+        editButton.disabled = false;
+      }
+      return;
+    }
+
     const previewButton = event.target.closest("[data-track-preview]");
     if (previewButton) {
       previewButton.disabled = true;
@@ -591,6 +789,167 @@
       setMessage(message, error.message || "Não foi possível registrar o lançamento.", "error");
     } finally {
       button.disabled = false;
+    }
+  });
+
+
+  function extractDriveFolderId(value) {
+    const input = String(value || "").trim();
+    const match = input.match(/(?:folders\/|[?&]id=)([A-Za-z0-9_-]+)/);
+    return match ? match[1] : (/^[A-Za-z0-9_-]{10,}$/.test(input) ? input : "");
+  }
+
+  async function loadDriveStatus() {
+    try {
+      const status = await request("/developer/drive/status");
+      const message = $("driveStatusMessage");
+      if (!status.configured) {
+        setMessage(message, "Integração criada. Falta configurar as credenciais OAuth do Google no backend.", "error");
+      } else if (status.connected) {
+        setMessage(message, "Google Drive conectado" + (status.email ? " (" + status.email + ")" : "") + ".", "success");
+      } else {
+        setMessage(message, "Credenciais configuradas. Conecte sua conta Google para continuar.");
+      }
+      $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("openDriveTab").querySelector("span").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("connectDriveSidebarButton").innerHTML = status.connected
+        ? '<i data-lucide="cloud-check"></i> Google Drive conectado'
+        : '<i data-lucide="cloud-upload"></i> Vincular Google Drive';
+      $("driveDisconnectButton").hidden = !status.connected;
+      if (window.lucide) window.lucide.createIcons();
+      $("driveScanButton").disabled = !status.connected;
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  }
+
+  async function beginDriveConnection() {
+    setActiveTab("drive");
+    const buttons = [$("driveConnectButton"), $("openDriveTab"), $("connectDriveSidebarButton")];
+    buttons.forEach(button => { if (button) button.disabled = true; });
+    setMessage($("driveStatusMessage"), "Abrindo a autorização segura do Google Drive...");
+    try {
+      const result = await request("/developer/drive/connect");
+      if (!result.authorization_url) throw new Error("O servidor não retornou o link de autorização do Google.");
+      window.location.assign(result.authorization_url);
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível iniciar a conexão com o Google Drive.", "error");
+      buttons.forEach(button => { if (button) button.disabled = false; });
+    }
+  }
+
+  $("driveConnectButton").addEventListener("click", beginDriveConnection);
+  $("openDriveTab").addEventListener("click", beginDriveConnection);
+  $("connectDriveSidebarButton").addEventListener("click", beginDriveConnection);
+
+  $("driveDisconnectButton").addEventListener("click", async () => {
+    try {
+      await request("/developer/drive/connection", { method: "DELETE" });
+      $("driveFolderResults").innerHTML = "";
+      setMessage($("driveStatusMessage"), "Google Drive desconectado.");
+      await loadDriveStatus();
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  });
+
+  $("driveScanButton").addEventListener("click", async () => {
+    const folderId = extractDriveFolderId($("driveRootFolder").value);
+    if (!folderId) {
+      setMessage($("driveStatusMessage"), "Cole o link ou ID de uma pasta válida do Google Drive.", "error");
+      return;
+    }
+    const button = $("driveScanButton");
+    button.disabled = true;
+    $("driveFolderResults").innerHTML = "";
+    try {
+      const result = await request("/developer/drive/folders?parent_id=" + encodeURIComponent(folderId));
+      $("driveFolderResults").innerHTML = (result.folders || []).map(folder => {
+        const isZip = folder.item_type === "zip";
+        const disabled = folder.already_imported || (!isZip && !folder.audio_count);
+        const detail = folder.already_imported ? "Já importada" :
+          isZip ? "Arquivo ZIP · será extraído automaticamente" :
+          folder.audio_count ? "Pronta para importar" : "Sem áudio compatível";
+        return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
+          '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
+          '<span style="display:grid;gap:3px"><strong>' + (isZip ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
+          (isZip ? "ZIP com extração automática" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
+          '</small></span></label>';
+      }).join("") || '<p class="muted">Nenhuma pasta ou arquivo ZIP de música encontrado dentro da pasta selecionada.</p>';
+      $("driveImportButton").disabled = !(result.folders || []).some(folder => !folder.already_imported && (folder.item_type === "zip" || folder.audio_count));
+      setMessage($("driveStatusMessage"), result.total + " item(ns) encontrado(s) em “" + result.parent + "”. Selecione as músicas ou ZIPs que deseja importar.", "success");
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("driveImportButton").addEventListener("click", async event => {
+    // Impede qualquer submit/navegação acidental do formulário administrativo.
+    event.preventDefault();
+    event.stopPropagation();
+
+    const folderIds = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:checked")].map(input => input.dataset.driveFolder);
+    if (!folderIds.length) {
+      setMessage($("driveStatusMessage"), "Selecione pelo menos um arquivo ZIP ou uma pasta antes de importar.", "error");
+      return;
+    }
+
+    const button = $("driveImportButton");
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Importando... aguarde";
+    setMessage($("driveStatusMessage"), "A SONARA está copiando os arquivos para o armazenamento próprio. Não feche esta página.");
+
+    try {
+      const result = await request("/developer/drive/import", {
+        method: "POST",
+        body: JSON.stringify({ folder_ids: folderIds })
+      });
+      const imported = result.imported || [];
+      const skipped = result.skipped || [];
+      const errors = result.errors || [];
+      let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
+      if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
+      if (errors.length) summary += " " + errors.length + " item(ns) tiveram erro.";
+      if (!imported.length && !skipped.length && !errors.length) {
+        summary = "A importação terminou, mas o servidor não retornou itens processados.";
+      }
+      setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
+      if (errors.length) {
+        $("driveFolderResults").insertAdjacentHTML("beforeend",
+          errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      const trackToFinalize = imported[0] || skipped.find(item => item.id);
+
+      // Troca diretamente para Tracks e faz uma única atualização da biblioteca.
+      // Não executa refreshAll nem repete chamadas à API após a importação.
+      setActiveTab("tracks");
+      if (trackToFinalize) {
+        const confirmedTracks = imported.map(item => item.track).filter(Boolean);
+        const tracks = await loadTracks(confirmedTracks);
+        const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
+        if (importedTrack) {
+          await openTrackMetadataEditor(importedTrack);
+          setGlobalMessage(
+            imported.length
+              ? imported.length + " multitrack(s) importada(s) e carregada(s) em Tracks. Finalize nome e capa; depois escolha a prévia."
+              : "Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.",
+            "success"
+          );
+        } else {
+          setGlobalMessage("A importação foi concluída, mas a track não apareceu na consulta da biblioteca. Use Atualizar dados e confira o backend.", "error");
+        }
+      } else {
+        // Mesmo em caso de erro parcial, mostra a biblioteca sem reiniciar a tela.
+        await loadTracks();
+      }
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel || "Importar músicas selecionadas";
     }
   });
 

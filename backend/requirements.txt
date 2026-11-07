@@ -8,3 +8,8 @@ PyJWT>=2.9,<3.0
 psycopg[binary]>=3.2,<4.0
 python-multipart>=0.0.12,<1.0
 imageio-ffmpeg>=0.5.1
+
+google-api-python-client>=2.150,<3.0
+google-auth-oauthlib>=1.2,<2.0
+google-auth-httplib2>=0.2,<1.0
+cryptography>=43
