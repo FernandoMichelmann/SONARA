@@ -467,6 +467,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         db.rollback()
                         logger.exception("Falha ao importar arquivo compactado %s", archive_item.get("id"))
                         errors.append({"folder_id": archive_item.get("id"),
+                            "item_name": archive_item.get("name", "Arquivo compactado"),
                             "message": str(error)[:300]})
                     progress["completed"] += 1
                     update_progress(item_percent=0)
@@ -499,7 +500,8 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         except Exception as error:
                             db.rollback()
                             shutil.rmtree(track_dir, ignore_errors=True)
-                            errors.append({"folder_id": source_id, "message": str(error)[:300]})
+                            errors.append({"folder_id": source_id, "item_name": source.get("name", "Pasta de áudios"),
+                                "message": str(error)[:300]})
                         progress["completed"] += 1
                         update_progress()
             else:
@@ -510,7 +512,8 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
         except Exception as error:
             db.rollback()
             logger.exception("Falha ao importar item do Drive %s", source_id)
-            errors.append({"folder_id": source_id, "message": str(error)[:300]})
+            errors.append({"folder_id": source_id, "item_name": source.get("name", "Item do Drive"),
+                "message": str(error)[:300]})
             progress["completed"] += 1
             update_progress()
     progress["status"] = "completed"
