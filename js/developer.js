@@ -306,6 +306,7 @@
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
   $("refreshButton").addEventListener("click", refreshAll);
+  $("openDriveTab").addEventListener("click", () => setActiveTab("drive"));
   $("saveHomepageFeatures").addEventListener("click", saveHomepageFeatures);
   $("logoutButton").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
