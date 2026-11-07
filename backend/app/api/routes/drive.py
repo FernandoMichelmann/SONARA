@@ -23,6 +23,7 @@ from app.models import DriveConnection, DriveOAuthState, Track, User
 
 router = APIRouter(prefix="/developer/drive", tags=["Importação Google Drive"])
 logger = logging.getLogger("sonara.drive")
+IMPORT_PROGRESS: dict[str, dict] = {}
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 MAX_FILE_BYTES = 500 * 1024 * 1024
@@ -320,11 +321,30 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
 
 class DriveImportRequest(BaseModel):
     folder_ids: list[str] = Field(min_length=1, max_length=100)
+    job_id: str = Field(min_length=8, max_length=80)
+
+@router.get("/import-progress/{job_id}")
+def get_import_progress(job_id: str, _developer: User = Depends(get_current_developer)):
+    progress = IMPORT_PROGRESS.get(job_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Progresso da importação não encontrado.")
+    return dict(progress)
 
 @router.post("/import")
 def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
     service = _service(db)
     imported, skipped, errors = [], [], []
+    progress = {"job_id": payload.job_id, "status": "processing", "total": len(set(payload.folder_ids)),
+        "completed": 0, "current": "Preparando importação...", "imported": 0, "skipped": 0, "errors": 0}
+    IMPORT_PROGRESS[payload.job_id] = progress
+    def update_progress(current=None, total=None):
+        if current is not None:
+            progress["current"] = str(current)[:240]
+        if total is not None:
+            progress["total"] = max(progress["completed"], int(total))
+        progress["imported"] = len(imported)
+        progress["skipped"] = len(skipped)
+        progress["errors"] = len(errors)
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
     def download_file(file_id: str, destination: Path, max_bytes: int):
@@ -411,11 +431,14 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                 raise ValueError("O item selecionado não é uma pasta, ZIP ou RAR.")
 
             if is_folder:
+                update_progress("Analisando pasta: " + source.get("name", "pasta"))
                 audio, archives = _scan_media_recursive(service, source_id)
+                progress["total"] += max(0, len(archives) + (1 if audio else 0) - 1)
                 if not audio and not archives:
                     raise ValueError("Nenhum áudio ou arquivo ZIP/RAR encontrado na pasta.")
                 # Cada arquivo compactado representa uma música independente.
                 for archive_item in archives:
+                    update_progress("Importando: " + archive_item.get("name", "arquivo compactado"))
                     try:
                         import_archive(archive_item, source["name"])
                     except Exception as error:
@@ -423,6 +446,8 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         logger.exception("Falha ao importar arquivo compactado %s", archive_item.get("id"))
                         errors.append({"folder_id": archive_item.get("id"),
                             "message": str(error)[:300]})
+                    progress["completed"] += 1
+                    update_progress()
                 # Áudios soltos, se existirem, formam uma multitrack separada.
                 if audio:
                     loose_key = "folder-audio:" + source_id
@@ -438,6 +463,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         try:
                             if len(audio) > MAX_TRACK_FILES:
                                 raise ValueError("A pasta excede o limite de 100 arquivos de áudio.")
+                            update_progress("Importando áudios avulsos: " + source["name"])
                             for index, item in enumerate(audio, 1):
                                 name = re.sub(r"[^\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
                                 destination = stems_dir / f"{index:02d}_{name}"
@@ -451,11 +477,21 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         except Exception:
                             db.rollback()
                             shutil.rmtree(track_dir, ignore_errors=True)
-                            raise
+                            errors.append({"folder_id": source_id, "message": str(error)[:300]})
+                        progress["completed"] += 1
+                        update_progress()
             else:
+                update_progress("Importando: " + source.get("name", "arquivo"))
                 import_archive(source, "")
+                progress["completed"] += 1
+                update_progress()
         except Exception as error:
             db.rollback()
             logger.exception("Falha ao importar item do Drive %s", source_id)
             errors.append({"folder_id": source_id, "message": str(error)[:300]})
+            progress["completed"] += 1
+            update_progress()
+    progress["status"] = "completed"
+    progress["current"] = "Importação concluída."
+    update_progress()
     return {"imported": imported, "skipped": skipped, "errors": errors}
