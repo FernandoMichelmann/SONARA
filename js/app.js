@@ -1311,6 +1311,9 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
         document.getElementById("userAuthForm").reset();
         closeAuthModal();
         showToast("Login realizado com sucesso!");
+        // Se o comprador voltou da InfinitePay deslogado, confirma o pagamento
+        // imediatamente após autenticar a conta correta.
+        await handlePaymentReturn();
     } catch (error) {
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
@@ -1379,6 +1382,8 @@ document.getElementById("sonaraRegistrationForm").addEventListener("submit", asy
         form.reset();
         navigate("subscription");
         showToast("Conta criada! Continue para o acesso vitalício SONARA.");
+        // Também cobre o retorno do checkout quando a conta foi criada após voltar.
+        await handlePaymentReturn();
     } catch (error) {
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
