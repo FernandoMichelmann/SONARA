@@ -169,7 +169,7 @@ def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int
             for entry in entries:
                 if entry.file_size > MAX_FILE_BYTES:
                     raise ValueError("Um arquivo de áudio compactado excede 500 MB.")
-                safe_name = re.sub(r"[^\\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
                 destination = stems_dir / f"{index:02d}_{safe_name}"
                 written = 0
                 opener = archive.open(entry) if is_rar else archive.open(entry, "r")
