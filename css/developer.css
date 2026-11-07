@@ -165,3 +165,16 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .drive-shortcut-button:hover{border-color:rgba(151,182,255,.75);background:rgba(93,139,231,.24);transform:translateY(-1px)}
 .drive-shortcut-button svg{width:16px;height:16px;color:#9fbdff}
 @media(max-width:720px){.dashboard-header-actions{width:100%;justify-content:flex-start}.drive-shortcut-button,.refresh-button{flex:1}}
+
+
+/* Persistent Google Drive connection action in the developer sidebar */
+.nav-drive-link{
+  margin-top:9px!important;
+  border:1px solid rgba(130,168,255,.38)!important;
+  background:linear-gradient(105deg,rgba(91,139,235,.2),rgba(54,87,151,.12))!important;
+  color:#e8f0ff!important;
+  font-weight:800!important;
+}
+.nav-drive-link svg{color:#9fbdff!important}
+.nav-drive-link:hover{border-color:rgba(159,189,255,.72)!important;background:rgba(91,139,235,.28)!important}
+.nav-drive-link:disabled{opacity:.6;cursor:wait}
