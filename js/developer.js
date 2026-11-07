@@ -919,15 +919,49 @@
 
     const button = $("driveImportButton");
     const originalLabel = button.textContent;
+    const jobId = (window.crypto?.randomUUID?.() || ("sonara-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
+    let progressTimer = null;
+    let progressStopped = false;
+    const renderProgress = data => {
+      const total = Number(data.total || 0);
+      const completed = Number(data.completed || 0);
+      const percent = total ? Math.min(100, Math.round(completed / total * 100)) : 0;
+      const details = `${completed} de ${total || "…"} item(ns) processado(s) · ${data.imported || 0} importada(s) · ${data.skipped || 0} ignorada(s) · ${data.errors || 0} erro(s)`;
+      setMessage($("driveStatusMessage"), `Importação em andamento: ${percent}%\n${details}\nAgora: ${data.current || "Preparando..."}`);
+      const bar = $("driveProgressBar");
+      const fill = $("driveProgressFill");
+      const label = $("driveProgressLabel");
+      if (bar && fill && label) {
+        bar.hidden = false;
+        fill.style.width = percent + "%";
+        label.textContent = percent + "%";
+      }
+    };
     button.disabled = true;
     button.textContent = "Importando... aguarde";
-    setMessage($("driveStatusMessage"), "A SONARA está copiando os arquivos para o armazenamento próprio. Não feche esta página.");
+    $("driveProgressBar").hidden = false;
+    $("driveProgressFill").style.width = "0%";
+    $("driveProgressLabel").textContent = "0%";
+    setMessage($("driveStatusMessage"), "Preparando importação. Não feche esta página.");
+    progressTimer = window.setInterval(async () => {
+      if (progressStopped) return;
+      try {
+        const state = await request("/developer/drive/import-progress/" + encodeURIComponent(jobId));
+        renderProgress(state);
+      } catch (error) {
+        // A consulta pode ocorrer antes de o servidor registrar o trabalho.
+      }
+    }, 1000);
 
     try {
       const result = await request("/developer/drive/import", {
         method: "POST",
-        body: JSON.stringify({ folder_ids: folderIds })
+        body: JSON.stringify({ folder_ids: folderIds, job_id: jobId })
       });
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
+      const finalProgress = await request("/developer/drive/import-progress/" + encodeURIComponent(jobId)).catch(() => null);
+      if (finalProgress) renderProgress(finalProgress);
       const imported = result.imported || [];
       const skipped = result.skipped || [];
       const errors = result.errors || [];
@@ -975,6 +1009,8 @@
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
     } finally {
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
       button.disabled = false;
       button.textContent = originalLabel || "Importar músicas selecionadas";
     }
