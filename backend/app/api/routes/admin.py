@@ -549,7 +549,7 @@ def create_track_preview(
 
 
 @router.patch("/tracks/{track_id}")
-def update_track(
+async def update_track(
     track_id: int,
     title: str | None = Form(default=None, max_length=180),
     artist: str | None = Form(default=None, max_length=180),
@@ -559,6 +559,7 @@ def update_track(
     time_signature: str | None = Form(default=None, max_length=12),
     categories: str | None = Form(default=None),
     is_published: bool | None = Form(default=None),
+    cover: UploadFile | None = File(default=None),
     _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db),
 ):
@@ -566,6 +567,8 @@ def update_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track não encontrada.")
     if title is not None:
+        if not title.strip():
+            raise HTTPException(status_code=422, detail="Informe o nome da música.")
         track.title = title.strip()
     if artist is not None:
         track.artist = artist.strip()
@@ -585,15 +588,47 @@ def update_track(
             track.category = selected[0] if selected else "Multitrack"
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=422, detail="Categorias inválidas.")
+    new_cover = None
+    if cover and cover.filename:
+        extension = Path(cover.filename).suffix.lower()
+        if extension not in ALLOWED_IMAGE_EXTENSIONS:
+            raise HTTPException(status_code=415, detail="A capa deve ser JPG, PNG ou WEBP.")
+        COVER_DIR.mkdir(parents=True, exist_ok=True)
+        new_cover = COVER_DIR / (uuid4().hex + extension)
+        size = 0
+        try:
+            with new_cover.open("wb") as destination:
+                while chunk := await cover.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 12 * 1024 * 1024:
+                        raise HTTPException(status_code=413, detail="A capa excede 12 MB.")
+                    destination.write(chunk)
+            if size == 0:
+                raise HTTPException(status_code=400, detail="A imagem de capa está vazia.")
+        except Exception:
+            new_cover.unlink(missing_ok=True)
+            raise
     if is_published is not None:
         if is_published:
             preview_dir = Path(track.stems_path).parent / "previews" if track.stems_path else None
             previews = list(preview_dir.glob("*.mp3")) if preview_dir and preview_dir.is_dir() else []
             if not previews:
+                if new_cover: new_cover.unlink(missing_ok=True)
                 raise HTTPException(status_code=409, detail="Antes de publicar, configure e gere a prévia de 30 segundos desta multitrack.")
         track.is_published = is_published
-    db.commit()
-    db.refresh(track)
+    old_cover = Path(track.cover_path) if new_cover and track.cover_path else None
+    if new_cover:
+        track.cover_path = str(new_cover)
+        track.cover_content_type = mimetypes.guess_type(new_cover.name)[0] or "application/octet-stream"
+    try:
+        db.commit()
+        db.refresh(track)
+    except Exception:
+        db.rollback()
+        if new_cover: new_cover.unlink(missing_ok=True)
+        raise
+    if old_cover:
+        old_cover.unlink(missing_ok=True)
     return track_payload(track)
 
 
