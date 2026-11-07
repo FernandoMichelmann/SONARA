@@ -1,5 +1,5 @@
 (() => {
-  const API_BASE = (window.SONARA_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+  const API_BASE = (window.SONARA_API_BASE_URL || "").replace(/\/$/, "");
   const TOKEN_KEY = "sonaraDeveloperAccessToken";
   const $ = id => document.getElementById(id);
   const loginCard = $("loginCard");
@@ -51,6 +51,7 @@
   }
 
   async function request(path, options = {}, token = sessionStorage.getItem(TOKEN_KEY) || "") {
+    if (!API_BASE) throw new Error("Backend da SONARA não configurado. Configure o endereço público de testes.");
     const headers = { ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
