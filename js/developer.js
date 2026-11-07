@@ -775,29 +775,48 @@
     }
   });
 
-  $("driveImportButton").addEventListener("click", async () => {
+  $("driveImportButton").addEventListener("click", async event => {
+    // Impede qualquer submit/navegação acidental do formulário administrativo.
+    event.preventDefault();
+    event.stopPropagation();
+
     const folderIds = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:checked")].map(input => input.dataset.driveFolder);
-    if (!folderIds.length) return;
+    if (!folderIds.length) {
+      setMessage($("driveStatusMessage"), "Selecione pelo menos um arquivo ZIP ou uma pasta antes de importar.", "error");
+      return;
+    }
+
     const button = $("driveImportButton");
+    const originalLabel = button.textContent;
     button.disabled = true;
     button.textContent = "Importando... aguarde";
     setMessage($("driveStatusMessage"), "A SONARA está copiando os arquivos para o armazenamento próprio. Não feche esta página.");
+
     try {
-      const result = await request("/developer/drive/import", { method: "POST", body: JSON.stringify({ folder_ids: folderIds }) });
+      const result = await request("/developer/drive/import", {
+        method: "POST",
+        body: JSON.stringify({ folder_ids: folderIds })
+      });
       const imported = result.imported || [];
       const skipped = result.skipped || [];
       const errors = result.errors || [];
       let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
       if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
       if (errors.length) summary += " " + errors.length + " item(ns) tiveram erro.";
+      if (!imported.length && !skipped.length && !errors.length) {
+        summary = "A importação terminou, mas o servidor não retornou itens processados.";
+      }
       setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
-      if (errors.length) $("driveFolderResults").insertAdjacentHTML("beforeend", errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
-      await loadTracks();
+      if (errors.length) {
+        $("driveFolderResults").insertAdjacentHTML("beforeend",
+          errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      if (imported.length) await loadTracks();
     } catch (error) {
-      setMessage($("driveStatusMessage"), error.message, "error");
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
     } finally {
       button.disabled = false;
-      button.textContent = "Importar músicas selecionadas";
+      button.textContent = originalLabel || "Importar músicas selecionadas";
     }
   });
 
