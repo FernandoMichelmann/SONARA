@@ -560,7 +560,16 @@
       setMessage($("trackMetadataMessage"), "Nome e capa salvos com sucesso.", "success");
       await loadTracks();
       $("trackMetadataEditor").hidden = true;
-      setGlobalMessage("Informações da multitrack atualizadas. Agora configure a prévia de áudio na lista de tracks.", "success");
+      const refreshed = await request("/developer/tracks");
+      const savedTrack = (refreshed.items || []).find(track => String(track.id) === String(trackId));
+      if (savedTrack) {
+        previewPublishAfter = Boolean(savedTrack.is_published);
+        $("previewPublishToggle").checked = previewPublishAfter;
+        await openPreviewEditor(savedTrack);
+        setGlobalMessage("Nome e capa salvos. Agora escolha o trecho de áudio da prévia.", "success");
+      } else {
+        setGlobalMessage("Informações salvas. Abra a configuração de prévia na lista de tracks.", "success");
+      }
     } catch (error) {
       setMessage($("trackMetadataMessage"), error.message || "Não foi possível salvar os dados da música.", "error");
     } finally {
