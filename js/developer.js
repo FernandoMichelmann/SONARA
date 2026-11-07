@@ -860,11 +860,16 @@
       return;
     }
     const button = $("driveScanButton");
+    const originalLabel = button.textContent;
     button.disabled = true;
+    button.textContent = "Analisando...";
+    $("driveImportButton").disabled = true;
     $("driveFolderResults").innerHTML = "";
+    setMessage($("driveStatusMessage"), "Analisando a pasta do Google Drive. Buscando músicas e arquivos de áudio...");
     try {
       const result = await request("/developer/drive/folders?parent_id=" + encodeURIComponent(folderId));
-      $("driveFolderResults").innerHTML = (result.folders || []).map(folder => {
+      const folders = Array.isArray(result.folders) ? result.folders : [];
+      $("driveFolderResults").innerHTML = folders.map(folder => {
         const isZip = folder.item_type === "zip";
         const disabled = folder.already_imported || (!isZip && !folder.audio_count);
         const detail = folder.already_imported ? "Já importada" :
@@ -876,12 +881,17 @@
           (isZip ? "ZIP com extração automática" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
           '</small></span></label>';
       }).join("") || '<p class="muted">Nenhuma pasta ou arquivo ZIP de música encontrado dentro da pasta selecionada.</p>';
-      $("driveImportButton").disabled = !(result.folders || []).some(folder => !folder.already_imported && (folder.item_type === "zip" || folder.audio_count));
-      setMessage($("driveStatusMessage"), result.total + " item(ns) encontrado(s) em “" + result.parent + "”. Selecione as músicas ou ZIPs que deseja importar.", "success");
+      $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported && (folder.item_type === "zip" || Number(folder.audio_count) > 0));
+      if (!folders.length) {
+        setMessage($("driveStatusMessage"), "A pasta foi acessada, mas nenhuma subpasta com áudio ou arquivo ZIP foi encontrada. Confira se as músicas estão diretamente dentro dela ou em subpastas.", "error");
+      } else {
+        setMessage($("driveStatusMessage"), (result.total ?? folders.length) + " item(ns) encontrado(s) em “" + (result.parent || "pasta selecionada") + "”. Selecione as músicas ou ZIPs que deseja importar.", "success");
+      }
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message, "error");
     } finally {
       button.disabled = false;
+      button.textContent = originalLabel || "Analisar pastas";
     }
   });
 
