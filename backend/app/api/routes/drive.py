@@ -1,5 +1,6 @@
 import base64, hashlib, json, logging, mimetypes, re, shutil
 from datetime import datetime, timedelta, timezone
+import secrets
 from pathlib import Path
 from uuid import uuid4
 import jwt
@@ -12,12 +13,12 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import DriveConnection, Track, User
+from app.models import DriveConnection, DriveOAuthState, Track, User
 
 router = APIRouter(prefix="/developer/drive", tags=["Importação Google Drive"])
 logger = logging.getLogger("sonara.drive")
@@ -79,12 +80,21 @@ def drive_status(_developer: User = Depends(get_current_developer), db: Session 
     return {"configured": _configured(), "connected": bool(connection), "email": connection.connected_email if connection else None}
 
 @router.get("/connect")
-def drive_connect(developer: User = Depends(get_current_developer)):
-    state = jwt.encode({"developer_id": developer.id, "purpose": "sonara-drive-oauth", "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(minutes=10)},
-        settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+def drive_connect(developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc)
+    state_id = secrets.token_urlsafe(24)
+    state = jwt.encode({"developer_id": developer.id, "purpose": "sonara-drive-oauth", "jti": state_id,
+        "iat": now, "exp": now + timedelta(minutes=10)}, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
     flow.redirect_uri = settings.google_drive_redirect_uri
     url, _ = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
+    if not flow.code_verifier:
+        raise HTTPException(status_code=500, detail="Não foi possível iniciar a verificação segura do Google.")
+    db.execute(delete(DriveOAuthState).where(DriveOAuthState.developer_id == developer.id))
+    db.add(DriveOAuthState(state_id=state_id, developer_id=developer.id,
+        code_verifier_encrypted=_fernet().encrypt(flow.code_verifier.encode()).decode(),
+        expires_at=now + timedelta(minutes=10)))
+    db.commit()
     return {"authorization_url": url}
 
 @router.get("/callback")
@@ -94,7 +104,16 @@ def drive_callback(code: str, state: str, db: Session = Depends(get_db)):
         if claims.get("purpose") != "sonara-drive-oauth": raise ValueError("Estado OAuth inválido.")
         owner = db.get(User, int(claims["developer_id"]))
         if not owner or owner.role != "developer" or not owner.is_active: raise ValueError("Acesso administrativo inválido.")
-        flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
+        oauth_state = db.get(DriveOAuthState, claims.get("jti"))
+        if not oauth_state or oauth_state.developer_id != owner.id:
+            raise ValueError("Estado OAuth expirado ou já utilizado. Inicie a conexão novamente.")
+        if oauth_state.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            db.delete(oauth_state)
+            db.commit()
+            raise ValueError("Estado OAuth expirado. Inicie a conexão novamente.")
+        code_verifier = _fernet().decrypt(oauth_state.code_verifier_encrypted.encode()).decode()
+        flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state,
+            code_verifier=code_verifier, autogenerate_code_verifier=False)
         flow.redirect_uri = settings.google_drive_redirect_uri
         flow.fetch_token(code=code)
         credentials = flow.credentials
@@ -109,6 +128,7 @@ def drive_callback(code: str, state: str, db: Session = Depends(get_db)):
             connection.updated_at = datetime.now(timezone.utc)
         else:
             db.add(DriveConnection(id=1, credentials_encrypted=encrypted, connected_email=profile.get("user", {}).get("emailAddress")))
+        db.delete(oauth_state)
         db.commit()
         return RedirectResponse(settings.frontend_base_url.rstrip("/") + "/developer.html?drive=connected", status_code=303)
     except Exception:
