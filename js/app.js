@@ -16,7 +16,7 @@ let tracks = [];
         let stemPlaybackActive = false;
         let stemBufferTrackId = null;
         const audioPlayer = new Audio();
-        const SONARA_CATALOG_API = "http://127.0.0.1:8000/api/v1";
+        const SONARA_CATALOG_API = window.SONARA_API_BASE_URL || "";
 
         function escapeHTML(value) {
             return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -540,6 +540,12 @@ let tracks = [];
         }
 
         async function loadPublicCatalog() {
+            if (!SONARA_CATALOG_API) {
+                const badge = document.getElementById("catalogBadge");
+                if (badge) badge.textContent = "Servidor de testes não configurado";
+                console.warn("SONARA: configure SONARA_API_BASE_URL em js/sonara-config.js para conectar ao backend.");
+                return;
+            }
             const badge = document.getElementById("catalogBadge");
             try {
                 const [response, featureResponse] = await Promise.all([
@@ -631,7 +637,7 @@ let tracks = [];
         lucide.createIcons();
 
 /* SONARA user authentication */
-const SONARA_API_BASE = "http://127.0.0.1:8000/api/v1";
+const SONARA_API_BASE = window.SONARA_API_BASE_URL || "";
 const SONARA_USER_TOKEN = "sonaraUserAccessToken";
 let sonaraCurrentUser = null;
 let authMode = "login";
@@ -773,6 +779,7 @@ async function handleDownloadAccess() {
         return;
     }
     if (!currentTrack) return;
+    if (!SONARA_API_BASE) { showToast("Backend da SONARA não configurado para este acesso."); return; }
     const button = document.getElementById("downloadMultitrack");
     const trackBeingDownloaded = currentTrack;
     button.disabled = true;
@@ -865,6 +872,7 @@ function closeAuthModal() {
 }
 
 async function sonaraApi(path, options = {}, token = "") {
+    if (!SONARA_API_BASE) throw new Error("Backend da SONARA não configurado. Configure o endereço público de testes.");
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
     const response = await fetch(SONARA_API_BASE + path, { ...options, headers });
