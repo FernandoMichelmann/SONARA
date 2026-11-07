@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import HomepageFeatureSelection, PasswordResetToken, RevenueEntry, Track, TrackCategory, User
+from app.models import HomepageFeatureSelection, PasswordResetToken, PaymentOrder, RevenueEntry, Track, TrackCategory, User
 
 router = APIRouter(prefix="/developer", tags=["Administração do desenvolvedor"])
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
@@ -605,13 +605,32 @@ def revenue_summary(
     _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db),
 ):
-    received = db.scalar(select(func.coalesce(func.sum(RevenueEntry.amount), 0)).where(RevenueEntry.status == "received"))
-    pending = db.scalar(select(func.coalesce(func.sum(RevenueEntry.amount), 0)).where(RevenueEntry.status == "pending"))
-    count = db.scalar(select(func.count(RevenueEntry.id))) or 0
+    # Soma os lançamentos manuais recebidos com os pedidos efetivamente
+    # confirmados pela InfinitePay. Valores dos pedidos são armazenados em centavos.
+    manual_received = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "received")
+    ) or Decimal("0.00")
+    payment_received_cents = db.scalar(
+        select(func.coalesce(func.sum(
+            func.coalesce(PaymentOrder.paid_amount_cents, PaymentOrder.amount_cents)
+        ), 0))
+        .where(PaymentOrder.status == "paid")
+    ) or 0
+    pending = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "pending")
+    ) or Decimal("0.00")
+    manual_count = db.scalar(select(func.count(RevenueEntry.id))) or 0
+    paid_orders_count = db.scalar(
+        select(func.count(PaymentOrder.id)).where(PaymentOrder.status == "paid")
+    ) or 0
+    received = Decimal(str(manual_received)) + (Decimal(payment_received_cents) / Decimal("100"))
     return {
-        "received_total": str(received),
+        "received_total": str(received.quantize(Decimal("0.01"))),
         "pending_total": str(pending),
-        "entries_count": count,
+        "entries_count": manual_count + paid_orders_count,
+        "paid_orders_count": paid_orders_count,
+        "payment_received_total": str((Decimal(payment_received_cents) / Decimal("100")).quantize(Decimal("0.01"))),
         "currency": "BRL",
-        "note": "Valores baseados nos lançamentos registrados; ainda não sincronizados com um gateway de pagamento.",
     }
