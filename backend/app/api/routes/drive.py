@@ -343,9 +343,11 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
     service = _service(db)
     imported, skipped, errors = [], [], []
     progress = {"job_id": payload.job_id, "status": "processing", "total": len(set(payload.folder_ids)),
-        "completed": 0, "current": "Preparando importação...", "imported": 0, "skipped": 0, "errors": 0}
+        "completed": 0, "item_percent": 0, "current": "Preparando importação...", "imported": 0, "skipped": 0, "errors": 0}
     IMPORT_PROGRESS[payload.job_id] = progress
-    def update_progress(current=None, total=None):
+    def update_progress(current=None, total=None, item_percent=None):
+        if item_percent is not None:
+            progress["item_percent"] = max(0, min(100, int(item_percent)))
         if current is not None:
             progress["current"] = str(current)[:240]
         if total is not None:
@@ -426,7 +428,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
             expected_size = int(archive_item.get("size") or 0)
             download_file(
                 source_key, archive_path, MAX_TRACK_BYTES, expected_size,
-                lambda message: update_progress("Importando: " + archive_name + " · " + message),
+                lambda message: update_progress("Importando: " + archive_name + " · " + message, item_percent=int(message.rsplit(" ", 1)[-1].rstrip("%"))),
             )
             downloaded, total, _ = _extract_archive_audio(
                 archive_path, stems_dir, 1, 0,
