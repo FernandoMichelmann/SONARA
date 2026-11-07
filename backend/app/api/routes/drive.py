@@ -1,4 +1,5 @@
-import base64, hashlib, json, logging, mimetypes, re, shutil, zipfile
+import base64, hashlib, json, logging, mimetypes, re, shutil, tempfile, zipfile
+import rarfile
 from datetime import datetime, timedelta, timezone
 import secrets
 from pathlib import Path
@@ -95,6 +96,53 @@ def _audio_files_recursive(service, folder_id: str, depth: int = 0):
     return sorted(found, key=lambda item: item.get("name", "").casefold())
 
 
+
+def _rar_files_recursive(service, folder_id: str, depth: int = 0):
+    found = []
+    for item in _children(service, folder_id):
+        mime_type, name = item.get("mimeType", ""), item.get("name", "")
+        if mime_type == "application/vnd.google-apps.folder":
+            if depth < MAX_FOLDER_SCAN_DEPTH:
+                found.extend(_rar_files_recursive(service, item["id"], depth + 1))
+        elif mime_type != "application/vnd.google-apps.shortcut" and Path(name).suffix.lower() == ".rar":
+            found.append(item)
+    return found
+
+
+def _download_drive_file(service, file_id: str, destination: Path, max_bytes: int):
+    request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+    with destination.open("wb") as target:
+        downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+            if destination.stat().st_size > max_bytes:
+                raise ValueError("O arquivo excede o limite permitido para importação.")
+
+
+def _rar_audio_entries(archive_path: Path):
+    try:
+        with rarfile.RarFile(archive_path) as archive:
+            return [entry for entry in archive.infolist()
+                if not entry.isdir() and Path(entry.filename).suffix.lower() in AUDIO_EXTENSIONS
+                and not Path(entry.filename).name.startswith("._")]
+    except rarfile.Error as error:
+        raise ValueError("Não foi possível ler o RAR. Verifique se não está protegido por senha ou danificado e se o extrator RAR está instalado no backend.") from error
+
+
+def _inspect_rar(service, item):
+    size = int(item.get("size") or 0)
+    if size <= 0 or size > MAX_TRACK_BYTES:
+        raise ValueError("O RAR está vazio ou excede o limite de 2 GB.")
+    with tempfile.TemporaryDirectory(prefix="sonara-rar-scan-") as temporary:
+        archive_path = Path(temporary) / "scan.rar"
+        _download_drive_file(service, item["id"], archive_path, MAX_TRACK_BYTES)
+        entries = _rar_audio_entries(archive_path)
+        if len(entries) > MAX_TRACK_FILES or sum(entry.file_size for entry in entries) > MAX_TRACK_BYTES:
+            raise ValueError("O RAR excede o limite de 100 arquivos de áudio ou 2 GB.")
+        return len(entries), sum(entry.file_size for entry in entries)
+
+
 @router.get("/status")
 def drive_status(_developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
     connection = db.get(DriveConnection, 1)
@@ -175,8 +223,21 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
         name = item.get("name", "")
         if item.get("mimeType") == "application/vnd.google-apps.folder":
             audio = _audio_files_recursive(service, item["id"])
+            rar_archives = _rar_files_recursive(service, item["id"])
+            rar_count = rar_bytes = 0
+            for rar_item in rar_archives:
+                count, size = _inspect_rar(service, rar_item)
+                rar_count += count
+                rar_bytes += size
             items.append({"id": item["id"], "name": name, "item_type": "folder",
-                "audio_count": len(audio), "total_bytes": sum(int(x.get("size") or 0) for x in audio),
+                "audio_count": len(audio) + rar_count,
+                "total_bytes": sum(int(x.get("size") or 0) for x in audio) + rar_bytes,
+                "archive_count": len(rar_archives),
+                "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
+        elif Path(name).suffix.lower() == ".rar":
+            count, size = _inspect_rar(service, item)
+            items.append({"id": item["id"], "name": name, "item_type": "rar",
+                "audio_count": count, "total_bytes": size,
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
         elif Path(name).suffix.lower() == ".zip" or item.get("mimeType") == "application/zip":
             items.append({"id": item["id"], "name": name, "item_type": "zip",
@@ -222,8 +283,9 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
             source = service.files().get(fileId=source_id, fields="id,name,mimeType,size", supportsAllDrives=True).execute()
             is_folder = source.get("mimeType") == "application/vnd.google-apps.folder"
             is_zip = Path(source.get("name", "")).suffix.lower() == ".zip" or source.get("mimeType") == "application/zip"
-            if not is_folder and not is_zip:
-                raise ValueError("O item selecionado não é uma pasta nem um arquivo ZIP.")
+            is_rar = Path(source.get("name", "")).suffix.lower() == ".rar"
+            if not is_folder and not is_zip and not is_rar:
+                raise ValueError("O item selecionado não é uma pasta, ZIP ou RAR.")
             stems_dir.mkdir(parents=True, exist_ok=False)
             downloaded = []
             total = 0
