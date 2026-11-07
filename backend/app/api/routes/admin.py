@@ -128,6 +128,39 @@ def update_homepage_features(
     return {"launches": launches, "most_downloaded": most_downloaded, "saved": True}
 
 
+@router.get("/overview")
+def developer_overview(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    """Retorna os três indicadores da visão geral em uma única consulta autenticada."""
+    users_total = db.scalar(
+        select(func.count(User.id)).where(User.role == "user")
+    ) or 0
+    published_tracks = db.scalar(
+        select(func.count(Track.id)).where(Track.is_published.is_(True))
+    ) or 0
+    manual_received = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "received")
+    ) or Decimal("0.00")
+    paid_cents = db.scalar(
+        select(func.coalesce(func.sum(
+            func.coalesce(PaymentOrder.paid_amount_cents, PaymentOrder.amount_cents)
+        ), 0))
+        .where(PaymentOrder.status == "paid")
+    ) or 0
+    revenue = Decimal(str(manual_received)) + Decimal(int(paid_cents)) / Decimal("100")
+    return {
+        "users_total": int(users_total),
+        "published_tracks": int(published_tracks),
+        "received_total": str(revenue.quantize(Decimal("0.01"))),
+        "paid_orders_count": int(db.scalar(
+            select(func.count(PaymentOrder.id)).where(PaymentOrder.status == "paid")
+        ) or 0),
+    }
+
+
 @router.get("/users")
 def list_users(
     q: str = Query(default="", max_length=254),
