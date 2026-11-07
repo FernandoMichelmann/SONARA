@@ -684,6 +684,38 @@
     }
   });
 
+  $("deleteAllTracksButton").addEventListener("click", async () => {
+    const confirmed = window.confirm("ATENÇÃO: esta ação excluirá TODAS as tracks, publicadas ou não, importadas pelo Drive ou enviadas manualmente, incluindo os arquivos de áudio e capas. Usuários, pagamentos e receitas serão preservados. Deseja continuar?");
+    if (!confirmed) return;
+    const confirmationText = window.prompt('Para confirmar a exclusão definitiva de todas as tracks, digite exatamente: APAGAR TODAS');
+    if (confirmationText !== "APAGAR TODAS") {
+      setGlobalMessage("Exclusão cancelada. Nenhuma track foi apagada.", "error");
+      return;
+    }
+    const button = $("deleteAllTracksButton");
+    button.disabled = true;
+    button.textContent = "Excluindo tracks...";
+    try {
+      const result = await request("/developer/tracks", { method: "DELETE" });
+      if (pendingPreviewTrack) {
+        $("previewSourceAudio").pause();
+        $("previewSourceAudio").removeAttribute("src");
+        $("previewSourceAudio").load();
+        if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
+        previewSourceObjectUrl = null;
+        pendingPreviewTrack = null;
+        $("previewEditor").hidden = true;
+      }
+      setGlobalMessage(result.message + " Total excluído: " + result.deleted + ". Pastas removidas: " + result.files_deleted + ". Capas removidas: " + result.covers_deleted + ".", "success");
+      await Promise.all([loadTracks(), loadHomepageFeatures()]);
+    } catch (error) {
+      setGlobalMessage(error.message || "Não foi possível excluir todas as tracks.", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Excluir todas as tracks";
+    }
+  });
+
   $("tracksTable").addEventListener("click", async event => {
     const deleteButton = event.target.closest("[data-track-delete]");
     if (deleteButton) {
