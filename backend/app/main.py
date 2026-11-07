@@ -29,6 +29,7 @@ def migrate_track_columns():
         for column, definition in additions.items():
             if column not in existing:
                 connection.execute(text(f"ALTER TABLE tracks ADD COLUMN {column} {definition}"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_tracks_source_drive_folder_id ON tracks (source_drive_folder_id)"))
 
 def migrate_user_profile_columns():
     """Add profile fields without deleting or rewriting existing accounts."""
