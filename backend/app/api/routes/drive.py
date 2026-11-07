@@ -1,4 +1,4 @@
-import base64, hashlib, json, logging, mimetypes, re, shutil
+import base64, hashlib, json, logging, mimetypes, re, shutil, zipfile
 from datetime import datetime, timedelta, timezone
 import secrets
 from pathlib import Path
@@ -149,15 +149,23 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
     parent = service.files().get(fileId=parent_id, fields="id,name,mimeType").execute()
     if parent.get("mimeType") != "application/vnd.google-apps.folder":
         raise HTTPException(status_code=422, detail="O link informado não é uma pasta do Google Drive.")
-    folders = [x for x in _children(service, parent_id) if x.get("mimeType") == "application/vnd.google-apps.folder"]
-    result = []
-    for folder in folders:
-        audio = [x for x in _children(service, folder["id"]) if x.get("mimeType") != "application/vnd.google-apps.folder"
-            and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS and not x.get("name", "").startswith("._")]
-        result.append({"id": folder["id"], "name": folder["name"], "audio_count": len(audio),
-            "total_bytes": sum(int(x.get("size") or 0) for x in audio),
-            "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == folder["id"])))})
-    return {"parent": parent["name"], "folders": result, "total": len(result)}
+    items = []
+    for item in _children(service, parent_id):
+        name = item.get("name", "")
+        if item.get("mimeType") == "application/vnd.google-apps.folder":
+            audio = [x for x in _children(service, item["id"])
+                if x.get("mimeType") != "application/vnd.google-apps.folder"
+                and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS
+                and not x.get("name", "").startswith("._")]
+            items.append({"id": item["id"], "name": name, "item_type": "folder",
+                "audio_count": len(audio), "total_bytes": sum(int(x.get("size") or 0) for x in audio),
+                "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
+        elif Path(name).suffix.lower() == ".zip" or item.get("mimeType") == "application/zip":
+            items.append({"id": item["id"], "name": name, "item_type": "zip",
+                "audio_count": None, "total_bytes": int(item.get("size") or 0),
+                "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
+    return {"parent": parent["name"], "folders": items, "total": len(items)}
+
 
 class DriveImportRequest(BaseModel):
     folder_ids: list[str] = Field(min_length=1, max_length=100)
@@ -167,46 +175,99 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
     service = _service(db)
     imported, skipped, errors = [], [], []
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    for folder_id in dict.fromkeys(payload.folder_ids):
-        existing = db.scalar(select(Track).where(Track.source_drive_folder_id == folder_id))
+
+    def download_file(file_id: str, destination: Path, max_bytes: int):
+        request = service.files().get_media(fileId=file_id)
+        with destination.open("wb") as target:
+            downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+                if destination.stat().st_size > max_bytes:
+                    raise ValueError("O arquivo excede o limite permitido para importação.")
+
+    for source_id in dict.fromkeys(payload.folder_ids):
+        existing = db.scalar(select(Track).where(Track.source_drive_folder_id == source_id))
         if existing:
-            skipped.append({"folder_id": folder_id, "title": existing.title, "reason": "Já importada"}); continue
+            skipped.append({"folder_id": source_id, "title": existing.title, "reason": "Já importada"})
+            continue
         track_dir = AUDIO_DIR / uuid4().hex
         stems_dir = track_dir / "stems"
         try:
-            folder = service.files().get(fileId=folder_id, fields="id,name,mimeType").execute()
-            if folder.get("mimeType") != "application/vnd.google-apps.folder": raise ValueError("O item selecionado não é uma pasta.")
-            audio = [x for x in _children(service, folder_id) if x.get("mimeType") != "application/vnd.google-apps.folder"
-                and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS and not x.get("name", "").startswith("._")]
-            if not audio: raise ValueError("Nenhum arquivo de áudio compatível encontrado.")
-            if len(audio) > MAX_TRACK_FILES or sum(int(x.get("size") or 0) for x in audio) > MAX_TRACK_BYTES:
-                raise ValueError("A pasta excede o limite de 100 arquivos ou 2 GB.")
+            source = service.files().get(fileId=source_id, fields="id,name,mimeType,size").execute()
+            is_folder = source.get("mimeType") == "application/vnd.google-apps.folder"
+            is_zip = Path(source.get("name", "")).suffix.lower() == ".zip" or source.get("mimeType") == "application/zip"
+            if not is_folder and not is_zip:
+                raise ValueError("O item selecionado não é uma pasta nem um arquivo ZIP.")
             stems_dir.mkdir(parents=True, exist_ok=False)
-            downloaded, total = [], 0
-            for index, item in enumerate(audio, 1):
-                if int(item.get("size") or 0) > MAX_FILE_BYTES: raise ValueError("Um arquivo excede 500 MB.")
-                name = re.sub(r"[^\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
-                destination = stems_dir / f"{index:02d}_{name}"
-                request = service.files().get_media(fileId=item["id"])
-                with destination.open("wb") as target:
-                    downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
-                    done = False
-                    while not done:
-                        _, done = downloader.next_chunk()
-                        if destination.stat().st_size > MAX_FILE_BYTES: raise ValueError("Um arquivo excedeu 500 MB durante o download.")
-                total += destination.stat().st_size
-                if total > MAX_TRACK_BYTES: raise ValueError("A pasta excede 2 GB após o download.")
-                downloaded.append(destination)
+            downloaded = []
+            total = 0
+
+            if is_folder:
+                audio = [x for x in _children(service, source_id)
+                    if x.get("mimeType") != "application/vnd.google-apps.folder"
+                    and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS
+                    and not x.get("name", "").startswith("._")]
+                if not audio:
+                    raise ValueError("Nenhum arquivo de áudio compatível encontrado na pasta.")
+                if len(audio) > MAX_TRACK_FILES or sum(int(x.get("size") or 0) for x in audio) > MAX_TRACK_BYTES:
+                    raise ValueError("A pasta excede o limite de 100 arquivos ou 2 GB.")
+                for index, item in enumerate(audio, 1):
+                    name = re.sub(r"[^\\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
+                    destination = stems_dir / f"{index:02d}_{name}"
+                    download_file(item["id"], destination, MAX_FILE_BYTES)
+                    total += destination.stat().st_size
+                    if total > MAX_TRACK_BYTES:
+                        raise ValueError("A pasta excede 2 GB após o download.")
+                    downloaded.append(destination)
+                title = source["name"]
+            else:
+                archive = track_dir / "source.zip"
+                download_file(source_id, archive, MAX_TRACK_BYTES)
+                with zipfile.ZipFile(archive) as zipped:
+                    audio_entries = [entry for entry in zipped.infolist()
+                        if not entry.is_dir() and Path(entry.filename).suffix.lower() in AUDIO_EXTENSIONS
+                        and not Path(entry.filename).name.startswith("._")]
+                    if not audio_entries:
+                        raise ValueError("O ZIP não contém arquivos de áudio compatíveis.")
+                    if len(audio_entries) > MAX_TRACK_FILES:
+                        raise ValueError("O ZIP contém mais de 100 arquivos de áudio.")
+                    declared_total = sum(entry.file_size for entry in audio_entries)
+                    if declared_total > MAX_TRACK_BYTES:
+                        raise ValueError("O conteúdo do ZIP excede o limite de 2 GB.")
+                    for index, entry in enumerate(audio_entries, 1):
+                        if entry.file_size > MAX_FILE_BYTES:
+                            raise ValueError("Um arquivo de áudio do ZIP excede 500 MB.")
+                        safe_name = re.sub(r"[^\\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                        destination = stems_dir / f"{index:02d}_{safe_name}"
+                        written = 0
+                        with zipped.open(entry, "r") as source_file, destination.open("wb") as target:
+                            while True:
+                                chunk = source_file.read(8 * 1024 * 1024)
+                                if not chunk:
+                                    break
+                                written += len(chunk)
+                                total += len(chunk)
+                                if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
+                                    raise ValueError("O conteúdo extraído do ZIP excedeu os limites permitidos.")
+                                target.write(chunk)
+                        downloaded.append(destination)
+                archive.unlink(missing_ok=True)
+                title = Path(source["name"]).stem
+
             main_stem = next((p for p in downloaded if any(w in p.stem.lower() for w in ("mix", "full", "stereo", "master"))), downloaded[0])
-            track = Track(title=folder["name"][:180], artist="", musical_key="", bpm=None, time_signature="4/4",
+            track = Track(title=title[:180], artist="", musical_key="", bpm=None, time_signature="4/4",
                 category="Multitrack", categories_json=json.dumps(["Multitrack"], ensure_ascii=False),
-                original_filename=(folder["name"] + " (Google Drive)")[:255], storage_path=str(main_stem),
+                original_filename=(source["name"] + " (Google Drive)")[:255], storage_path=str(main_stem),
                 stems_path=str(stems_dir), content_type=mimetypes.guess_type(main_stem.name)[0] or "application/octet-stream",
-                file_size=total, source_drive_folder_id=folder_id, is_published=False)
-            db.add(track); db.commit(); db.refresh(track)
+                file_size=total, source_drive_folder_id=source_id, is_published=False)
+            db.add(track)
+            db.commit()
+            db.refresh(track)
             imported.append({"id": track.id, "title": track.title, "stems": len(downloaded)})
         except Exception as error:
-            db.rollback(); shutil.rmtree(track_dir, ignore_errors=True)
-            logger.exception("Falha ao importar pasta do Drive %s", folder_id)
-            errors.append({"folder_id": folder_id, "message": str(error)[:300]})
+            db.rollback()
+            shutil.rmtree(track_dir, ignore_errors=True)
+            logger.exception("Falha ao importar item do Drive %s", source_id)
+            errors.append({"folder_id": source_id, "message": str(error)[:300]})
     return {"imported": imported, "skipped": skipped, "errors": errors}
