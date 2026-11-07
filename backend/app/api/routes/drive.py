@@ -109,6 +109,30 @@ def _rar_files_recursive(service, folder_id: str, depth: int = 0):
     return found
 
 
+def _scan_media_recursive(service, folder_id: str, depth: int = 0):
+    """Scan audio and RAR files in one Drive traversal to avoid duplicate API calls."""
+    audio, archives = [], []
+    for item in _children(service, folder_id):
+        mime_type = item.get("mimeType", "")
+        name = item.get("name", "")
+        if mime_type == "application/vnd.google-apps.folder":
+            if depth < MAX_FOLDER_SCAN_DEPTH:
+                nested_audio, nested_archives = _scan_media_recursive(service, item["id"], depth + 1)
+                audio.extend(nested_audio)
+                archives.extend(nested_archives)
+            continue
+        if mime_type == "application/vnd.google-apps.shortcut" or name.startswith("._"):
+            continue
+        extension = Path(name).suffix.lower()
+        if extension in AUDIO_EXTENSIONS:
+            audio.append(item)
+        elif extension == ".rar":
+            archives.append(item)
+    audio.sort(key=lambda item: item.get("name", "").casefold())
+    archives.sort(key=lambda item: item.get("name", "").casefold())
+    return audio, archives
+
+
 def _download_drive_file(service, file_id: str, destination: Path, max_bytes: int):
     request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
     with destination.open("wb") as target:
@@ -222,10 +246,8 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
     for item in _children(service, parent_id):
         name = item.get("name", "")
         if item.get("mimeType") == "application/vnd.google-apps.folder":
-            audio = _audio_files_recursive(service, item["id"])
-            rar_archives = _rar_files_recursive(service, item["id"])
-            # Do not download large RAR files during folder analysis. Their contents
-            # are validated and extracted only after the user starts the import.
+            audio, rar_archives = _scan_media_recursive(service, item["id"])
+            # RAR contents are validated and extracted only after import starts.
             items.append({"id": item["id"], "name": name, "item_type": "folder",
                 "audio_count": len(audio),
                 "total_bytes": sum(int(x.get("size") or 0) for x in audio),
@@ -239,8 +261,12 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
             items.append({"id": item["id"], "name": name, "item_type": "zip",
                 "audio_count": None, "total_bytes": int(item.get("size") or 0),
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
-    # Também permite importar áudios colocados diretamente na pasta principal.
-    root_audio = _audio_files_recursive(service, parent_id, depth=MAX_FOLDER_SCAN_DEPTH)
+    # Only count audio files directly in the selected root; subfolders are listed separately.
+    root_audio = [item for item in _children(service, parent_id)
+        if item.get("mimeType") != "application/vnd.google-apps.folder"
+        and item.get("mimeType") != "application/vnd.google-apps.shortcut"
+        and Path(item.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS
+        and not item.get("name", "").startswith("._")]
     if root_audio:
         items.insert(0, {"id": parent_id, "name": parent["name"] + " (áudios na pasta principal)",
             "item_type": "folder", "audio_count": len(root_audio),
