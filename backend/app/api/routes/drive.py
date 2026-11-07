@@ -460,7 +460,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                     raise ValueError("Nenhum áudio ou arquivo ZIP/RAR encontrado na pasta.")
                 # Cada arquivo compactado representa uma música independente.
                 for archive_item in archives:
-                    update_progress("Importando: " + archive_item.get("name", "arquivo compactado"))
+                    update_progress("Importando: " + archive_item.get("name", "arquivo compactado"), item_percent=0)
                     try:
                         import_archive(archive_item, source["name"])
                     except Exception as error:
@@ -469,7 +469,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         errors.append({"folder_id": archive_item.get("id"),
                             "message": str(error)[:300]})
                     progress["completed"] += 1
-                    update_progress()
+                    update_progress(item_percent=0)
                 # Áudios soltos, se existirem, formam uma multitrack separada.
                 if audio:
                     loose_key = "folder-audio:" + source_id
@@ -503,10 +503,10 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                         progress["completed"] += 1
                         update_progress()
             else:
-                update_progress("Importando: " + source.get("name", "arquivo"))
+                update_progress("Importando: " + source.get("name", "arquivo"), item_percent=0)
                 import_archive(source, "")
                 progress["completed"] += 1
-                update_progress()
+                update_progress(item_percent=0)
         except Exception as error:
             db.rollback()
             logger.exception("Falha ao importar item do Drive %s", source_id)
