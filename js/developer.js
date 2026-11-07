@@ -99,6 +99,7 @@
   async function loadUsers() {
     const params = new URLSearchParams({ q: userQuery, limit: "200" });
     const data = await request("/developer/users?" + params.toString());
+    $("overviewUsers").textContent = Number(data.total ?? data.items.length).toLocaleString("pt-BR");
     $("navUserCount").textContent = data.total ?? data.items.length;
     $("usersCount").textContent = (data.total ?? data.items.length) + " usuário(s) encontrado(s).";
     const rows = data.items.map(user => `
@@ -116,6 +117,7 @@
     const tracks = results[0].items || [];
     renderCategoryOptions(results[1].items || []);
     const published = tracks.filter(track => track.is_published).length;
+    $("overviewTracks").textContent = published.toLocaleString("pt-BR");
     const rows = tracks.map(track => {
       const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
       return '<tr>' +
@@ -158,6 +160,7 @@
       request("/developer/revenue-summary"),
       request("/developer/revenues?limit=200")
     ]);
+    $("overviewRevenue").textContent = formatMoney(summary.received_total);
     $("revenueReceived").textContent = formatMoney(summary.received_total);
     $("revenuePending").textContent = formatMoney(summary.pending_total);
     $("revenueEntries").textContent = summary.entries_count ?? (data.items || []).length;
@@ -230,19 +233,12 @@
   }
 
 
-  async function loadOverview() {
-    const data = await request("/developer/overview");
-    $("overviewUsers").textContent = Number(data.users_total ?? 0).toLocaleString("pt-BR");
-    $("overviewTracks").textContent = Number(data.published_tracks ?? 0).toLocaleString("pt-BR");
-    $("overviewRevenue").textContent = formatMoney(data.received_total);
-  }
-
   async function refreshAll() {
     if (refreshInProgress) return;
     refreshInProgress = true;
     $("refreshButton").disabled = true;
     setGlobalMessage("Atualizando dados...");
-    const results = await Promise.allSettled([loadOverview(), loadUsers(), loadTracks(), loadRevenue(), loadHomepageFeatures()]);
+    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue(), loadHomepageFeatures()]);
     const failed = results.filter(result => result.status === "rejected");
     if (failed.length) {
       setGlobalMessage("Alguns dados não puderam ser carregados. " + failed.map(result => result.reason?.message || "Erro desconhecido").join(" "), "error");
