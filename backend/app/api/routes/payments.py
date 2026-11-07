@@ -61,12 +61,10 @@ def _infinitepay_post(endpoint: str, payload: dict) -> dict:
 def _confirm_order(db: Session, order: PaymentOrder, transaction_nsu: str, slug: str) -> bool:
     if order.status == "paid":
         return True
-    handle = (settings.infinitepay_handle or "").strip().lstrip("$")
-    if not handle:
-        raise HTTPException(status_code=503, detail="A InfiniteTag da InfinitePay não está configurada no servidor.")
-
+    # A API Key identifica a conta do lojista. A InfinitePay documenta que,
+    # quando X-Api-Key é enviado, handle é opcional. Enviar os dois pode causar
+    # erro 403 se a InfiniteTag configurada estiver diferente da conta da chave.
     result = _infinitepay_post("/payment_check", {
-        "handle": handle,
         "order_nsu": order.order_nsu,
         "transaction_nsu": transaction_nsu,
         "slug": slug,
@@ -118,8 +116,8 @@ def create_lifetime_checkout(
     _require_customer(user)
     if user.lifetime_access:
         return {"already_active": True, "message": "Sua conta já possui acesso vitalício."}
-    if not settings.infinitepay_api_key or not settings.infinitepay_handle:
-        raise HTTPException(status_code=503, detail="Configure INFINITEPAY_API_KEY e INFINITEPAY_HANDLE no backend/.env.")
+    if not settings.infinitepay_api_key:
+        raise HTTPException(status_code=503, detail="Configure INFINITEPAY_API_KEY no backend/.env.")
 
     now = datetime.now(timezone.utc)
     previous = db.scalar(
