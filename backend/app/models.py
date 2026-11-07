@@ -141,3 +141,12 @@ class DriveConnection(Base):
     credentials_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     connected_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class DriveOAuthState(Base):
+    __tablename__ = "drive_oauth_states"
+    state_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    developer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    code_verifier_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
