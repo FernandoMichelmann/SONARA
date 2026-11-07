@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/sonara-config.js?v=20261107-admin-login-recovery-1"></script>
-  <script src="js/developer.js?v=20261107-drive-progress-1" defer></script>
+  <script src="js/developer.js?v=20261107-delete-all-tracks-1" defer></script>
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
     <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
@@ -158,7 +158,7 @@
               </div>
             </div>
           </section>
-          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div></div>
+          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div><button type="button" class="table-action danger" id="deleteAllTracksButton">Excluir todas as tracks</button></div>
           <div class="table-wrap"><table><thead><tr><th>TRACK / ARTISTA</th><th>DETALHES</th><th>CATEGORIAS</th><th>STEMS</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="6" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
 
           <section class="homepage-feature-editor" id="homepageFeatureEditor">
