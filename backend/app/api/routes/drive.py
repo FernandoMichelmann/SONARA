@@ -213,7 +213,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                 if len(audio) > MAX_TRACK_FILES or sum(int(x.get("size") or 0) for x in audio) > MAX_TRACK_BYTES:
                     raise ValueError("A pasta excede o limite de 100 arquivos ou 2 GB.")
                 for index, item in enumerate(audio, 1):
-                    name = re.sub(r"[^\\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
+                    name = re.sub(r"[^\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
                     destination = stems_dir / f"{index:02d}_{name}"
                     download_file(item["id"], destination, MAX_FILE_BYTES)
                     total += destination.stat().st_size
@@ -238,7 +238,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                     for index, entry in enumerate(audio_entries, 1):
                         if entry.file_size > MAX_FILE_BYTES:
                             raise ValueError("Um arquivo de áudio do ZIP excede 500 MB.")
-                        safe_name = re.sub(r"[^\\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                        safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
                         destination = stems_dir / f"{index:02d}_{safe_name}"
                         written = 0
                         with zipped.open(entry, "r") as source_file, destination.open("wb") as target:
