@@ -265,14 +265,31 @@
 
   async function validateSession() {
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (!token) return;
+    if (!token) {
+      showLogin();
+      return;
+    }
+
     try {
       identity = await request("/developer/me", { method: "GET" }, token);
       showDashboard(identity);
       await refreshAll();
-    } catch {
-      sessionStorage.removeItem(TOKEN_KEY);
-      showLogin();
+    } catch (error) {
+      // Só encerra a sessão quando a API confirma que o token não é mais válido.
+      // Falhas de rede, indisponibilidade ou erros 5xx não podem expulsar o admin.
+      if (error.status === 401 || error.status === 403) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin();
+        setMessage(loginMessage, "Sua sessão administrativa expirou. Entre novamente.", "error");
+        return;
+      }
+
+      showDashboard(identity || { name: "Sessão administrativa", email: "Conexão temporariamente indisponível" });
+      setGlobalMessage(
+        "Não foi possível validar a sessão agora. Seu acesso foi preservado; verifique o backend e tente atualizar os dados. " +
+        (error.message || ""),
+        "error"
+      );
     }
   }
 
