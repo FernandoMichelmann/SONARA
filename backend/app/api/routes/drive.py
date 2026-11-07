@@ -189,7 +189,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
     for source_id in dict.fromkeys(payload.folder_ids):
         existing = db.scalar(select(Track).where(Track.source_drive_folder_id == source_id))
         if existing:
-            skipped.append({"folder_id": source_id, "title": existing.title, "reason": "Já importada"})
+            skipped.append({"id": existing.id, "folder_id": source_id, "title": existing.title, "reason": "Já importada"})
             continue
         track_dir = AUDIO_DIR / uuid4().hex
         stems_dir = track_dir / "stems"
