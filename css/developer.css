@@ -178,3 +178,12 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .nav-drive-link svg{color:#9fbdff!important}
 .nav-drive-link:hover{border-color:rgba(159,189,255,.72)!important;background:rgba(91,139,235,.28)!important}
 .nav-drive-link:disabled{opacity:.6;cursor:wait}
+
+
+/* Progresso real da importação em lote do Google Drive */
+.drive-progress{display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px 14px;border:1px solid rgba(96,165,250,.25);border-radius:12px;background:rgba(59,130,246,.07)}
+.drive-progress[hidden]{display:none}
+.drive-progress-track{height:9px;flex:1;overflow:hidden;border-radius:99px;background:rgba(148,163,184,.2)}
+.drive-progress-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#60a5fa);transition:width .35s ease}
+.drive-progress strong{min-width:42px;text-align:right;color:#60a5fa;font-variant-numeric:tabular-nums}
+#driveStatusMessage{white-space:pre-line}
