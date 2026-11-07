@@ -474,7 +474,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                                 downloaded.append(destination)
                             save_track(source["name"] + " (áudios avulsos)", source["name"],
                                 loose_key, source["name"], track_dir, stems_dir, downloaded, total)
-                        except Exception:
+                        except Exception as error:
                             db.rollback()
                             shutil.rmtree(track_dir, ignore_errors=True)
                             errors.append({"folder_id": source_id, "message": str(error)[:300]})
