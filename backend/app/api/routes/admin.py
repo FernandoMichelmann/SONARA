@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import HomepageFeatureSelection, PasswordResetToken, PaymentOrder, RevenueEntry, Track, TrackCategory, User
+from app.models import HomepageFeatureSelection, PasswordResetToken, PaymentOrder, RevenueEntry, Track, TrackCategory, User, UserFavorite, UserDownload, UserPlaylist
 
 router = APIRouter(prefix="/developer", tags=["Administração do desenvolvedor"])
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
@@ -395,6 +395,93 @@ async def upload_track(
         await archive.close()
         if cover: await cover.close()
 
+
+
+
+@router.delete("/tracks")
+def delete_all_tracks(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    """Exclui todas as tracks e seus arquivos, preservando usuários e dados financeiros."""
+    tracks = db.scalars(select(Track)).all()
+    track_ids = [track.id for track in tracks]
+    uploads_root = AUDIO_DIR.resolve()
+    covers_root = COVER_DIR.resolve()
+    track_directories = set()
+    cover_files = set()
+    preserved_files = 0
+
+    for track in tracks:
+        if track.stems_path:
+            try:
+                stems_path = Path(track.stems_path).resolve()
+                track_dir = stems_path.parent
+                if track_dir.parent == uploads_root and track_dir != uploads_root:
+                    track_directories.add(track_dir)
+                else:
+                    preserved_files += 1
+            except (OSError, RuntimeError):
+                preserved_files += 1
+        else:
+            preserved_files += 1
+
+        if track.cover_path:
+            try:
+                cover_path = Path(track.cover_path).resolve()
+                if cover_path.parent == covers_root:
+                    cover_files.add(cover_path)
+                else:
+                    preserved_files += 1
+            except (OSError, RuntimeError):
+                preserved_files += 1
+
+    try:
+        if track_ids:
+            db.query(UserFavorite).filter(UserFavorite.track_id.in_(track_ids)).delete(synchronize_session=False)
+            db.query(UserDownload).filter(UserDownload.track_id.in_(track_ids)).delete(synchronize_session=False)
+
+        # Remove referências das tracks excluídas sem apagar as playlists dos usuários.
+        for playlist in db.scalars(select(UserPlaylist)).all():
+            try:
+                current_ids = json.loads(playlist.track_ids_json or "[]")
+                playlist.track_ids_json = json.dumps(
+                    [item for item in current_ids if str(item) not in {str(track_id) for track_id in track_ids}],
+                    ensure_ascii=False,
+                )
+            except (TypeError, json.JSONDecodeError):
+                playlist.track_ids_json = "[]"
+
+        selection = db.get(HomepageFeatureSelection, 1)
+        if selection:
+            selection.launches_json = "[]"
+            selection.most_downloaded_json = "[]"
+
+        for track in tracks:
+            db.delete(track)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    deleted_directories = 0
+    for track_dir in track_directories:
+        shutil.rmtree(track_dir, ignore_errors=True)
+        if not track_dir.exists():
+            deleted_directories += 1
+    deleted_covers = 0
+    for cover_path in cover_files:
+        cover_path.unlink(missing_ok=True)
+        if not cover_path.exists():
+            deleted_covers += 1
+
+    return {
+        "deleted": len(track_ids),
+        "files_deleted": deleted_directories,
+        "covers_deleted": deleted_covers,
+        "files_preserved_for_safety": preserved_files,
+        "message": "Todas as tracks foram excluídas. Usuários, receitas, pagamentos e conexão com o Google Drive foram preservados.",
+    }
 
 
 
