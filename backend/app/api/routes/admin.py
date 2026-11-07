@@ -529,7 +529,8 @@ def get_track_preview_source(
 
     source_stems = sorted(
         path for path in stems_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        if path.is_file()
+        and (path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS or bool(track.source_drive_folder_id))
         and not is_macos_metadata_file(path)
     )
     if not source_stems:
@@ -594,7 +595,8 @@ def create_track_preview(
     preview_dir.mkdir(parents=True, exist_ok=True)
     source_stems = sorted(
         path for path in stems_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        if path.is_file()
+        and (path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS or bool(track.source_drive_folder_id))
         and not is_macos_metadata_file(path)
     )
     if not source_stems:
