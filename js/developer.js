@@ -55,7 +55,13 @@
     if (token) headers.Authorization = "Bearer " + token;
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     if (options.body && !isFormData && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    const response = await fetch(API_BASE + path, { ...options, headers });
+    const response = await fetch(API_BASE + path, {
+      ...options,
+      headers,
+      // Dados administrativos nunca devem vir de cache: a biblioteca precisa refletir
+      // imediatamente uma importação recém-confirmada pelo backend.
+      cache: options.cache || "no-store"
+    });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.detail || data.message || "Não foi possível concluir a operação.");
@@ -127,9 +133,16 @@
   }
 
   async function loadTracks() {
-    const results = await Promise.all([request("/developer/tracks"), request("/developer/track-categories")]);
-    const tracks = results[0].items || [];
-    renderCategoryOptions(results[1].items || []);
+    // A lista de tracks é independente das categorias. Uma falha nas categorias
+    // não pode impedir que uma música recém-importada apareça na biblioteca.
+    const tracksData = await request("/developer/tracks", { cache: "no-store" });
+    const tracks = tracksData.items || [];
+    try {
+      const categoriesData = await request("/developer/track-categories", { cache: "no-store" });
+      renderCategoryOptions(categoriesData.items || []);
+    } catch (error) {
+      console.warn("Não foi possível atualizar as categorias; a biblioteca de tracks foi carregada.", error);
+    }
     const published = tracks.filter(track => track.is_published).length;
     $("overviewTracks").textContent = published.toLocaleString("pt-BR");
     const rows = tracks.map(track => {
