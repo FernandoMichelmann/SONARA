@@ -91,6 +91,7 @@
       overview: ["Visão geral", "Acompanhe os principais números da plataforma."],
       users: ["Usuários", "Acompanhe as contas que se cadastraram na SONARA."],
       tracks: ["Biblioteca de tracks", "Envie arquivos e controle a publicação no catálogo."],
+      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],
       revenue: ["Receitas", "Acompanhe os lançamentos financeiros registrados."]
     };
     $("pageTitle").textContent = labels[tab][0];
