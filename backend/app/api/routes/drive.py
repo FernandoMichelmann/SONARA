@@ -27,6 +27,7 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 MAX_FILE_BYTES = 500 * 1024 * 1024
 MAX_TRACK_BYTES = 2 * 1024 * 1024 * 1024
 MAX_TRACK_FILES = 100
+MAX_FOLDER_SCAN_DEPTH = 5
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
 
 def _fernet():
@@ -69,10 +70,30 @@ def _children(service, parent_id):
     files, token = [], None
     while True:
         result = service.files().list(q=f"'{parent_id}' in parents and trashed = false", pageSize=1000,
-            pageToken=token, orderBy="folder,name", fields="nextPageToken,files(id,name,mimeType,size)").execute()
+            pageToken=token, orderBy="folder,name",
+            supportsAllDrives=True, includeItemsFromAllDrives=True,
+            fields="nextPageToken,files(id,name,mimeType,size,shortcutDetails)").execute()
         files.extend(result.get("files", []))
         token = result.get("nextPageToken")
         if not token: return files
+
+
+def _audio_files_recursive(service, folder_id: str, depth: int = 0):
+    """Find supported audio files inside a song folder, including nested stem folders."""
+    found = []
+    for item in _children(service, folder_id):
+        mime_type = item.get("mimeType", "")
+        name = item.get("name", "")
+        if mime_type == "application/vnd.google-apps.folder":
+            if depth < MAX_FOLDER_SCAN_DEPTH:
+                found.extend(_audio_files_recursive(service, item["id"], depth + 1))
+            continue
+        if mime_type == "application/vnd.google-apps.shortcut":
+            continue
+        if Path(name).suffix.lower() in AUDIO_EXTENSIONS and not name.startswith("._"):
+            found.append(item)
+    return sorted(found, key=lambda item: item.get("name", "").casefold())
+
 
 @router.get("/status")
 def drive_status(_developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
@@ -146,17 +167,14 @@ def disconnect_drive(_developer: User = Depends(get_current_developer), db: Sess
 def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
     _developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
     service = _service(db)
-    parent = service.files().get(fileId=parent_id, fields="id,name,mimeType").execute()
+    parent = service.files().get(fileId=parent_id, fields="id,name,mimeType", supportsAllDrives=True).execute()
     if parent.get("mimeType") != "application/vnd.google-apps.folder":
         raise HTTPException(status_code=422, detail="O link informado não é uma pasta do Google Drive.")
     items = []
     for item in _children(service, parent_id):
         name = item.get("name", "")
         if item.get("mimeType") == "application/vnd.google-apps.folder":
-            audio = [x for x in _children(service, item["id"])
-                if x.get("mimeType") != "application/vnd.google-apps.folder"
-                and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS
-                and not x.get("name", "").startswith("._")]
+            audio = _audio_files_recursive(service, item["id"])
             items.append({"id": item["id"], "name": name, "item_type": "folder",
                 "audio_count": len(audio), "total_bytes": sum(int(x.get("size") or 0) for x in audio),
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
@@ -164,6 +182,13 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
             items.append({"id": item["id"], "name": name, "item_type": "zip",
                 "audio_count": None, "total_bytes": int(item.get("size") or 0),
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
+    # Também permite importar áudios colocados diretamente na pasta principal.
+    root_audio = _audio_files_recursive(service, parent_id, depth=MAX_FOLDER_SCAN_DEPTH)
+    if root_audio:
+        items.insert(0, {"id": parent_id, "name": parent["name"] + " (áudios na pasta principal)",
+            "item_type": "folder", "audio_count": len(root_audio),
+            "total_bytes": sum(int(x.get("size") or 0) for x in root_audio),
+            "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == parent_id)))})
     return {"parent": parent["name"], "folders": items, "total": len(items)}
 
 
@@ -177,7 +202,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
     def download_file(file_id: str, destination: Path, max_bytes: int):
-        request = service.files().get_media(fileId=file_id)
+        request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
         with destination.open("wb") as target:
             downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
             done = False
@@ -194,7 +219,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
         track_dir = AUDIO_DIR / uuid4().hex
         stems_dir = track_dir / "stems"
         try:
-            source = service.files().get(fileId=source_id, fields="id,name,mimeType,size").execute()
+            source = service.files().get(fileId=source_id, fields="id,name,mimeType,size", supportsAllDrives=True).execute()
             is_folder = source.get("mimeType") == "application/vnd.google-apps.folder"
             is_zip = Path(source.get("name", "")).suffix.lower() == ".zip" or source.get("mimeType") == "application/zip"
             if not is_folder and not is_zip:
@@ -204,10 +229,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
             total = 0
 
             if is_folder:
-                audio = [x for x in _children(service, source_id)
-                    if x.get("mimeType") != "application/vnd.google-apps.folder"
-                    and Path(x.get("name", "")).suffix.lower() in AUDIO_EXTENSIONS
-                    and not x.get("name", "").startswith("._")]
+                audio = _audio_files_recursive(service, source_id)
                 if not audio:
                     raise ValueError("Nenhum arquivo de áudio compatível encontrado na pasta.")
                 if len(audio) > MAX_TRACK_FILES or sum(int(x.get("size") or 0) for x in audio) > MAX_TRACK_BYTES:
