@@ -111,6 +111,13 @@ let tracks = [];
             if (page === "downloads") loadUserDownloads();
             if (page === "playlists") loadUserPlaylists();
             if (page === "settings") loadSettingsForm();
+            if (page === "subscription") {
+                // Atualiza a assinatura com o estado mais recente do backend ao abrir a página.
+                updateLifetimePlanUI();
+                if (sonaraCurrentUser) {
+                    refreshSonaraUserAccess().then(() => updateLifetimePlanUI());
+                }
+            }
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.querySelectorAll("[data-page]").forEach(el => el.classList.remove("active"));
 
