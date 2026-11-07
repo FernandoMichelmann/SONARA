@@ -1,6 +1,7 @@
 (() => {
   const API_BASE = (window.SONARA_API_BASE_URL || "").replace(/\/$/, "");
   const TOKEN_KEY = "sonaraDeveloperAccessToken";
+  const ACTIVE_TAB_KEY = "sonaraDeveloperActiveTab";
   const $ = id => document.getElementById(id);
   const loginCard = $("loginCard");
   const dashboardCard = $("dashboardCard");
@@ -20,6 +21,12 @@
   let previewSourceDuration = 0;
 
   if (window.lucide) window.lucide.createIcons();
+
+  // Protege o painel contra submits nativos que poderiam recarregar a página.
+  // Os handlers específicos dos formulários continuam executando normalmente.
+  document.addEventListener("submit", event => {
+    if (event.target instanceof HTMLFormElement) event.preventDefault();
+  }, true);
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -80,8 +87,12 @@
     if (developerIdentity) developerIdentity.textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
+    const savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY);
+    const availableTabs = ["overview", "users", "tracks", "drive", "revenue"];
     if (driveCallbackState === "connected" || driveCallbackState === "error") {
       setActiveTab("drive");
+    } else {
+      setActiveTab(availableTabs.includes(savedTab) ? savedTab : "overview");
     }
     loadDriveStatus().finally(() => {
       if (driveCallbackState === "error") {
@@ -99,6 +110,7 @@
   }
 
   function setActiveTab(tab) {
+    sessionStorage.setItem(ACTIVE_TAB_KEY, tab);
     document.querySelectorAll(".nav-item[data-tab]").forEach(button => {
       button.classList.toggle("active", button.dataset.tab === tab);
     });
@@ -128,7 +140,7 @@
         <td><div class="cell-primary">${escapeHtml(user.full_name)}</div><div class="cell-secondary">${escapeHtml(user.email)}</div></td>
         <td>${escapeHtml(formatDate(user.created_at))}</td>
         <td><span class="status-pill ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Ativo" : "Desativado"}</span></td>
-        <td><div class="user-actions"><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button><button class="table-action danger" data-user-delete="${user.id}" data-user-name="${escapeHtml(user.full_name)}">Excluir</button></div></td>
+        <td><div class="user-actions"><button type="button" class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button><button type="button" class="table-action danger" data-user-delete="${user.id}" data-user-name="${escapeHtml(user.full_name)}">Excluir</button></div></td>
       </tr>`).join("");
     $("usersTable").innerHTML = rows || '<tr><td colspan="4" class="empty-cell">Nenhum usuário encontrado.</td></tr>';
   }
@@ -166,10 +178,10 @@
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
         '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
         '<td>' +
-          '<button class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
-          '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
-          (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
-          '<button class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
+          '<button type="button" class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
+          '<button type="button" class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
+          (track.preview_ready ? '<button type="button" class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
+          '<button type="button" class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
         '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
