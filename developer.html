@@ -44,22 +44,22 @@
     <section class="dashboard-card" id="dashboardCard" hidden>
       <aside class="sidebar">
         <div class="sidebar-heading">PAINEL ADMINISTRATIVO</div>
-        <button class="nav-item active" data-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
-        <button class="nav-item" data-tab="users"><i data-lucide="users"></i> Usuários <span id="navUserCount">—</span></button>
-        <button class="nav-item" data-tab="tracks"><i data-lucide="audio-lines"></i> Tracks</button>
-        <button class="nav-item" data-tab="drive"><i data-lucide="cloud"></i> Google Drive</button>
+        <button type="button" class="nav-item active" data-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
+        <button type="button" class="nav-item" data-tab="users"><i data-lucide="users"></i> Usuários <span id="navUserCount">—</span></button>
+        <button type="button" class="nav-item" data-tab="tracks"><i data-lucide="audio-lines"></i> Tracks</button>
+        <button type="button" class="nav-item" data-tab="drive"><i data-lucide="cloud"></i> Google Drive</button>
         <button class="nav-item nav-drive-link" id="connectDriveSidebarButton" type="button"><i data-lucide="cloud-upload"></i> Vincular Google Drive</button>
-        <button class="nav-item" data-tab="revenue"><i data-lucide="chart-no-axes-combined"></i> Receitas</button>
+        <button type="button" class="nav-item" data-tab="revenue"><i data-lucide="chart-no-axes-combined"></i> Receitas</button>
         <div class="sidebar-bottom">
           <div class="identity-mini"><span class="identity-dot"></span><div><strong>Proprietário</strong><small id="sidebarIdentity">Sessão validada</small></div></div>
-          <button class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
+          <button type="button" class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
         </div>
       </aside>
 
       <div class="admin-content">
         <header class="dashboard-top">
           <div><div class="eyebrow"><span></span> SONARA CONTROL CENTER</div><h1 id="pageTitle">Visão geral</h1><p class="intro" id="pageIntro">Acompanhe os principais números da plataforma.</p></div>
-          <div class="dashboard-header-actions"><button class="drive-shortcut-button" id="openDriveTab" type="button"><i data-lucide="cloud"></i><span>Vincular Google Drive</span></button><button class="refresh-button" id="refreshButton"><i data-lucide="refresh-cw"></i><span>Atualizar dados</span></button></div>
+          <div class="dashboard-header-actions"><button class="drive-shortcut-button" id="openDriveTab" type="button"><i data-lucide="cloud"></i><span>Vincular Google Drive</span></button><button type="button" class="refresh-button" id="refreshButton"><i data-lucide="refresh-cw"></i><span>Atualizar dados</span></button></div>
         </header>
         <div class="global-message" id="globalMessage" role="status" aria-live="polite"></div>
 
