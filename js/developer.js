@@ -148,6 +148,7 @@
         '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
+    return tracks;
   }
 
   function renderCategoryOptions(categories) {
@@ -896,20 +897,27 @@
           errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
       }
       const trackToFinalize = imported[0] || skipped.find(item => item.id);
+
+      // Troca diretamente para Tracks e faz uma única atualização da biblioteca.
+      // Não executa refreshAll nem repete chamadas à API após a importação.
+      setActiveTab("tracks");
       if (trackToFinalize) {
-        setActiveTab("tracks");
-        await loadTracks();
-        const tracksData = await request("/developer/tracks");
-        const importedTrack = (tracksData.items || []).find(track => String(track.id) === String(trackToFinalize.id));
+        const tracks = await loadTracks();
+        const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
         if (importedTrack) {
           await openTrackMetadataEditor(importedTrack);
           setGlobalMessage(
             imported.length
-              ? imported.length + " multitrack(s) importada(s). Finalize nome e capa; depois escolha a prévia de áudio."
+              ? imported.length + " multitrack(s) importada(s) e carregada(s) em Tracks. Finalize nome e capa; depois escolha a prévia."
               : "Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.",
             "success"
           );
+        } else {
+          setGlobalMessage("A importação foi concluída, mas a track não apareceu na consulta da biblioteca. Use Atualizar dados e confira o backend.", "error");
         }
+      } else {
+        // Mesmo em caso de erro parcial, mostra a biblioteca sem reiniciar a tela.
+        await loadTracks();
       }
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
