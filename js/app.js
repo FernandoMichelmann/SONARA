@@ -884,7 +884,18 @@ function updateLifetimePlanUI() {
     const sidebarTitle = document.getElementById("sidebarUpgradeTitle");
     const sidebarDescription = document.getElementById("sidebarUpgradeDescription");
     const sidebarButton = document.getElementById("sidebarUpgradeButton");
+    const sidebarCard = document.getElementById("sidebarUpgradeCard");
+    const pageTitle = document.getElementById("subscriptionPageTitle");
+    const pageSubtitle = document.getElementById("subscriptionPageSubtitle");
+    const planGrid = document.getElementById("lifetimePlanGrid");
+    const activeView = document.getElementById("lifetimeActiveView");
     const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+
+    if (pageTitle) pageTitle.hidden = hasAccess;
+    if (pageSubtitle) pageSubtitle.hidden = hasAccess;
+    if (planGrid) planGrid.hidden = hasAccess;
+    if (activeView) activeView.hidden = !hasAccess;
+    if (sidebarCard) sidebarCard.hidden = hasAccess;
 
     if (button) {
         button.disabled = hasAccess;
