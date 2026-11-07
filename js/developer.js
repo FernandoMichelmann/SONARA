@@ -306,7 +306,6 @@
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
   $("refreshButton").addEventListener("click", refreshAll);
-  $("openDriveTab").addEventListener("click", () => setActiveTab("drive"));
   $("saveHomepageFeatures").addEventListener("click", saveHomepageFeatures);
   $("logoutButton").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
@@ -690,25 +689,37 @@
       } else {
         setMessage(message, "Credenciais configuradas. Conecte sua conta Google para continuar.");
       }
-      $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Conectar Google Drive";
+      $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("openDriveTab").querySelector("span").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("connectDriveSidebarButton").innerHTML = status.connected
+        ? '<i data-lucide="cloud-check"></i> Google Drive conectado'
+        : '<i data-lucide="cloud-upload"></i> Vincular Google Drive';
       $("driveDisconnectButton").hidden = !status.connected;
+      if (window.lucide) window.lucide.createIcons();
       $("driveScanButton").disabled = !status.connected;
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message, "error");
     }
   }
 
-  $("driveConnectButton").addEventListener("click", async () => {
-    const button = $("driveConnectButton");
-    button.disabled = true;
+  async function beginDriveConnection() {
+    setActiveTab("drive");
+    const buttons = [$("driveConnectButton"), $("openDriveTab"), $("connectDriveSidebarButton")];
+    buttons.forEach(button => { if (button) button.disabled = true; });
+    setMessage($("driveStatusMessage"), "Abrindo a autorização segura do Google Drive...");
     try {
       const result = await request("/developer/drive/connect");
-      window.location.href = result.authorization_url;
+      if (!result.authorization_url) throw new Error("O servidor não retornou o link de autorização do Google.");
+      window.location.assign(result.authorization_url);
     } catch (error) {
-      setMessage($("driveStatusMessage"), error.message, "error");
-      button.disabled = false;
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível iniciar a conexão com o Google Drive.", "error");
+      buttons.forEach(button => { if (button) button.disabled = false; });
     }
-  });
+  }
+
+  $("driveConnectButton").addEventListener("click", beginDriveConnection);
+  $("openDriveTab").addEventListener("click", beginDriveConnection);
+  $("connectDriveSidebarButton").addEventListener("click", beginDriveConnection);
 
   $("driveDisconnectButton").addEventListener("click", async () => {
     try {
