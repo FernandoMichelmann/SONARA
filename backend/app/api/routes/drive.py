@@ -224,20 +224,16 @@ def drive_folders(parent_id: str = Query(min_length=5, max_length=200),
         if item.get("mimeType") == "application/vnd.google-apps.folder":
             audio = _audio_files_recursive(service, item["id"])
             rar_archives = _rar_files_recursive(service, item["id"])
-            rar_count = rar_bytes = 0
-            for rar_item in rar_archives:
-                count, size = _inspect_rar(service, rar_item)
-                rar_count += count
-                rar_bytes += size
+            # Do not download large RAR files during folder analysis. Their contents
+            # are validated and extracted only after the user starts the import.
             items.append({"id": item["id"], "name": name, "item_type": "folder",
-                "audio_count": len(audio) + rar_count,
-                "total_bytes": sum(int(x.get("size") or 0) for x in audio) + rar_bytes,
+                "audio_count": len(audio),
+                "total_bytes": sum(int(x.get("size") or 0) for x in audio),
                 "archive_count": len(rar_archives),
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
         elif Path(name).suffix.lower() == ".rar":
-            count, size = _inspect_rar(service, item)
             items.append({"id": item["id"], "name": name, "item_type": "rar",
-                "audio_count": count, "total_bytes": size,
+                "audio_count": None, "archive_count": 1, "total_bytes": int(item.get("size") or 0),
                 "already_imported": bool(db.scalar(select(Track.id).where(Track.source_drive_folder_id == item["id"])))})
         elif Path(name).suffix.lower() == ".zip" or item.get("mimeType") == "application/zip":
             items.append({"id": item["id"], "name": name, "item_type": "zip",
