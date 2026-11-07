@@ -30,6 +30,7 @@ MAX_FILE_BYTES = 500 * 1024 * 1024
 MAX_TRACK_BYTES = 2 * 1024 * 1024 * 1024
 MAX_TRACK_FILES = 100
 MAX_FOLDER_SCAN_DEPTH = 5
+DRIVE_DOWNLOAD_CHUNK_BYTES = 32 * 1024 * 1024
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
 
 def _fernet():
@@ -137,7 +138,7 @@ def _scan_media_recursive(service, folder_id: str, depth: int = 0):
 def _download_drive_file(service, file_id: str, destination: Path, max_bytes: int):
     request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
     with destination.open("wb") as target:
-        downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
+        downloader = MediaIoBaseDownload(target, request, chunksize=DRIVE_DOWNLOAD_CHUNK_BYTES)
         done = False
         while not done:
             _, done = downloader.next_chunk()
@@ -350,7 +351,7 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
     def download_file(file_id: str, destination: Path, max_bytes: int):
         request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
         with destination.open("wb") as target:
-            downloader = MediaIoBaseDownload(target, request, chunksize=8 * 1024 * 1024)
+            downloader = MediaIoBaseDownload(target, request, chunksize=DRIVE_DOWNLOAD_CHUNK_BYTES)
             done = False
             while not done:
                 _, done = downloader.next_chunk()
