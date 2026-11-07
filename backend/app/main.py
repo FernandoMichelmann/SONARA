@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, inspect, text
-from app.api.routes import account, admin, auth, catalog, developer, payments
+from app.api.routes import account, admin, auth, catalog, developer, payments, drive
 from app.core.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import RevenueEntry, Track, TrackCategory, User
@@ -22,6 +22,7 @@ def migrate_track_columns():
         "preview_end_seconds": "INTEGER NOT NULL DEFAULT 30",
         "cover_path": "VARCHAR(600)",
         "cover_content_type": "VARCHAR(120)",
+        "source_drive_folder_id": "VARCHAR(160)",
     }
     with engine.begin() as connection:
         existing = {column["name"] for column in inspect(engine).get_columns("tracks")}
@@ -93,3 +94,4 @@ app.include_router(admin.router, prefix=settings.api_v1_prefix)
 app.include_router(catalog.router, prefix=settings.api_v1_prefix)
 app.include_router(account.router, prefix=settings.api_v1_prefix)
 app.include_router(payments.router, prefix=settings.api_v1_prefix)
+app.include_router(drive.router, prefix=settings.api_v1_prefix)
