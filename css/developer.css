@@ -157,3 +157,11 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .preview-editor-controls label { margin-top: 16px; }
 .preview-editor-controls label strong { color: #EAF2FF; font-variant-numeric: tabular-nums; }
 .preview-window { min-width: 130px; text-align: center; }
+
+
+/* Visible Google Drive shortcut in the developer dashboard header */
+.dashboard-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.drive-shortcut-button{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 16px;border:1px solid rgba(130,168,255,.42);border-radius:10px;background:linear-gradient(110deg,rgba(83,126,210,.27),rgba(50,79,133,.2));color:#eaf1ff;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(36,73,142,.14)}
+.drive-shortcut-button:hover{border-color:rgba(151,182,255,.75);background:rgba(93,139,231,.24);transform:translateY(-1px)}
+.drive-shortcut-button svg{width:16px;height:16px;color:#9fbdff}
+@media(max-width:720px){.dashboard-header-actions{width:100%;justify-content:flex-start}.drive-shortcut-button,.refresh-button{flex:1}}
