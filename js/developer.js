@@ -871,21 +871,23 @@
       const folders = Array.isArray(result.folders) ? result.folders : [];
       $("driveFolderResults").innerHTML = folders.map(folder => {
         const isZip = folder.item_type === "zip";
+        const isRar = folder.item_type === "rar";
         const disabled = folder.already_imported || (!isZip && !folder.audio_count);
         const detail = folder.already_imported ? "Já importada" :
           isZip ? "Arquivo ZIP · será extraído automaticamente" :
+          isRar ? "Arquivo RAR · faixas identificadas e extraídas automaticamente" :
           folder.audio_count ? "Pronta para importar" : "Sem áudio compatível";
         return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
           '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
-          '<span style="display:grid;gap:3px"><strong>' + (isZip ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
-          (isZip ? "ZIP com extração automática" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
+          '<span style="display:grid;gap:3px"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
+          (isZip ? "ZIP com extração automática" : isRar ? "RAR · " + folder.audio_count + " faixa(s) de áudio" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
           '</small></span></label>';
-      }).join("") || '<p class="muted">Nenhuma pasta ou arquivo ZIP de música encontrado dentro da pasta selecionada.</p>';
+      }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
       $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported && (folder.item_type === "zip" || Number(folder.audio_count) > 0));
       if (!folders.length) {
         setMessage($("driveStatusMessage"), "A pasta foi acessada, mas nenhuma subpasta com áudio ou arquivo ZIP foi encontrada. Confira se as músicas estão diretamente dentro dela ou em subpastas.", "error");
       } else {
-        setMessage($("driveStatusMessage"), (result.total ?? folders.length) + " item(ns) encontrado(s) em “" + (result.parent || "pasta selecionada") + "”. Selecione as músicas ou ZIPs que deseja importar.", "success");
+        setMessage($("driveStatusMessage"), (result.total ?? folders.length) + " item(ns) encontrado(s) em “" + (result.parent || "pasta selecionada") + "”. Selecione as músicas ou arquivos compactados que deseja importar.", "success");
       }
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message, "error");
