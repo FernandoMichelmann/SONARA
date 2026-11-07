@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     infinitepay_api_key: str | None = None
     infinitepay_handle: str | None = None
     infinitepay_webhook_url: str | None = None
+    google_drive_client_id: str | None = None
+    google_drive_client_secret: str | None = None
+    google_drive_redirect_uri: str | None = None
 
 @lru_cache
 def get_settings() -> Settings:
