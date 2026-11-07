@@ -81,9 +81,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0",
               description="API oficial da plataforma SONARA.", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
-                   allow_credentials=True, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                   allow_headers=["Authorization", "Content-Type"])
+# Keep the production GitHub Pages frontend authorized even when backend/.env
+# contains a custom CORS_ORIGINS value. Preserve all additional configured origins.
+configured_origins = [
+    origin.strip().rstrip("/")
+    for origin in settings.cors_origins.split(",")
+    if origin.strip()
+]
+required_origins = ["https://fernandomichelmann.github.io"]
+allowed_origins = list(dict.fromkeys(configured_origins + required_origins))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 @app.get("/health")
 def health():
