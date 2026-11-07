@@ -1,5 +1,5 @@
 import base64, hashlib, json, logging, mimetypes, re, shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 import jwt
@@ -80,7 +80,7 @@ def drive_status(_developer: User = Depends(get_current_developer), db: Session 
 
 @router.get("/connect")
 def drive_connect(developer: User = Depends(get_current_developer)):
-    state = jwt.encode({"developer_id": developer.id, "purpose": "sonara-drive-oauth", "iat": datetime.now(timezone.utc)},
+    state = jwt.encode({"developer_id": developer.id, "purpose": "sonara-drive-oauth", "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(minutes=10)},
         settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
     flow.redirect_uri = settings.google_drive_redirect_uri
