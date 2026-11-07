@@ -120,6 +120,22 @@
 
 
 
+          <section class="preview-editor" id="trackMetadataEditor" hidden>
+            <div class="preview-editor-heading"><span class="preview-kicker">FINALIZAÇÃO DA MULTITRACK</span><h3>Nome e capa da música</h3><p>Os instrumentos já foram importados. Ajuste os dados da música e depois configure a prévia de áudio.</p></div>
+            <form id="trackMetadataForm" class="upload-form">
+              <div class="form-grid">
+                <div class="form-field"><label for="editTrackTitle">Nome da música *</label><input id="editTrackTitle" maxlength="180" required></div>
+                <div class="form-field"><label for="editTrackArtist">Artista</label><input id="editTrackArtist" maxlength="180"></div>
+                <div class="form-field" style="grid-column:1/-1"><label for="editTrackCover">Capa da música</label><input id="editTrackCover" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"><small>JPG, PNG ou WEBP · máximo 12 MB. Se não escolher outra imagem, a capa atual será mantida.</small></div>
+              </div>
+              <div class="track-step-actions">
+                <button type="button" class="table-action" id="cancelTrackMetadata">Cancelar</button>
+                <button type="submit" class="submit-button" id="saveTrackMetadata">Salvar informações</button>
+              </div>
+              <p class="inline-message" id="trackMetadataMessage" role="status"></p>
+            </form>
+          </section>
+
           <section class="preview-editor" id="previewEditor" hidden>
             <div class="preview-editor-heading"><span class="preview-kicker">EDITOR DE PRÉVIA</span><h3>Marque o início e o fim do trecho</h3><p>Ouça a mixagem completa e escolha exatamente qual parte ficará disponível no catálogo. A prévia pode ter até 30 segundos.</p></div>
             <div class="preview-editor-layout">
