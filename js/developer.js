@@ -71,6 +71,7 @@
     $("developerIdentity").textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
+    loadDriveStatus();
   }
 
   function showLogin() {
@@ -667,6 +668,117 @@
       button.disabled = false;
     }
   });
+
+
+  function extractDriveFolderId(value) {
+    const input = String(value || "").trim();
+    const match = input.match(/(?:folders\\/|[?&]id=)([A-Za-z0-9_-]+)/);
+    return match ? match[1] : (/^[A-Za-z0-9_-]{10,}$/.test(input) ? input : "");
+  }
+
+  async function loadDriveStatus() {
+    try {
+      const status = await request("/developer/drive/status");
+      const message = $("driveStatusMessage");
+      if (!status.configured) {
+        setMessage(message, "Integração criada. Falta configurar as credenciais OAuth do Google no backend.", "error");
+      } else if (status.connected) {
+        setMessage(message, "Google Drive conectado" + (status.email ? " (" + status.email + ")" : "") + ".", "success");
+      } else {
+        setMessage(message, "Credenciais configuradas. Conecte sua conta Google para continuar.");
+      }
+      $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Conectar Google Drive";
+      $("driveDisconnectButton").hidden = !status.connected;
+      $("driveScanButton").disabled = !status.connected;
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  }
+
+  $("driveConnectButton").addEventListener("click", async () => {
+    const button = $("driveConnectButton");
+    button.disabled = true;
+    try {
+      const result = await request("/developer/drive/connect");
+      window.location.href = result.authorization_url;
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+      button.disabled = false;
+    }
+  });
+
+  $("driveDisconnectButton").addEventListener("click", async () => {
+    try {
+      await request("/developer/drive/connection", { method: "DELETE" });
+      $("driveFolderResults").innerHTML = "";
+      setMessage($("driveStatusMessage"), "Google Drive desconectado.");
+      await loadDriveStatus();
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  });
+
+  $("driveScanButton").addEventListener("click", async () => {
+    const folderId = extractDriveFolderId($("driveRootFolder").value);
+    if (!folderId) {
+      setMessage($("driveStatusMessage"), "Cole o link ou ID de uma pasta válida do Google Drive.", "error");
+      return;
+    }
+    const button = $("driveScanButton");
+    button.disabled = true;
+    $("driveFolderResults").innerHTML = "";
+    try {
+      const result = await request("/developer/drive/folders?parent_id=" + encodeURIComponent(folderId));
+      $("driveFolderResults").innerHTML = (result.folders || []).map(folder => {
+        const disabled = folder.already_imported || !folder.audio_count;
+        return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
+          '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
+          '<span style="display:grid;gap:3px"><strong>' + escapeHtml(folder.name) + '</strong><small>' +
+          folder.audio_count + ' arquivo(s) de áudio · ' + (folder.already_imported ? "Já importada" : folder.audio_count ? "Pronta para importar" : "Sem áudio compatível") +
+          '</small></span></label>';
+      }).join("") || '<p class="muted">Nenhuma pasta de música encontrada dentro da pasta selecionada.</p>';
+      $("driveImportButton").disabled = !(result.folders || []).some(folder => !folder.already_imported && folder.audio_count);
+      setMessage($("driveStatusMessage"), result.total + " pasta(s) encontrada(s) em “" + result.parent + "”. Selecione as músicas que deseja importar.", "success");
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("driveImportButton").addEventListener("click", async () => {
+    const folderIds = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:checked")].map(input => input.dataset.driveFolder);
+    if (!folderIds.length) return;
+    const button = $("driveImportButton");
+    button.disabled = true;
+    button.textContent = "Importando... aguarde";
+    setMessage($("driveStatusMessage"), "A SONARA está copiando os arquivos para o armazenamento próprio. Não feche esta página.");
+    try {
+      const result = await request("/developer/drive/import", { method: "POST", body: JSON.stringify({ folder_ids: folderIds }) });
+      const imported = result.imported || [];
+      const skipped = result.skipped || [];
+      const errors = result.errors || [];
+      let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
+      if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
+      if (errors.length) summary += " " + errors.length + " pasta(s) tiveram erro.";
+      setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
+      if (errors.length) $("driveFolderResults").insertAdjacentHTML("beforeend", errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
+      await loadTracks();
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Importar pastas selecionadas";
+    }
+  });
+
+  const driveQuery = new URLSearchParams(window.location.search);
+  if (driveQuery.get("drive") === "connected") {
+    window.history.replaceState({}, "", window.location.pathname);
+    setTimeout(loadDriveStatus, 0);
+  } else if (driveQuery.get("drive") === "error") {
+    setTimeout(() => setMessage($("driveStatusMessage"), "Não foi possível conectar. Confira as credenciais OAuth e a URL de redirecionamento.", "error"), 0);
+  }
 
   validateSession();
 })();
