@@ -881,7 +881,11 @@ async function sonaraApi(path, options = {}, token = "") {
 function updateLifetimePlanUI() {
     const button = document.getElementById("lifetimeCheckoutButton");
     const status = document.getElementById("lifetimeAccessStatus");
+    const sidebarTitle = document.getElementById("sidebarUpgradeTitle");
+    const sidebarDescription = document.getElementById("sidebarUpgradeDescription");
+    const sidebarButton = document.getElementById("sidebarUpgradeButton");
     const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+
     if (button) {
         button.disabled = hasAccess;
         button.textContent = hasAccess ? "VOCÊ JÁ TEM O ACESSO" : "Adquirir acesso vitalício";
@@ -891,6 +895,16 @@ function updateLifetimePlanUI() {
         status.textContent = hasAccess
             ? "Sua conta já possui acesso vitalício. Obrigado por fazer parte da SONARA!"
             : (sonaraCurrentUser ? "Finalize o pagamento para liberar os downloads de todas as multitracks." : "Entre ou crie sua conta para concluir a compra.");
+    }
+
+    if (sidebarTitle && sidebarDescription && sidebarButton) {
+        sidebarTitle.textContent = hasAccess ? "Acesso liberado!" : "Desbloqueie seu som.";
+        sidebarDescription.textContent = hasAccess
+            ? "Sua conta já tem acesso vitalício a todas as multitracks da SONARA."
+            : "Acesse a experiência completa de multitracks com a SONARA.";
+        sidebarButton.textContent = hasAccess ? "ACESSO JÁ ATIVO" : "Ver acesso vitalício";
+        sidebarButton.disabled = hasAccess;
+        sidebarButton.setAttribute("aria-label", hasAccess ? "Acesso vitalício já ativo" : "Ver acesso vitalício");
     }
 }
 
