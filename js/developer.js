@@ -914,7 +914,7 @@
           hasArchives ? "ZIP/RAR detectado(s) · conteúdo será validado na importação" :
           hasAudio ? "Pronta para importar" : "Sem áudio compatível";
         return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
-          '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
+          '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "") + '>' +
           '<span style="display:grid;gap:3px"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
           (isZip ? "ZIP com extração automática" :
             isRar ? "Arquivo RAR · extração na importação" :
@@ -922,9 +922,13 @@
               (Number(folder.archive_count) ? " + " + folder.archive_count + " ZIP/RAR(s)" : ""))) + ' · ' + detail +
           '</small></span></label>';
       }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
-      $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported &&
+      const selectableFolders = folders.filter(folder => !folder.already_imported &&
         (folder.item_type === "zip" || folder.item_type === "rar" ||
           Number(folder.audio_count) > 0 || Number(folder.archive_count) > 0));
+      $("driveSelectAllButton").hidden = selectableFolders.length === 0;
+      $("driveSelectAllButton").disabled = selectableFolders.length === 0;
+      $("driveSelectAllButton").textContent = "Marcar todas";
+      $("driveImportButton").disabled = true;
       if (!folders.length) {
         setMessage($("driveStatusMessage"), "A pasta foi acessada, mas nenhuma subpasta com áudio ou arquivo ZIP foi encontrada. Confira se as músicas estão diretamente dentro dela ou em subpastas.", "error");
       } else {
@@ -936,6 +940,24 @@
       button.disabled = false;
       button.textContent = originalLabel || "Analisar pastas";
     }
+  });
+
+  $("driveFolderResults").addEventListener("change", () => {
+    const selectable = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:not(:disabled)")];
+    const selected = selectable.filter(input => input.checked).length;
+    $("driveImportButton").disabled = selected === 0;
+    const selectAllButton = $("driveSelectAllButton");
+    if (selectAllButton && selectable.length) {
+      selectAllButton.textContent = selected === selectable.length ? "Desmarcar todas" : "Marcar todas";
+    }
+  });
+
+  $("driveSelectAllButton").addEventListener("click", () => {
+    const selectable = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:not(:disabled)")];
+    const shouldSelect = selectable.some(input => !input.checked);
+    selectable.forEach(input => { input.checked = shouldSelect; });
+    $("driveImportButton").disabled = !shouldSelect;
+    $("driveSelectAllButton").textContent = shouldSelect ? "Desmarcar todas" : "Marcar todas";
   });
 
   $("driveImportButton").addEventListener("click", async event => {
