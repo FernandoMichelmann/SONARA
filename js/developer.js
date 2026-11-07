@@ -132,11 +132,22 @@
     $("usersTable").innerHTML = rows || '<tr><td colspan="4" class="empty-cell">Nenhum usuário encontrado.</td></tr>';
   }
 
-  async function loadTracks() {
-    // A lista de tracks é independente das categorias. Uma falha nas categorias
-    // não pode impedir que uma música recém-importada apareça na biblioteca.
-    const tracksData = await request("/developer/tracks", { cache: "no-store" });
-    const tracks = tracksData.items || [];
+  async function loadTracks(extraTracks = []) {
+    // Prioriza a resposta da própria importação. Assim, a música aparece mesmo
+    // se a consulta subsequente da biblioteca demorar ou falhar temporariamente.
+    let tracks = [];
+    try {
+      const tracksData = await request("/developer/tracks", { cache: "no-store" });
+      tracks = tracksData.items || [];
+    } catch (error) {
+      if (!extraTracks.length) throw error;
+      console.warn("Consulta da biblioteca indisponível; exibindo as tracks confirmadas pela importação.", error);
+    }
+    const merged = new Map();
+    [...tracks, ...extraTracks].forEach(track => {
+      if (track && track.id != null) merged.set(String(track.id), track);
+    });
+    tracks = [...merged.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
     try {
       const categoriesData = await request("/developer/track-categories", { cache: "no-store" });
       renderCategoryOptions(categoriesData.items || []);
@@ -915,7 +926,8 @@
       // Não executa refreshAll nem repete chamadas à API após a importação.
       setActiveTab("tracks");
       if (trackToFinalize) {
-        const tracks = await loadTracks();
+        const confirmedTracks = imported.map(item => item.track).filter(Boolean);
+        const tracks = await loadTracks(confirmedTracks);
         const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
         if (importedTrack) {
           await openTrackMetadataEditor(importedTrack);
