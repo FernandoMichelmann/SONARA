@@ -230,11 +230,13 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
 
             if is_folder:
                 audio = _audio_files_recursive(service, source_id)
-                if not audio:
-                    raise ValueError("Nenhum arquivo de áudio compatível encontrado na pasta.")
-                if len(audio) > MAX_TRACK_FILES or sum(int(x.get("size") or 0) for x in audio) > MAX_TRACK_BYTES:
-                    raise ValueError("A pasta excede o limite de 100 arquivos ou 2 GB.")
-                for index, item in enumerate(audio, 1):
+                rar_archives = _rar_files_recursive(service, source_id)
+                if not audio and not rar_archives:
+                    raise ValueError("Nenhum áudio ou arquivo RAR encontrado na pasta.")
+                if len(audio) > MAX_TRACK_FILES:
+                    raise ValueError("A pasta excede o limite de 100 arquivos de áudio.")
+                index = 1
+                for item in audio:
                     name = re.sub(r"[^\w.() -]", "_", Path(item["name"]).name).strip() or f"stem-{index}"
                     destination = stems_dir / f"{index:02d}_{name}"
                     download_file(item["id"], destination, MAX_FILE_BYTES)
@@ -242,7 +244,70 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
                     if total > MAX_TRACK_BYTES:
                         raise ValueError("A pasta excede 2 GB após o download.")
                     downloaded.append(destination)
+                    index += 1
+                for rar_item in rar_archives:
+                    archive = track_dir / f"source-{index}.rar"
+                    download_file(rar_item["id"], archive, MAX_TRACK_BYTES)
+                    with rarfile.RarFile(archive) as rar:
+                        entries = [entry for entry in rar.infolist()
+                            if not entry.isdir() and Path(entry.filename).suffix.lower() in AUDIO_EXTENSIONS
+                            and not Path(entry.filename).name.startswith("._")]
+                        if len(downloaded) + len(entries) > MAX_TRACK_FILES:
+                            raise ValueError("A pasta excede o limite de 100 arquivos de áudio.")
+                        if sum(entry.file_size for entry in entries) + total > MAX_TRACK_BYTES:
+                            raise ValueError("O conteúdo dos RARs excede 2 GB.")
+                        for entry in entries:
+                            if entry.file_size > MAX_FILE_BYTES:
+                                raise ValueError("Um arquivo de áudio do RAR excede 500 MB.")
+                            safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                            destination = stems_dir / f"{index:02d}_{safe_name}"
+                            written = 0
+                            with rar.open(entry) as source_file, destination.open("wb") as target:
+                                while True:
+                                    chunk = source_file.read(8 * 1024 * 1024)
+                                    if not chunk:
+                                        break
+                                    written += len(chunk)
+                                    total += len(chunk)
+                                    if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
+                                        raise ValueError("O conteúdo extraído do RAR excedeu os limites permitidos.")
+                                    target.write(chunk)
+                            downloaded.append(destination)
+                            index += 1
+                    archive.unlink(missing_ok=True)
+                if not downloaded:
+                    raise ValueError("Os RARs não contêm arquivos de áudio compatíveis.")
                 title = source["name"]
+            elif is_rar:
+                archive = track_dir / "source.rar"
+                download_file(source_id, archive, MAX_TRACK_BYTES)
+                with rarfile.RarFile(archive) as rar:
+                    entries = [entry for entry in rar.infolist()
+                        if not entry.isdir() and Path(entry.filename).suffix.lower() in AUDIO_EXTENSIONS
+                        and not Path(entry.filename).name.startswith("._")]
+                    if not entries:
+                        raise ValueError("O RAR não contém arquivos de áudio compatíveis.")
+                    if len(entries) > MAX_TRACK_FILES or sum(entry.file_size for entry in entries) > MAX_TRACK_BYTES:
+                        raise ValueError("O RAR excede o limite de 100 arquivos de áudio ou 2 GB.")
+                    for index, entry in enumerate(entries, 1):
+                        if entry.file_size > MAX_FILE_BYTES:
+                            raise ValueError("Um arquivo de áudio do RAR excede 500 MB.")
+                        safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                        destination = stems_dir / f"{index:02d}_{safe_name}"
+                        written = 0
+                        with rar.open(entry) as source_file, destination.open("wb") as target:
+                            while True:
+                                chunk = source_file.read(8 * 1024 * 1024)
+                                if not chunk:
+                                    break
+                                written += len(chunk)
+                                total += len(chunk)
+                                if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
+                                    raise ValueError("O conteúdo extraído do RAR excedeu os limites permitidos.")
+                                target.write(chunk)
+                        downloaded.append(destination)
+                archive.unlink(missing_ok=True)
+                title = Path(source["name"]).stem
             else:
                 archive = track_dir / "source.zip"
                 download_file(source_id, archive, MAX_TRACK_BYTES)
