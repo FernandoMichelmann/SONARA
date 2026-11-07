@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/sonara-config.js?v=20261107-tunnel-1"></script>
-  <script src="js/developer.js?v=20261107-api-config-1" defer></script>
+  <script src="js/developer.js?v=20261107-drive-scan-fix-2" defer></script>
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
     <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
@@ -176,7 +176,7 @@
           <section class="upload-form" id="driveImportPanel">
             <div class="section-toolbar"><div><h2>Importação em lote pelo Google Drive</h2><p>Conecte seu Drive, selecione a pasta principal das músicas e importe várias multitracks de uma vez.</p></div></div>
             <div class="form-grid">
-              <div class="form-field" style="grid-column:1/-1"><label for="driveRootFolder">Link ou ID da pasta principal do Google Drive</label><input id="driveRootFolder" type="url" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off"></div>
+              <div class="form-field" style="grid-column:1/-1"><label for="driveRootFolder">Link ou ID da pasta principal do Google Drive</label><input id="driveRootFolder" type="text" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off"></div>
             </div>
             <div class="track-step-actions" style="gap:12px;flex-wrap:wrap">
               <button type="button" class="table-action" id="driveConnectButton">Vincular Google Drive</button>
