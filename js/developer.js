@@ -672,7 +672,7 @@
 
   function extractDriveFolderId(value) {
     const input = String(value || "").trim();
-    const match = input.match(/(?:folders\\/|[?&]id=)([A-Za-z0-9_-]+)/);
+    const match = input.match(/(?:folders\/|[?&]id=)([A-Za-z0-9_-]+)/);
     return match ? match[1] : (/^[A-Za-z0-9_-]{10,}$/.test(input) ? input : "");
   }
 
