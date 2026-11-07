@@ -118,7 +118,7 @@
     renderCategoryOptions(results[1].items || []);
     $("overviewTracks").textContent = tracks.length;
     const published = tracks.filter(track => track.is_published).length;
-    $("publishedTracks").textContent = published + " publicada(s) no catálogo";
+    $("overviewTracks").textContent = published;
     const rows = tracks.map(track => {
       const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
       return '<tr>' +
@@ -165,7 +165,6 @@
     $("revenuePending").textContent = formatMoney(summary.pending_total);
     $("revenueEntries").textContent = summary.entries_count ?? (data.items || []).length;
     $("overviewRevenue").textContent = formatMoney(summary.received_total);
-    $("overviewPending").textContent = formatMoney(summary.pending_total);
     const rows = (data.items || []).map(entry => `
       <tr>
         <td><div class="cell-primary">${escapeHtml(entry.description)}</div></td>
