@@ -76,10 +76,11 @@
     if (driveCallbackState === "connected" || driveCallbackState === "error") {
       setActiveTab("drive");
     }
-    loadDriveStatus();
-    if (driveCallbackState === "error") {
-      setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
-    }
+    loadDriveStatus().finally(() => {
+      if (driveCallbackState === "error") {
+        setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
+      }
+    });
     if (driveCallbackState === "connected") {
       window.history.replaceState({}, "", window.location.pathname);
     }
