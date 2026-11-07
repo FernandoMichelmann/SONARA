@@ -264,7 +264,36 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
             db.add(track)
             db.commit()
             db.refresh(track)
-            imported.append({"id": track.id, "title": track.title, "stems": len(downloaded)})
+            track_data = {
+                "id": track.id,
+                "title": track.title,
+                "artist": track.artist,
+                "musical_key": track.musical_key,
+                "bpm": track.bpm,
+                "time_signature": track.time_signature,
+                "category": track.category,
+                "categories": ["Multitrack"],
+                "original_filename": track.original_filename,
+                "file_size": track.file_size,
+                "is_published": track.is_published,
+                "created_at": track.created_at.isoformat() if track.created_at else None,
+                "audio_url": None,
+                "cover_url": None,
+                "stems": [
+                    {"name": item.name, "size": item.stat().st_size}
+                    for item in sorted(stems_dir.iterdir()) if item.is_file()
+                ],
+                "preview_start_seconds": 0,
+                "preview_end_seconds": 30,
+                "preview_duration_seconds": 30,
+                "preview_ready": False,
+            }
+            imported.append({
+                "id": track.id,
+                "title": track.title,
+                "stems": len(downloaded),
+                "track": track_data,
+            })
         except Exception as error:
             db.rollback()
             shutil.rmtree(track_dir, ignore_errors=True)
