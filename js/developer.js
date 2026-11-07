@@ -755,15 +755,19 @@
     try {
       const result = await request("/developer/drive/folders?parent_id=" + encodeURIComponent(folderId));
       $("driveFolderResults").innerHTML = (result.folders || []).map(folder => {
-        const disabled = folder.already_imported || !folder.audio_count;
+        const isZip = folder.item_type === "zip";
+        const disabled = folder.already_imported || (!isZip && !folder.audio_count);
+        const detail = folder.already_imported ? "Já importada" :
+          isZip ? "Arquivo ZIP · será extraído automaticamente" :
+          folder.audio_count ? "Pronta para importar" : "Sem áudio compatível";
         return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
           '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
-          '<span style="display:grid;gap:3px"><strong>' + escapeHtml(folder.name) + '</strong><small>' +
-          folder.audio_count + ' arquivo(s) de áudio · ' + (folder.already_imported ? "Já importada" : folder.audio_count ? "Pronta para importar" : "Sem áudio compatível") +
+          '<span style="display:grid;gap:3px"><strong>' + (isZip ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
+          (isZip ? "ZIP com extração automática" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
           '</small></span></label>';
-      }).join("") || '<p class="muted">Nenhuma pasta de música encontrada dentro da pasta selecionada.</p>';
-      $("driveImportButton").disabled = !(result.folders || []).some(folder => !folder.already_imported && folder.audio_count);
-      setMessage($("driveStatusMessage"), result.total + " pasta(s) encontrada(s) em “" + result.parent + "”. Selecione as músicas que deseja importar.", "success");
+      }).join("") || '<p class="muted">Nenhuma pasta ou arquivo ZIP de música encontrado dentro da pasta selecionada.</p>';
+      $("driveImportButton").disabled = !(result.folders || []).some(folder => !folder.already_imported && (folder.item_type === "zip" || folder.audio_count));
+      setMessage($("driveStatusMessage"), result.total + " item(ns) encontrado(s) em “" + result.parent + "”. Selecione as músicas ou ZIPs que deseja importar.", "success");
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message, "error");
     } finally {
@@ -785,7 +789,7 @@
       const errors = result.errors || [];
       let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
       if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
-      if (errors.length) summary += " " + errors.length + " pasta(s) tiveram erro.";
+      if (errors.length) summary += " " + errors.length + " item(ns) tiveram erro.";
       setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
       if (errors.length) $("driveFolderResults").insertAdjacentHTML("beforeend", errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
       await loadTracks();
@@ -793,7 +797,7 @@
       setMessage($("driveStatusMessage"), error.message, "error");
     } finally {
       button.disabled = false;
-      button.textContent = "Importar pastas selecionadas";
+      button.textContent = "Importar músicas selecionadas";
     }
   });
 
