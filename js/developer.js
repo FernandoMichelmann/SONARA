@@ -68,7 +68,8 @@
     identity = user || identity;
     loginCard.hidden = true;
     dashboardCard.hidden = false;
-    $("developerIdentity").textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
+    const developerIdentity = $("developerIdentity");
+    if (developerIdentity) developerIdentity.textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
     loadDriveStatus();
