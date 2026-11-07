@@ -895,17 +895,21 @@
         $("driveFolderResults").insertAdjacentHTML("beforeend",
           errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
       }
-      if (imported.length) {
+      const trackToFinalize = imported[0] || skipped.find(item => item.id);
+      if (trackToFinalize) {
         setActiveTab("tracks");
         await loadTracks();
-        const firstImported = imported[0];
         const tracksData = await request("/developer/tracks");
-        const importedTrack = (tracksData.items || []).find(track => String(track.id) === String(firstImported.id));
-        if (importedTrack) await openTrackMetadataEditor(importedTrack);
-        setGlobalMessage(
-          imported.length + " multitrack(s) importada(s). Agora finalize o nome e a capa; depois configure a prévia de áudio na lista.",
-          "success"
-        );
+        const importedTrack = (tracksData.items || []).find(track => String(track.id) === String(trackToFinalize.id));
+        if (importedTrack) {
+          await openTrackMetadataEditor(importedTrack);
+          setGlobalMessage(
+            imported.length
+              ? imported.length + " multitrack(s) importada(s). Finalize nome e capa; depois escolha a prévia de áudio."
+              : "Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.",
+            "success"
+          );
+        }
       }
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
