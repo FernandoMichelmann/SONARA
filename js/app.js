@@ -877,7 +877,8 @@ function updateLifetimePlanUI() {
     const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
     if (button) {
         button.disabled = hasAccess;
-        button.textContent = hasAccess ? "Acesso vitalício ativo" : "Adquirir acesso vitalício";
+        button.textContent = hasAccess ? "VOCÊ JÁ TEM O ACESSO" : "Adquirir acesso vitalício";
+        button.setAttribute("aria-label", hasAccess ? "Você já tem o acesso vitalício SONARA" : "Adquirir acesso vitalício");
     }
     if (status) {
         status.textContent = hasAccess
