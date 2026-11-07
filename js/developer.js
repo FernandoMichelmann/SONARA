@@ -8,6 +8,7 @@
   const loginMessage = $("formMessage");
   const loginButton = $("submitButton");
   const passwordInput = $("developerPassword");
+  const driveCallbackState = new URLSearchParams(window.location.search).get("drive");
   let identity = null;
   let userQuery = "";
   let refreshInProgress = false;
@@ -72,7 +73,16 @@
     if (developerIdentity) developerIdentity.textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
+    if (driveCallbackState === "connected" || driveCallbackState === "error") {
+      setActiveTab("drive");
+    }
     loadDriveStatus();
+    if (driveCallbackState === "error") {
+      setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
+    }
+    if (driveCallbackState === "connected") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }
 
   function showLogin() {
@@ -785,14 +795,6 @@
       button.textContent = "Importar pastas selecionadas";
     }
   });
-
-  const driveQuery = new URLSearchParams(window.location.search);
-  if (driveQuery.get("drive") === "connected") {
-    window.history.replaceState({}, "", window.location.pathname);
-    setTimeout(loadDriveStatus, 0);
-  } else if (driveQuery.get("drive") === "error") {
-    setTimeout(() => setMessage($("driveStatusMessage"), "Não foi possível conectar. Confira as credenciais OAuth e a URL de redirecionamento.", "error"), 0);
-  }
 
   validateSession();
 })();
