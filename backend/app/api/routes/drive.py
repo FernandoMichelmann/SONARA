@@ -147,8 +147,10 @@ def _download_drive_file(service, file_id: str, destination: Path, max_bytes: in
 
 
 
-def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int, current_total: int):
+def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int, current_total: int,
+                          progress_callback=None):
     """Extract supported audio from ZIP/RAR archives using safe output filenames."""
+
     is_rar = archive_path.suffix.lower() == ".rar"
     try:
         archive = rarfile.RarFile(archive_path) if is_rar else zipfile.ZipFile(archive_path)
@@ -181,6 +183,11 @@ def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int
                         if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
                             raise ValueError("O conteúdo extraído excedeu os limites permitidos.")
                         target.write(chunk)
+                        if progress_callback:
+                            progress_callback(
+                                f"Extraindo {Path(entry.filename).name}: "
+                                f"{min(100, int(written / max(1, entry.file_size) * 100))}%"
+                            )
                 if written != entry.file_size:
                     raise ValueError("Um arquivo de áudio compactado foi extraído incompleto.")
                 downloaded.append(destination)
@@ -348,15 +355,20 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
         progress["errors"] = len(errors)
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-    def download_file(file_id: str, destination: Path, max_bytes: int):
+    def download_file(file_id: str, destination: Path, max_bytes: int, expected_size: int = 0,
+                      progress_callback=None):
         request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
         with destination.open("wb") as target:
             downloader = MediaIoBaseDownload(target, request, chunksize=DRIVE_DOWNLOAD_CHUNK_BYTES)
             done = False
             while not done:
-                _, done = downloader.next_chunk()
-                if destination.stat().st_size > max_bytes:
+                status, done = downloader.next_chunk()
+                current_size = destination.stat().st_size
+                if current_size > max_bytes:
                     raise ValueError("O arquivo excede o limite permitido para importação.")
+                if progress_callback and expected_size > 0:
+                    percent = min(100, int(current_size / expected_size * 100))
+                    progress_callback(f"Baixando arquivo do Google Drive: {percent}%")
 
     def save_track(title: str, artist: str, source_key: str, source_name: str,
                    track_dir: Path, stems_dir: Path, downloaded: list[Path], total: int):
@@ -411,8 +423,15 @@ def import_drive_folders(payload: DriveImportRequest, _developer: User = Depends
         extension = Path(archive_name).suffix.lower()
         archive_path = track_dir / ("source" + extension)
         try:
-            download_file(source_key, archive_path, MAX_TRACK_BYTES)
-            downloaded, total, _ = _extract_archive_audio(archive_path, stems_dir, 1, 0)
+            expected_size = int(archive_item.get("size") or 0)
+            download_file(
+                source_key, archive_path, MAX_TRACK_BYTES, expected_size,
+                lambda message: update_progress("Importando: " + archive_name + " · " + message),
+            )
+            downloaded, total, _ = _extract_archive_audio(
+                archive_path, stems_dir, 1, 0,
+                lambda message: update_progress("Importando: " + archive_name + " · " + message),
+            )
             archive_path.unlink(missing_ok=True)
             save_track(Path(archive_name).stem, artist, source_key, archive_name,
                 track_dir, stems_dir, downloaded, total)
