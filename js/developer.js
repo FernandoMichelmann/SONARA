@@ -1040,7 +1040,7 @@
       setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
       if (errors.length) {
         $("driveFolderResults").insertAdjacentHTML("beforeend",
-          errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
+          errors.map(item => '<p class="inline-message error"><strong>' + escapeHtml(item.item_name || "Arquivo sem identificação") + ':</strong> ' + escapeHtml(item.message) + '</p>').join(""));
       }
       const trackToFinalize = imported[0] || skipped.find(item => item.id);
       const confirmedTracks = imported.map(item => item.track).filter(Boolean);
@@ -1048,10 +1048,16 @@
       // Sempre atualiza a biblioteca com TODAS as tracks confirmadas pelo Drive.
       // A resposta da importação é mesclada com a consulta do banco para evitar
       // que uma resposta temporariamente desatualizada esconda as músicas novas.
-      setActiveTab("tracks");
+      if (!errors.length) setActiveTab("tracks");
       $("trackMetadataEditor").hidden = true;
       $("previewEditor").hidden = true;
       const tracks = await loadTracks(confirmedTracks);
+      if (errors.length) {
+        setMessage($("driveStatusMessage"),
+          summary + "\\nConfira abaixo o nome de cada arquivo que falhou e o motivo. As tracks importadas foram preservadas e atualizadas na biblioteca.",
+          "error");
+        return;
+      }
       if (trackToFinalize) {
         const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
         if (importedTrack && imported.length) {
