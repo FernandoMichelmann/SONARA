@@ -141,6 +141,7 @@
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
         '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
         '<td>' +
+          '<button class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
           '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
           (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
           '<button class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
@@ -526,6 +527,47 @@
     audio.load();
   }
 
+  async function openTrackMetadataEditor(track) {
+    $("trackMetadataEditor").hidden = false;
+    $("editTrackTitle").value = track.title || "";
+    $("editTrackArtist").value = track.artist || "";
+    $("editTrackCover").value = "";
+    $("trackMetadataForm").dataset.trackId = String(track.id);
+    setMessage($("trackMetadataMessage"), "Edite o nome e, se desejar, escolha uma nova capa. Os stems importados serão mantidos.");
+    $("trackMetadataEditor").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  $("cancelTrackMetadata").addEventListener("click", () => {
+    $("trackMetadataEditor").hidden = true;
+    $("trackMetadataForm").reset();
+  });
+
+  $("trackMetadataForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const trackId = form.dataset.trackId;
+    if (!trackId) return;
+    const button = $("saveTrackMetadata");
+    const body = new FormData();
+    body.set("title", $("editTrackTitle").value.trim());
+    body.set("artist", $("editTrackArtist").value.trim());
+    const cover = $("editTrackCover").files[0];
+    if (cover) body.set("cover", cover);
+    button.disabled = true;
+    setMessage($("trackMetadataMessage"), "Salvando informações da música...");
+    try {
+      await request("/developer/tracks/" + trackId, { method: "PATCH", body });
+      setMessage($("trackMetadataMessage"), "Nome e capa salvos com sucesso.", "success");
+      await loadTracks();
+      $("trackMetadataEditor").hidden = true;
+      setGlobalMessage("Informações da multitrack atualizadas. Agora configure a prévia de áudio na lista de tracks.", "success");
+    } catch (error) {
+      setMessage($("trackMetadataMessage"), error.message || "Não foi possível salvar os dados da música.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   $("previewSourceAudio").addEventListener("loadedmetadata", () => {
     const audio = $("previewSourceAudio");
     previewSourceDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
@@ -631,6 +673,22 @@
       } catch (error) {
         setGlobalMessage(error.message || "Não foi possível excluir a track.", "error");
         deleteButton.disabled = false;
+      }
+      return;
+    }
+
+    const editButton = event.target.closest("[data-track-edit]");
+    if (editButton) {
+      editButton.disabled = true;
+      try {
+        const data = await request("/developer/tracks");
+        const track = (data.items || []).find(item => String(item.id) === editButton.dataset.trackEdit);
+        if (!track) throw new Error("Multitrack não encontrada na biblioteca.");
+        await openTrackMetadataEditor(track);
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível abrir a edição da música.", "error");
+      } finally {
+        editButton.disabled = false;
       }
       return;
     }
@@ -828,7 +886,18 @@
         $("driveFolderResults").insertAdjacentHTML("beforeend",
           errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
       }
-      if (imported.length) await loadTracks();
+      if (imported.length) {
+        setActiveTab("tracks");
+        await loadTracks();
+        const firstImported = imported[0];
+        const tracksData = await request("/developer/tracks");
+        const importedTrack = (tracksData.items || []).find(track => String(track.id) === String(firstImported.id));
+        if (importedTrack) await openTrackMetadataEditor(importedTrack);
+        setGlobalMessage(
+          imported.length + " multitrack(s) importada(s). Agora finalize o nome e a capa; depois configure a prévia de áudio na lista.",
+          "success"
+        );
+      }
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
     } finally {
