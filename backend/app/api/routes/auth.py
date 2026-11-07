@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.models import PasswordResetToken, User
+from app.models import PasswordResetToken, PaymentOrder, User
 from app.schemas import TokenResponse, UserLogin, UserRegister, UserResponse
 from app.security import create_access_token, hash_password, verify_password
 from app.core.config import settings
@@ -78,9 +78,22 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
     return TokenResponse(access_token=create_access_token(user.id, user.role))
 
 @router.get("/me", response_model=UserResponse)
-def me(user: User = Depends(get_current_user)):
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user.role != "user":
         raise HTTPException(status_code=403, detail="Esta sessão não pertence a uma conta de usuário.")
+
+    # Recupera o acesso de clientes cujo pedido já foi confirmado como pago,
+    # mas cujo indicador de acesso não foi atualizado em uma confirmação anterior.
+    paid_order = db.scalar(select(PaymentOrder).where(
+        PaymentOrder.user_id == user.id,
+        PaymentOrder.status == "paid",
+    ).order_by(PaymentOrder.paid_at.desc()))
+    if paid_order and not user.lifetime_access:
+        user.lifetime_access = True
+        user.lifetime_access_at = paid_order.paid_at or paid_order.updated_at
+        db.commit()
+        db.refresh(user)
+
     return user
 
 
