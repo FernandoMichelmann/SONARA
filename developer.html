@@ -62,11 +62,9 @@
         <section class="tab-panel" id="panel-overview">
           <div class="stats-grid">
             <article class="stat-card"><span>USUÁRIOS CADASTRADOS</span><i data-lucide="users"></i><strong id="overviewUsers">—</strong><small>Contas comuns registradas</small></article>
-            <article class="stat-card"><span>TRACKS NO CATÁLOGO</span><i data-lucide="audio-lines"></i><strong id="overviewTracks">—</strong><small id="publishedTracks">Carregando publicação...</small></article>
-            <article class="stat-card"><span>RECEITA RECEBIDA</span><i data-lucide="wallet"></i><strong id="overviewRevenue">—</strong><small>Conforme lançamentos registrados</small></article>
-            <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="overviewPending">—</strong><small>Aguardando recebimento</small></article>
+            <article class="stat-card"><span>TRACKS NO CATÁLOGO</span><i data-lucide="audio-lines"></i><strong id="overviewTracks">—</strong></article>
+            <article class="stat-card"><span>RECEITA</span><i data-lucide="wallet"></i><strong id="overviewRevenue">—</strong><small>Total de pagamentos confirmados e receitas recebidas</small></article>
           </div>
-          <div class="info-panel"><div class="panel-title"><i data-lucide="shield-check"></i><h2>Status administrativo</h2></div><p id="developerIdentity">Sessão validada pelo servidor.</p><p class="muted">Os indicadores são carregados da API e do banco de dados. Receita ainda não é sincronizada automaticamente com um gateway de pagamento.</p></div>
         </section>
 
         <section class="tab-panel" id="panel-users" hidden>
@@ -157,7 +155,6 @@
             <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="revenuePending">R$ 0,00</strong><small>Registros aguardando recebimento</small></article>
             <article class="stat-card"><span>LANÇAMENTOS</span><i data-lucide="receipt-text"></i><strong id="revenueEntries">0</strong><small>Registros financeiros</small></article>
           </div>
-          <div class="info-panel revenue-note"><i data-lucide="info"></i><p>Por enquanto, estes são lançamentos financeiros registrados manualmente. Os valores não representam vendas confirmadas automaticamente. A integração com pagamentos será uma etapa separada.</p></div>
           <div class="section-toolbar"><div><h2>Registrar receita</h2><p>Adicione uma venda ou recebimento real para manter seu controle atualizado.</p></div></div>
           <form id="revenueForm" class="upload-form">
             <div class="form-grid">
