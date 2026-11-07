@@ -872,18 +872,27 @@
       $("driveFolderResults").innerHTML = folders.map(folder => {
         const isZip = folder.item_type === "zip";
         const isRar = folder.item_type === "rar";
-        const disabled = folder.already_imported || (!isZip && !folder.audio_count);
+        const hasAudio = Number(folder.audio_count) > 0;
+        const hasRar = isRar || Number(folder.archive_count) > 0;
+        const isArchive = isZip || isRar;
+        const disabled = folder.already_imported || (!isArchive && !hasAudio && !hasRar);
         const detail = folder.already_imported ? "Já importada" :
-          isZip ? "Arquivo ZIP · será extraído automaticamente" :
-          isRar ? "Arquivo RAR · faixas identificadas e extraídas automaticamente" :
-          folder.audio_count ? "Pronta para importar" : "Sem áudio compatível";
+          isZip ? "ZIP · será extraído automaticamente" :
+          isRar ? "RAR detectado · conteúdo será validado na importação" :
+          hasRar ? "RAR(s) detectado(s) · conteúdo será validado na importação" :
+          hasAudio ? "Pronta para importar" : "Sem áudio compatível";
         return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
           '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "checked") + '>' +
           '<span style="display:grid;gap:3px"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
-          (isZip ? "ZIP com extração automática" : isRar ? "RAR · " + folder.audio_count + " faixa(s) de áudio" : folder.audio_count + " arquivo(s) de áudio") + ' · ' + detail +
+          (isZip ? "ZIP com extração automática" :
+            isRar ? "Arquivo RAR · extração na importação" :
+            (Number(folder.audio_count || 0) + " arquivo(s) de áudio" +
+              (Number(folder.archive_count) ? " + " + folder.archive_count + " RAR(s)" : ""))) + ' · ' + detail +
           '</small></span></label>';
       }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
-      $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported && (folder.item_type === "zip" || Number(folder.audio_count) > 0));
+      $("driveImportButton").disabled = !folders.some(folder => !folder.already_imported &&
+        (folder.item_type === "zip" || folder.item_type === "rar" ||
+          Number(folder.audio_count) > 0 || Number(folder.archive_count) > 0));
       if (!folders.length) {
         setMessage($("driveStatusMessage"), "A pasta foi acessada, mas nenhuma subpasta com áudio ou arquivo ZIP foi encontrada. Confira se as músicas estão diretamente dentro dela ou em subpastas.", "error");
       } else {
