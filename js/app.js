@@ -735,13 +735,31 @@ async function loadUserDownloads() {
         if (empty) empty.hidden = getDownloadedTracks().length > 0;
     } catch (error) { showToast(error.message || "Não foi possível carregar seus downloads."); }
 }
+async function refreshSonaraUserAccess() {
+    const token = sessionStorage.getItem(SONARA_USER_TOKEN);
+    if (!token) return null;
+    try {
+        const freshUser = await sonaraApi("/auth/me", { method: "GET" }, token);
+        sonaraCurrentUser = freshUser;
+        updateDownloadAccessButton();
+        return Boolean(freshUser.lifetime_access);
+    } catch (error) {
+        console.warn("Não foi possível atualizar o acesso SONARA:", error);
+        return null;
+    }
+}
+
 async function handleDownloadAccess() {
     if (!sonaraCurrentUser) {
         openAuthModal();
         setAuthMode("register");
         return;
     }
-    if (!sonaraCurrentUser?.lifetime_access) {
+
+    // Consulta o backend antes de decidir se o cliente ainda precisa comprar.
+    // Isso evita manter o botão de compra quando o webhook já confirmou o pagamento.
+    const confirmedAccess = await refreshSonaraUserAccess();
+    if (confirmedAccess === false || (confirmedAccess === null && !sonaraCurrentUser?.lifetime_access)) {
         closeMultitrack();
         navigate("subscription");
         showToast("Adquira o acesso vitalício para baixar as multitracks.");
@@ -1128,30 +1146,50 @@ async function restoreSonaraUserSession() {
 async function handlePaymentReturn() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment_return") !== "1") return;
+
     const orderNsu = params.get("order_nsu") || "";
     const transactionNsu = params.get("transaction_nsu") || "";
     const slug = params.get("slug") || "";
-    if (!orderNsu || !transactionNsu || !slug) {
-        showToast("Retorno recebido. Não foi possível identificar os dados do pagamento.");
-        return;
-    }
-    try {
-        const result = await sonaraApi("/payments/confirm", {
-            method: "POST",
-            body: JSON.stringify({ order_nsu: orderNsu, transaction_nsu: transactionNsu, slug })
-        }, sessionStorage.getItem(SONARA_USER_TOKEN));
-        if (result.paid) {
-            sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
-            updateDownloadAccessButton();
-            showToast("Pagamento confirmado! Seu acesso vitalício está liberado.");
-        } else {
-            showToast(result.message || "Pagamento ainda não confirmado. Tente atualizar em instantes.");
+    let confirmationMessage = "";
+
+    // A InfinitePay envia esses três identificadores na redirect_url.
+    // Se algum deles não vier, ainda verificamos o acesso já liberado pelo webhook.
+    if (orderNsu && transactionNsu && slug) {
+        try {
+            const result = await sonaraApi("/payments/confirm", {
+                method: "POST",
+                body: JSON.stringify({ order_nsu: orderNsu, transaction_nsu: transactionNsu, slug })
+            }, sessionStorage.getItem(SONARA_USER_TOKEN));
+            confirmationMessage = result.message || "";
+        } catch (error) {
+            confirmationMessage = error.message || "A confirmação ainda está em processamento.";
         }
-        window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (error) {
-        showToast(error.message || "Não foi possível confirmar o pagamento.");
     }
+
+    // O webhook pode confirmar o pagamento alguns instantes depois do redirecionamento.
+    // Consulte /auth/me até o backend refletir o acesso, sem confiar apenas na URL de retorno.
+    for (let attempt = 0; attempt < 12; attempt++) {
+        const hasAccess = await refreshSonaraUserAccess();
+        if (hasAccess === true) {
+            showToast("Pagamento confirmado! Seu acesso vitalício está liberado.");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+        }
+        if (attempt < 11) {
+            await new Promise(resolve => window.setTimeout(resolve, 2500));
+        }
+    }
+
+    showToast(confirmationMessage || "Pagamento recebido. Estamos aguardando a confirmação da InfinitePay. Atualize a página em alguns instantes.");
 }
+
+// Atualiza o estado quando o cliente volta à aba depois de concluir o checkout.
+window.addEventListener("focus", () => {
+    if (sonaraCurrentUser) refreshSonaraUserAccess();
+});
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && sonaraCurrentUser) refreshSonaraUserAccess();
+});
 
 document.getElementById("authClose").addEventListener("click", closeAuthModal);
 document.getElementById("authOverlay").addEventListener("click", event => {
