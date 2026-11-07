@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "CHANGE_THIS_SECRET_BEFORE_DEPLOYMENT_32_CHARS_MIN"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    cors_origins: str = "http://127.0.0.1:5500,http://localhost:5500"
+    cors_origins: str = "http://127.0.0.1:5500,http://localhost:5500,https://fernandomichelmann.github.io"
     developer_email: str | None = None
     developer_password: str | None = None
     developer_name: str = "SONARA Owner"
