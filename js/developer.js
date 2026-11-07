@@ -155,8 +155,8 @@
     } catch (error) {
       console.warn("Não foi possível atualizar as categorias; a biblioteca de tracks foi carregada.", error);
     }
-    const published = tracks.filter(track => track.is_published).length;
-    $("overviewTracks").textContent = published.toLocaleString("pt-BR");
+    // O indicador representa todas as tracks cadastradas, inclusive rascunhos recém-importados.
+    $("overviewTracks").textContent = tracks.length.toLocaleString("pt-BR");
     const rows = tracks.map(track => {
       const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
       return '<tr>' +
@@ -943,29 +943,35 @@
           errors.map(item => '<p class="inline-message error">' + escapeHtml(item.message) + '</p>').join(""));
       }
       const trackToFinalize = imported[0] || skipped.find(item => item.id);
+      const confirmedTracks = imported.map(item => item.track).filter(Boolean);
 
-      // Troca diretamente para Tracks e faz uma única atualização da biblioteca.
-      // Não executa refreshAll nem repete chamadas à API após a importação.
+      // Sempre atualiza a biblioteca com TODAS as tracks confirmadas pelo Drive.
+      // A resposta da importação é mesclada com a consulta do banco para evitar
+      // que uma resposta temporariamente desatualizada esconda as músicas novas.
       setActiveTab("tracks");
+      $("trackMetadataEditor").hidden = true;
+      $("previewEditor").hidden = true;
+      const tracks = await loadTracks(confirmedTracks);
       if (trackToFinalize) {
-        const confirmedTracks = imported.map(item => item.track).filter(Boolean);
-        const tracks = await loadTracks(confirmedTracks);
         const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
-        if (importedTrack) {
+        if (importedTrack && imported.length) {
           await openTrackMetadataEditor(importedTrack);
           setGlobalMessage(
-            imported.length
-              ? imported.length + " multitrack(s) importada(s) e carregada(s) em Tracks. Finalize nome e capa; depois escolha a prévia."
-              : "Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.",
+            imported.length + " multitrack(s) importada(s). Todas foram carregadas na tabela Tracks; finalize os dados de cada música e configure as prévias.",
             "success"
           );
+        } else if (importedTrack) {
+          await openTrackMetadataEditor(importedTrack);
+          setGlobalMessage("Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.", "success");
         } else {
-          setGlobalMessage("A importação foi concluída, mas a track não apareceu na consulta da biblioteca. Use Atualizar dados e confira o backend.", "error");
+          setGlobalMessage("A importação foi concluída, mas a track selecionada não apareceu na biblioteca. Confira o resultado da importação e o backend.", "error");
         }
+      } else if (imported.length) {
+        setGlobalMessage(imported.length + " multitrack(s) importada(s) e exibida(s) na tabela Tracks.", "success");
       } else {
-        // Mesmo em caso de erro parcial, mostra a biblioteca sem reiniciar a tela.
-        await loadTracks();
+        setGlobalMessage("Biblioteca atualizada. Nenhuma nova track foi adicionada nesta operação.", errors.length ? "error" : "success");
       }
+      $("tracksTable").closest(".table-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
     } finally {
