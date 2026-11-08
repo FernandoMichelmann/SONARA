@@ -1083,142 +1083,144 @@
   });
 
 
-  // Importação seletiva de arquivos ZIP/RAR diretamente de grupos do Telegram.
+  // Indexação completa e seleção virtualizada dos arquivos do Telegram.
   let telegramNextOffset = 0;
   let telegramFilesLoaded = false;
-  let telegramSeenDocumentIds = new Set();
-  let telegramSeenNameSize = new Map();
-  let telegramExactDuplicates = 0;
+  let telegramFilesData = [];
+  let telegramFilteredFiles = [];
+  let telegramSelectedIds = new Set();
+  let telegramSearchTerm = "";
+  let telegramRenderFrame = null;
+  const TELEGRAM_PAGE_SIZE = 500;
+  const TELEGRAM_ROW_HEIGHT = 92;
+  const TELEGRAM_VISIBLE_ROWS = 70;
 
-  function telegramDuplicateNameKey(name, size) {
-    const normalized = String(name || "")
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/\.(zip|rar)$/i, "")
-      .replace(/\s*\((?:copia|copy|\d+)\)\s*$/i, "")
-      .replace(/\s+(?:copia|copy)\s*$/i, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-    return normalized + "|" + Number(size || 0);
-  }
-
-  async function loadTelegramStatus() {
-    try {
-      const status = await request("/developer/telegram/status");
-      if (!status.configured) {
-        setMessage($("telegramStatusMessage"), "Integração pronta. Configure TELEGRAM_API_ID e TELEGRAM_API_HASH no backend/.env para habilitar o login.", "error");
-      } else if (status.connected) {
-        setMessage($("telegramStatusMessage"), "Telegram conectado" + (status.account ? " como " + status.account : "") + ". Escolha um grupo para listar os arquivos.", "success");
-      } else {
-        setMessage($("telegramStatusMessage"), "Informe seu número para receber o código de confirmação do Telegram.");
-      }
-      $("telegramSendCodeButton").hidden = Boolean(status.connected);
-      $("telegramDisconnectButton").hidden = !status.connected;
-      $("telegramBrowser").hidden = !status.connected;
-      if (status.connected) await loadTelegramGroups();
-    } catch (error) {
-      setMessage($("telegramStatusMessage"), error.message, "error");
-    }
-  }
-
-  async function loadTelegramGroups() {
-    const select = $("telegramGroupSelect");
-    const button = $("telegramLoadGroupsButton");
-    button.disabled = true;
-    button.textContent = "Carregando...";
-    try {
-      const data = await request("/developer/telegram/groups");
-      const previous = select.value;
-      select.innerHTML = '<option value="">Selecione um grupo</option>' +
-        (data.items || []).map(group => '<option value="' + escapeHtml(group.id) + '">' +
-          escapeHtml(group.title) + (group.members ? " · " + Number(group.members).toLocaleString("pt-BR") + " membros" : "") + '</option>').join("");
-      if ([...select.options].some(option => option.value === previous)) select.value = previous;
-      $("telegramScanButton").disabled = !select.value;
-      setMessage($("telegramStatusMessage"), (data.items || []).length + " grupo(s) encontrado(s).", "success");
-    } catch (error) {
-      setMessage($("telegramStatusMessage"), error.message, "error");
-    } finally {
-      button.disabled = false;
-      button.textContent = "Atualizar grupos";
-    }
-  }
-
-  function renderTelegramFiles(items, append = false) {
+  function renderTelegramFiles() {
     const container = $("telegramFileResults");
-    const uniqueItems = [];
-    (items || []).forEach(file => {
-      const documentId = String(file.document_id || "");
-      if (documentId && telegramSeenDocumentIds.has(documentId)) {
-        telegramExactDuplicates += 1;
-        return;
-      }
-      if (documentId) telegramSeenDocumentIds.add(documentId);
-      const nameSizeKey = telegramDuplicateNameKey(file.name, file.size);
-      const possibleDuplicate = telegramSeenNameSize.has(nameSizeKey);
-      if (!possibleDuplicate) telegramSeenNameSize.set(nameSizeKey, file.message_id);
-      uniqueItems.push({ ...file, possible_duplicate: possibleDuplicate });
-    });
-    const html = uniqueItems.map(file => {
+    const query = telegramSearchTerm.trim().toLocaleLowerCase("pt-BR");
+    telegramFilteredFiles = query
+      ? telegramFilesData.filter(file => String(file.name || "").toLocaleLowerCase("pt-BR").includes(query))
+      : telegramFilesData;
+    const start = Math.max(0, Math.floor(container.scrollTop / TELEGRAM_ROW_HEIGHT) - 8);
+    const end = Math.min(telegramFilteredFiles.length, start + TELEGRAM_VISIBLE_ROWS);
+    const visible = telegramFilteredFiles.slice(start, end);
+    const rows = visible.map(file => {
       const size = file.size >= 1024 * 1024 * 1024
         ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
         : (file.size / (1024 * 1024)).toFixed(1) + " MB";
-      return '<label class="check-field telegram-file-row ' + (file.already_imported ? "is-imported" : "") + '" style="padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
+      const selected = telegramSelectedIds.has(Number(file.message_id));
+      return '<label class="check-field telegram-file-row ' + (file.already_imported ? "is-imported" : "") +
+        '" style="height:84px;min-height:84px;box-sizing:border-box;overflow:hidden;padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
         '<input type="checkbox" data-telegram-message="' + escapeHtml(file.message_id) + '" ' +
-        (file.already_imported ? "disabled" : "") + '>' +
-        '<span style="display:grid;gap:5px"><strong>🗜️ ' + escapeHtml(file.name) +
+        (selected ? "checked " : "") + (file.already_imported ? "disabled" : "") + '>' +
+        '<span style="display:grid;gap:4px;min-width:0;overflow:hidden"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🗜️ ' + escapeHtml(file.name) +
         (file.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importado</span>' : '') +
         (file.possible_duplicate ? '<span class="imported-status" style="background:rgba(217,148,45,.12);color:#b7791f">Possível repetido · confira a versão</span>' : '') +
         '</strong><small>' + escapeHtml(file.extension) + " · " + size +
         (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") + '</small></span></label>';
     }).join("");
-    if (append) container.insertAdjacentHTML("beforeend", html);
-    else container.innerHTML = html || '<p class="muted">Nenhum arquivo ZIP ou RAR encontrado neste grupo.</p>';
-    const selectable = container.querySelectorAll('input[data-telegram-message]:not(:disabled)');
-    $("telegramSelectAllButton").hidden = selectable.length === 0;
-    $("telegramSelectAllButton").textContent = "Marcar todas";
+    const top = start * TELEGRAM_ROW_HEIGHT;
+    const bottom = Math.max(0, (telegramFilteredFiles.length - end) * TELEGRAM_ROW_HEIGHT);
+    container.innerHTML = visible.length
+      ? '<div style="height:' + top + 'px" aria-hidden="true"></div>' + rows +
+        '<div style="height:' + bottom + 'px" aria-hidden="true"></div>'
+      : '<p class="muted" style="padding:16px">Nenhum arquivo corresponde à busca.</p>';
     updateTelegramSelection();
+    const summary = $("telegramIndexSummary");
+    if (summary) {
+      const available = telegramFilesData.filter(file => !file.already_imported).length;
+      const imported = telegramFilesData.length - available;
+      summary.textContent = telegramFilesData.length.toLocaleString("pt-BR") + " arquivos únicos · " +
+        available.toLocaleString("pt-BR") + " disponíveis · " + imported.toLocaleString("pt-BR") +
+        " já importados · exibindo " + telegramFilteredFiles.length.toLocaleString("pt-BR") + " resultado(s) da busca.";
+    }
   }
 
   function updateTelegramSelection() {
     const container = $("telegramFileResults");
-    const selectable = [...container.querySelectorAll('input[data-telegram-message]:not(:disabled)')];
-    const selected = selectable.filter(input => input.checked).length;
+    container.querySelectorAll('input[data-telegram-message]').forEach(input => {
+      input.checked = telegramSelectedIds.has(Number(input.dataset.telegramMessage));
+    });
+    const selected = telegramSelectedIds.size;
     $("telegramImportButton").disabled = selected === 0;
-    $("telegramSelectAllButton").textContent = selected === selectable.length && selectable.length ? "Desmarcar todas" : "Marcar todas";
+    $("telegramSelectAllButton").hidden = !telegramFilteredFiles.some(file => !file.already_imported);
+    $("telegramSelectAllButton").textContent = selected ? selected + " selecionado(s) · marcar até 30" : "Marcar até 30";
   }
 
-  async function scanTelegramFiles(append = false) {
+  async function loadAllIndexedTelegramFiles(chatId) {
+    telegramFilesData = [];
+    telegramNextOffset = 0;
+    telegramFilesLoaded = false;
+    const container = $("telegramFileResults");
+    container.scrollTop = 0;
+    container.innerHTML = "";
+    while (true) {
+      const params = new URLSearchParams({ chat_id: chatId, limit: String(TELEGRAM_PAGE_SIZE) });
+      if (telegramNextOffset) params.set("offset_id", String(telegramNextOffset));
+      const data = await request("/developer/telegram/files?" + params.toString());
+      telegramFilesData.push(...(data.items || []));
+      telegramNextOffset = data.next_offset_id || 0;
+      const total = Number(data.total || telegramFilesData.length);
+      setMessage($("telegramImportMessage"),
+        "Carregando catálogo indexado: " + telegramFilesData.length.toLocaleString("pt-BR") +
+        " de " + total.toLocaleString("pt-BR") + " arquivos únicos...");
+      $("telegramProgressBar").hidden = false;
+      const percent = total ? Math.min(100, Math.round(telegramFilesData.length / total * 100)) : 100;
+      $("telegramProgressFill").style.width = percent + "%";
+      $("telegramProgressLabel").textContent = percent + "%";
+      if (!telegramNextOffset) break;
+    }
+    telegramFilesLoaded = true;
+    telegramSearchTerm = $("telegramFileSearch").value || "";
+    renderTelegramFiles();
+    $("telegramProgressBar").hidden = true;
+    setMessage($("telegramImportMessage"),
+      telegramFilesData.length.toLocaleString("pt-BR") +
+      " arquivos únicos carregados. Cópias exatas foram removidas da lista; possíveis versões continuam disponíveis para conferência.",
+      "success");
+  }
+
+  async function scanTelegramFiles() {
     const chatId = $("telegramGroupSelect").value;
     if (!chatId) return;
     const button = $("telegramScanButton");
     button.disabled = true;
-    if (!append) {
-      telegramNextOffset = 0;
-      telegramSeenDocumentIds = new Set();
-      telegramSeenNameSize = new Map();
-      telegramExactDuplicates = 0;
-      $("telegramFileResults").innerHTML = "";
-      $("telegramLoadMoreButton").hidden = true;
-    }
-    button.textContent = append ? "Carregando..." : "Buscando arquivos...";
+    button.textContent = "Indexando histórico...";
+    telegramSelectedIds.clear();
+    telegramFilesData = [];
+    telegramSearchTerm = "";
+    $("telegramFileSearch").value = "";
+    $("telegramFileResults").innerHTML = "";
+    $("telegramProgressBar").hidden = false;
+    $("telegramProgressFill").style.width = "0%";
+    $("telegramProgressLabel").textContent = "Preparando...";
     try {
-      const params = new URLSearchParams({ chat_id: chatId, limit: "50" });
-      if (append && telegramNextOffset) params.set("offset_id", String(telegramNextOffset));
-      const data = await request("/developer/telegram/files?" + params.toString());
-      renderTelegramFiles(data.items || [], append);
-      telegramNextOffset = data.next_offset_id || 0;
-      $("telegramLoadMoreButton").hidden = !telegramNextOffset;
-      telegramFilesLoaded = true;
+      await request("/developer/telegram/index?chat_id=" + encodeURIComponent(chatId), { method: "POST" });
+      let state;
+      do {
+        await new Promise(resolve => window.setTimeout(resolve, 1200));
+        state = await request("/developer/telegram/index/status?chat_id=" + encodeURIComponent(chatId));
+        const found = Number(state.found || state.total || 0);
+        setMessage($("telegramImportMessage"),
+          (state.status === "processing" || state.status === "queued" ? "Indexando histórico do grupo..." : "Preparando catálogo...") +
+          " " + found.toLocaleString("pt-BR") + " arquivos encontrados · " +
+          Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " cópias exatas ignoradas.");
+        $("telegramProgressLabel").textContent = found.toLocaleString("pt-BR") + " encontrados";
+        if (state.status === "failed") throw new Error(state.current || "Falha ao indexar o grupo.");
+      } while (state.status === "processing" || state.status === "queued");
+      await loadAllIndexedTelegramFiles(chatId);
+      $("telegramProgressFill").style.width = "100%";
+      $("telegramProgressLabel").textContent = "100%";
       setMessage($("telegramImportMessage"),
-        (data.items || []).length + " arquivo(s) analisados nesta página · " +
-        telegramExactDuplicates + " duplicado(s) exato(s) ignorado(s). " +
-        "Arquivos com nome e tamanho iguais são sinalizados para conferência, sem serem descartados.",
+        Number(state.total || telegramFilesData.length).toLocaleString("pt-BR") + " arquivos indexados · " +
+        Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " duplicados exatos ignorados · " +
+        Number(state.possible_duplicates || 0).toLocaleString("pt-BR") + " possíveis repetidos sinalizados.",
         "success");
     } catch (error) {
       setMessage($("telegramImportMessage"), error.message, "error");
     } finally {
       button.disabled = false;
-      button.textContent = "Buscar ZIP e RAR";
+      button.textContent = "Atualizar índice do grupo";
     }
   }
 
@@ -1272,29 +1274,53 @@
   $("telegramGroupSelect").addEventListener("change", () => {
     $("telegramScanButton").disabled = !$("telegramGroupSelect").value;
     $("telegramFileResults").innerHTML = "";
+    $("telegramFileSearch").value = "";
+    $("telegramIndexSummary").textContent = "Selecione um grupo e clique em Buscar ZIP e RAR.";
+    telegramFilesData = [];
+    telegramSelectedIds.clear();
+    telegramFilteredFiles = [];
     $("telegramLoadMoreButton").hidden = true;
     $("telegramImportButton").disabled = true;
   });
-  $("telegramScanButton").addEventListener("click", () => scanTelegramFiles(false));
-  $("telegramLoadMoreButton").addEventListener("click", () => scanTelegramFiles(true));
+  $("telegramScanButton").addEventListener("click", scanTelegramFiles);
+  $("telegramLoadMoreButton").hidden = true;
+  $("telegramFileSearch").addEventListener("input", () => {
+    telegramSearchTerm = $("telegramFileSearch").value || "";
+    $("telegramFileResults").scrollTop = 0;
+    renderTelegramFiles();
+  });
+  $("telegramFileResults").addEventListener("scroll", () => {
+    if (telegramRenderFrame) window.cancelAnimationFrame(telegramRenderFrame);
+    telegramRenderFrame = window.requestAnimationFrame(renderTelegramFiles);
+  });
   $("telegramFileResults").addEventListener("change", event => {
-    const selectedCount = $("telegramFileResults").querySelectorAll('input[data-telegram-message]:checked').length;
-    if (event.target.matches('input[data-telegram-message]') && event.target.checked && selectedCount > 30) {
-      event.target.checked = false;
-      setMessage($("telegramImportMessage"), "Selecione no máximo 30 arquivos por operação.", "error");
+    if (!event.target.matches('input[data-telegram-message]')) return;
+    const id = Number(event.target.dataset.telegramMessage);
+    if (event.target.checked) {
+      if (telegramSelectedIds.size >= 30) {
+        event.target.checked = false;
+        setMessage($("telegramImportMessage"), "A importação aceita até 30 arquivos por operação. Importe esse lote e depois selecione o próximo.", "error");
+        return;
+      }
+      telegramSelectedIds.add(id);
+    } else {
+      telegramSelectedIds.delete(id);
     }
     updateTelegramSelection();
   });
   $("telegramSelectAllButton").addEventListener("click", () => {
-    const inputs = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:not(:disabled)')];
-    const shouldSelect = inputs.some(input => !input.checked);
-    inputs.forEach(input => { input.checked = shouldSelect; });
-    updateTelegramSelection();
+    const visibleAvailable = telegramFilteredFiles.filter(file => !file.already_imported);
+    const ids = visibleAvailable.slice(0, 30).map(file => Number(file.message_id));
+    if (ids.length && ids.every(id => telegramSelectedIds.has(id))) {
+      ids.forEach(id => telegramSelectedIds.delete(id));
+    } else {
+      ids.forEach(id => { if (telegramSelectedIds.size < 30) telegramSelectedIds.add(id); });
+    }
+    renderTelegramFiles();
   });
   $("telegramImportButton").addEventListener("click", async () => {
     const chatId = Number($("telegramGroupSelect").value);
-    const messageIds = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:checked')]
-      .map(input => Number(input.dataset.telegramMessage));
+    const messageIds = [...telegramSelectedIds].slice(0, 30);
     if (!chatId || !messageIds.length) return;
 
     const button = $("telegramImportButton");
@@ -1361,7 +1387,7 @@
         $("telegramProgressFill").style.width = "100%";
         $("telegramProgressLabel").textContent = "100%";
       }
-      await scanTelegramFiles(false);
+      await scanTelegramFiles();
       if (imported.length) {
         await loadTracks();
         setActiveTab("tracks");
