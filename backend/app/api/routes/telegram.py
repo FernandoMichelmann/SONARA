@@ -284,7 +284,7 @@ def import_telegram_archives(payload: ImportRequest, _developer: User = Depends(
 
                 def extraction_progress(message_text):
                     import re as _re
-                    match = _re.search(r"(\\d+)%", str(message_text))
+                    match = _re.search(r"(\d+)%", str(message_text))
                     update_progress(str(message_text), int(match.group(1)) if match else 0)
 
                 downloaded, total, _ = _extract_archive_audio(
