@@ -1180,6 +1180,50 @@
       "success");
   }
 
+  async function scanTelegramFiles() {
+    const chatId = $("telegramGroupSelect").value;
+    if (!chatId) return;
+    const button = $("telegramScanButton");
+    button.disabled = true;
+    button.textContent = "Indexando histórico...";
+    telegramSelectedIds.clear();
+    telegramFilesData = [];
+    telegramSearchTerm = "";
+    $("telegramFileSearch").value = "";
+    $("telegramFileResults").innerHTML = "";
+    $("telegramProgressBar").hidden = false;
+    $("telegramProgressFill").style.width = "0%";
+    $("telegramProgressLabel").textContent = "Preparando...";
+    try {
+      await request("/developer/telegram/index?chat_id=" + encodeURIComponent(chatId), { method: "POST" });
+      let state;
+      do {
+        await new Promise(resolve => window.setTimeout(resolve, 1200));
+        state = await request("/developer/telegram/index/status?chat_id=" + encodeURIComponent(chatId));
+        const found = Number(state.found || state.total || 0);
+        setMessage($("telegramImportMessage"),
+          (state.status === "processing" || state.status === "queued" ? "Indexando histórico do grupo..." : "Preparando catálogo...") +
+          " " + found.toLocaleString("pt-BR") + " arquivos encontrados · " +
+          Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " cópias exatas ignoradas.");
+        $("telegramProgressLabel").textContent = found.toLocaleString("pt-BR") + " encontrados";
+        if (state.status === "failed") throw new Error(state.current || "Falha ao indexar o grupo.");
+      } while (state.status === "processing" || state.status === "queued");
+      await loadAllIndexedTelegramFiles(chatId);
+      $("telegramProgressFill").style.width = "100%";
+      $("telegramProgressLabel").textContent = "100%";
+      setMessage($("telegramImportMessage"),
+        Number(state.total || telegramFilesData.length).toLocaleString("pt-BR") + " arquivos indexados · " +
+        Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " duplicados exatos ignorados · " +
+        Number(state.possible_duplicates || 0).toLocaleString("pt-BR") + " possíveis repetidos sinalizados.",
+        "success");
+    } catch (error) {
+      setMessage($("telegramImportMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Atualizar índice do grupo";
+    }
+  }
+
   $("telegramSendCodeButton").addEventListener("click", async () => {
     const phone = $("telegramPhone").value.trim();
     if (!phone) {
