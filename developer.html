@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/sonara-config.js?v=20261107-admin-login-recovery-1"></script>
-  <script src="js/developer.js?v=20261108-telegram-progress-2" defer></script>
+  <script src="js/developer.js?v=20261108-telegram-full-index-1" defer></script>
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
     <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
@@ -256,12 +256,17 @@
               </div>
               <div class="section-toolbar" style="margin-top:24px">
                 <div>
-                  <h2>Arquivos encontrados</h2>
-                  <p>Selecione até 30 arquivos por importação. Arquivos já importados ficam identificados e bloqueados.</p>
+                  <h2>Biblioteca indexada do grupo</h2>
+                  <p>A SONARA analisa o histórico completo, ignora cópias exatas e mantém possíveis versões para conferência. A indexação não baixa os arquivos.</p>
                 </div>
-                <button type="button" class="table-action" id="telegramSelectAllButton" hidden>Marcar todas</button>
+                <button type="button" class="table-action" id="telegramSelectAllButton" hidden>Marcar até 30</button>
               </div>
-              <div id="telegramFileResults" style="display:grid;gap:9px"></div>
+              <div class="form-field" style="margin:12px 0">
+                <label for="telegramFileSearch">Buscar música ou nome do arquivo</label>
+                <input id="telegramFileSearch" type="search" placeholder="Digite parte do nome da multitrack..." autocomplete="off">
+              </div>
+              <p class="inline-message" id="telegramIndexSummary" role="status">Selecione um grupo e inicie a indexação.</p>
+              <div id="telegramFileResults" style="display:grid;gap:9px;max-height: min(70vh, 760px);overflow:auto;position:relative;overscroll-behavior:contain"></div>
               <div class="track-step-actions" style="margin-top:16px;gap:10px;flex-wrap:wrap">
                 <button type="button" class="table-action" id="telegramLoadMoreButton" hidden>Carregar mais arquivos</button>
                 <button type="button" class="submit-button" id="telegramImportButton" disabled>Importar selecionados</button>
