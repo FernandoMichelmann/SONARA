@@ -45,6 +45,7 @@ class Track(Base):
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(600), nullable=False)
     source_drive_folder_id: Mapped[str | None] = mapped_column(String(160), unique=True, nullable=True, index=True)
+    source_telegram_message_id: Mapped[str | None] = mapped_column(String(180), unique=True, nullable=True, index=True)
     content_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream", nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
@@ -150,3 +151,11 @@ class DriveOAuthState(Base):
     code_verifier_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class TelegramConnection(Base):
+    __tablename__ = "telegram_connections"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    session_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    account_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
