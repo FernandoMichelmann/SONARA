@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     google_drive_client_id: str | None = None
     google_drive_client_secret: str | None = None
     google_drive_redirect_uri: str | None = None
+    telegram_api_id: int | None = None
+    telegram_api_hash: str | None = None
 
 @lru_cache
 def get_settings() -> Settings:
