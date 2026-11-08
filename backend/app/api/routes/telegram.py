@@ -23,7 +23,7 @@ from app.api.routes.drive import AUDIO_DIR, MAX_TRACK_BYTES, MAX_TRACK_FILES, _e
 from app.core.config import settings
 from app.db import SessionLocal, get_db
 from app.dependencies import get_current_developer
-from app.models import TelegramArchiveIndex, TelegramConnection, Track, User
+from app.models import TelegramArchiveIndex, TelegramArchiveIndexState, TelegramConnection, Track, User
 
 router = APIRouter(prefix="/developer/telegram", tags=["Importação Telegram"])
 logger = logging.getLogger("sonara.telegram")
@@ -178,8 +178,8 @@ def list_telegram_groups(_developer: User = Depends(get_current_developer), db: 
 
 def _telegram_name_key(name: str, size: int) -> str:
     normalized = Path(name or "").stem
-    normalized = re.sub(r"\\s*\\((?:copia|copy|\\d+)\\)\\s*$", "", normalized, flags=re.I)
-    normalized = re.sub(r"\\s+(?:copia|copy)\\s*$", "", normalized, flags=re.I)
+    normalized = re.sub(r"\s*\((?:copia|copy|\d+)\)\s*$", "", normalized, flags=re.I)
+    normalized = re.sub(r"\s+(?:copia|copy)\s*$", "", normalized, flags=re.I)
     normalized = re.sub(r"[^a-z0-9]+", " ", normalized.casefold())
     return normalized.strip() + "|" + str(int(size or 0))
 
@@ -201,6 +201,14 @@ def _run_telegram_index(chat_id: int, session_string: str, incremental: bool):
         # Primeira indexação percorre o histórico completo. Atualizações consultam
         # as mensagens mais recentes, preservando o catálogo já indexado.
         message_limit = 1500 if incremental or existing_rows else None
+        index_state = db.get(TelegramArchiveIndexState, chat_id)
+        if not index_state:
+            index_state = TelegramArchiveIndexState(chat_id=chat_id, is_complete=False)
+            db.add(index_state)
+            db.commit()
+        else:
+            index_state.is_complete = False
+            db.commit()
         pending = []
         found = len(existing_rows)
         exact = sum(1 for row in existing_rows if row.duplicate_of_message_id is not None)
@@ -247,6 +255,9 @@ def _run_telegram_index(chat_id: int, session_string: str, incremental: bool):
         if pending:
             db.add_all(pending)
             db.commit()
+        index_state.is_complete = True
+        index_state.last_indexed_at = datetime.now(timezone.utc)
+        db.commit()
         state.update({"status": "completed", "found": found, "exact_duplicates": exact,
                       "possible_duplicates": possible, "current": "Indexação concluída.",
                       "completed_at": datetime.now(timezone.utc).isoformat()})
@@ -267,13 +278,15 @@ def start_telegram_index(chat_id: int, background_tasks: BackgroundTasks,
         return {"started": False, "status": "processing"}
     existing_count = int(db.scalar(select(func.count()).select_from(TelegramArchiveIndex).where(
         TelegramArchiveIndex.chat_id == chat_id)) or 0)
+    index_state = db.get(TelegramArchiveIndexState, chat_id)
+    incremental = bool(index_state and index_state.is_complete)
     session_string = _saved_session(db)
     TELEGRAM_INDEX_PROGRESS[chat_id] = {
         "status": "queued", "processed": 0, "found": existing_count,
         "exact_duplicates": 0, "possible_duplicates": 0,
         "current": "Preparando indexação do grupo..."
     }
-    background_tasks.add_task(_run_telegram_index, chat_id, session_string, existing_count > 0)
+    background_tasks.add_task(_run_telegram_index, chat_id, session_string, incremental)
     return {"started": True, "status": "queued", "existing_count": existing_count}
 
 
