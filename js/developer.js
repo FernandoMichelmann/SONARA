@@ -1244,7 +1244,14 @@
   });
   $("telegramScanButton").addEventListener("click", () => scanTelegramFiles(false));
   $("telegramLoadMoreButton").addEventListener("click", () => scanTelegramFiles(true));
-  $("telegramFileResults").addEventListener("change", updateTelegramSelection);
+  $("telegramFileResults").addEventListener("change", event => {
+    const selectedCount = $("telegramFileResults").querySelectorAll('input[data-telegram-message]:checked').length;
+    if (event.target.matches('input[data-telegram-message]') && event.target.checked && selectedCount > 30) {
+      event.target.checked = false;
+      setMessage($("telegramImportMessage"), "Selecione no máximo 30 arquivos por operação.", "error");
+    }
+    updateTelegramSelection();
+  });
   $("telegramSelectAllButton").addEventListener("click", () => {
     const inputs = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:not(:disabled)')];
     const shouldSelect = inputs.some(input => !input.checked);
