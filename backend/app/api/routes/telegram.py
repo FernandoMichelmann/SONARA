@@ -184,8 +184,11 @@ def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
         client.connect()
         entity = client.get_entity(chat_id)
         items = []
-        next_offset = None
+        scanned = 0
+        last_message_id = None
         for message in client.iter_messages(entity, limit=limit, offset_id=offset_id or 0):
+            scanned += 1
+            last_message_id = int(message.id)
             document = message.document
             if not document:
                 continue
@@ -199,8 +202,7 @@ def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
                 "date": message.date.isoformat() if message.date else None,
                 "already_imported": bool(db.scalar(select(Track.id).where(
                     Track.source_telegram_message_id == f"{chat_id}:{message.id}")))})
-            next_offset = int(message.id)
-        return {"items": items, "next_offset_id": next_offset if len(items) == limit else None}
+        return {"items": items, "next_offset_id": last_message_id if scanned == limit else None}
     except Exception as error:
         logger.exception("Falha ao listar arquivos do grupo Telegram")
         raise HTTPException(status_code=502, detail="Não foi possível listar os arquivos deste grupo.") from error
@@ -223,6 +225,7 @@ def import_telegram_archives(payload: ImportRequest, _developer: User = Depends(
             if existing:
                 skipped.append({"id": existing.id, "title": existing.title, "message_id": message_id})
                 continue
+            archive_name = f"Mensagem {message_id}"
             track_dir = AUDIO_DIR / uuid4().hex
             stems_dir = track_dir / "stems"
             track_dir.mkdir(parents=True, exist_ok=False)
