@@ -88,7 +88,7 @@
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
     const savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY);
-    const availableTabs = ["overview", "users", "tracks", "drive", "revenue"];
+    const availableTabs = ["overview", "users", "tracks", "drive", "telegram", "revenue"];
     if (driveCallbackState === "connected" || driveCallbackState === "error") {
       setActiveTab("drive");
     } else {
@@ -99,7 +99,7 @@
         setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
       }
     });
-    if (driveCallbackState === "connected") {
+    loadTelegramStatus();\n    if (driveCallbackState === "connected") {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }
@@ -121,7 +121,7 @@
       overview: ["Visão geral", "Acompanhe os principais números da plataforma."],
       users: ["Usuários", "Acompanhe as contas que se cadastraram na SONARA."],
       tracks: ["Biblioteca de tracks", "Envie arquivos e controle a publicação no catálogo."],
-      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],
+      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],\n      telegram: ["Importação pelo Telegram", "Conecte sua conta, escolha um grupo e importe arquivos ZIP/RAR."],
       revenue: ["Receitas", "Acompanhe os lançamentos financeiros registrados."]
     };
     $("pageTitle").textContent = labels[tab][0];
@@ -1081,6 +1081,228 @@
       if (progressTimer) window.clearInterval(progressTimer);
       button.disabled = false;
       button.textContent = originalLabel || "Importar músicas selecionadas";
+    }
+  });
+
+
+  // Importação seletiva de arquivos ZIP/RAR diretamente de grupos do Telegram.
+  let telegramNextOffset = 0;
+  let telegramFilesLoaded = false;
+
+  async function loadTelegramStatus() {
+    try {
+      const status = await request("/developer/telegram/status");
+      if (!status.configured) {
+        setMessage($("telegramStatusMessage"), "Integração pronta. Configure TELEGRAM_API_ID e TELEGRAM_API_HASH no backend/.env para habilitar o login.", "error");
+      } else if (status.connected) {
+        setMessage($("telegramStatusMessage"), "Telegram conectado" + (status.account ? " como " + status.account : "") + ". Escolha um grupo para listar os arquivos.", "success");
+      } else {
+        setMessage($("telegramStatusMessage"), "Informe seu número para receber o código de confirmação do Telegram.");
+      }
+      $("telegramSendCodeButton").hidden = Boolean(status.connected);
+      $("telegramDisconnectButton").hidden = !status.connected;
+      $("telegramBrowser").hidden = !status.connected;
+      if (status.connected) await loadTelegramGroups();
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    }
+  }
+
+  async function loadTelegramGroups() {
+    const select = $("telegramGroupSelect");
+    const button = $("telegramLoadGroupsButton");
+    button.disabled = true;
+    button.textContent = "Carregando...";
+    try {
+      const data = await request("/developer/telegram/groups");
+      const previous = select.value;
+      select.innerHTML = '<option value="">Selecione um grupo</option>' +
+        (data.items || []).map(group => '<option value="' + escapeHtml(group.id) + '">' +
+          escapeHtml(group.title) + (group.members ? " · " + Number(group.members).toLocaleString("pt-BR") + " membros" : "") + '</option>').join("");
+      if ([...select.options].some(option => option.value === previous)) select.value = previous;
+      $("telegramScanButton").disabled = !select.value;
+      setMessage($("telegramStatusMessage"), (data.items || []).length + " grupo(s) encontrado(s).", "success");
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Atualizar grupos";
+    }
+  }
+
+  function renderTelegramFiles(items, append = false) {
+    const container = $("telegramFileResults");
+    const html = (items || []).map(file => {
+      const size = file.size >= 1024 * 1024 * 1024
+        ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
+        : (file.size / (1024 * 1024)).toFixed(1) + " MB";
+      return '<label class="check-field telegram-file-row" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
+        '<input type="checkbox" data-telegram-message="' + escapeHtml(file.message_id) + '" ' +
+        (file.already_imported ? "disabled" : "") + '>' +
+        '<span style="display:grid;gap:3px"><strong>🗜️ ' + escapeHtml(file.name) + '</strong><small>' +
+        escapeHtml(file.extension) + " · " + size + (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") +
+        (file.already_imported ? " · Já importado" : "") + '</small></span></label>';
+    }).join("");
+    if (append) container.insertAdjacentHTML("beforeend", html);
+    else container.innerHTML = html || '<p class="muted">Nenhum arquivo ZIP ou RAR encontrado neste grupo.</p>';
+    const selectable = container.querySelectorAll('input[data-telegram-message]:not(:disabled)');
+    $("telegramSelectAllButton").hidden = selectable.length === 0;
+    $("telegramSelectAllButton").textContent = "Marcar todas";
+    updateTelegramSelection();
+  }
+
+  function updateTelegramSelection() {
+    const container = $("telegramFileResults");
+    const selectable = [...container.querySelectorAll('input[data-telegram-message]:not(:disabled)')];
+    const selected = selectable.filter(input => input.checked).length;
+    $("telegramImportButton").disabled = selected === 0;
+    $("telegramSelectAllButton").textContent = selected === selectable.length && selectable.length ? "Desmarcar todas" : "Marcar todas";
+  }
+
+  async function scanTelegramFiles(append = false) {
+    const chatId = $("telegramGroupSelect").value;
+    if (!chatId) return;
+    const button = $("telegramScanButton");
+    button.disabled = true;
+    if (!append) {
+      telegramNextOffset = 0;
+      $("telegramFileResults").innerHTML = "";
+      $("telegramLoadMoreButton").hidden = true;
+    }
+    button.textContent = append ? "Carregando..." : "Buscando arquivos...";
+    try {
+      const params = new URLSearchParams({ chat_id: chatId, limit: "50" });
+      if (append && telegramNextOffset) params.set("offset_id", String(telegramNextOffset));
+      const data = await request("/developer/telegram/files?" + params.toString());
+      renderTelegramFiles(data.items || [], append);
+      telegramNextOffset = data.next_offset_id || 0;
+      $("telegramLoadMoreButton").hidden = !telegramNextOffset;
+      telegramFilesLoaded = true;
+      setMessage($("telegramImportMessage"), (data.items || []).length + " arquivo(s) listado(s) nesta página. Marque os que deseja importar.", "success");
+    } catch (error) {
+      setMessage($("telegramImportMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Buscar ZIP e RAR";
+    }
+  }
+
+  $("telegramSendCodeButton").addEventListener("click", async () => {
+    const phone = $("telegramPhone").value.trim();
+    if (!phone) {
+      setMessage($("telegramStatusMessage"), "Informe seu número com código do país, por exemplo +55 41 99999-9999.", "error");
+      return;
+    }
+    const button = $("telegramSendCodeButton");
+    button.disabled = true;
+    try {
+      await request("/developer/telegram/auth/start", { method: "POST", body: JSON.stringify({ phone }) });
+      $("telegramCodeFields").hidden = false;
+      setMessage($("telegramStatusMessage"), "Código enviado pelo Telegram. Digite o código recebido e, se solicitado, sua senha 2FA.", "success");
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("telegramVerifyButton").addEventListener("click", async () => {
+    const code = $("telegramCode").value.trim();
+    const password = $("telegramPassword").value;
+    if (!code) {
+      setMessage($("telegramStatusMessage"), "Informe o código recebido no Telegram.", "error");
+      return;
+    }
+    const button = $("telegramVerifyButton");
+    button.disabled = true;
+    try {
+      const result = await request("/developer/telegram/auth/verify", {
+        method: "POST", body: JSON.stringify({ code, password: password || null })
+      });
+      $("telegramCodeFields").hidden = true;
+      $("telegramBrowser").hidden = false;
+      $("telegramSendCodeButton").hidden = true;
+      $("telegramDisconnectButton").hidden = false;
+      setMessage($("telegramStatusMessage"), "Telegram conectado como " + (result.account || "sua conta") + ".", "success");
+      await loadTelegramGroups();
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+      if (error.status === 428) $("telegramPassword").focus();
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("telegramLoadGroupsButton").addEventListener("click", loadTelegramGroups);
+  $("telegramGroupSelect").addEventListener("change", () => {
+    $("telegramScanButton").disabled = !$("telegramGroupSelect").value;
+    $("telegramFileResults").innerHTML = "";
+    $("telegramLoadMoreButton").hidden = true;
+    $("telegramImportButton").disabled = true;
+  });
+  $("telegramScanButton").addEventListener("click", () => scanTelegramFiles(false));
+  $("telegramLoadMoreButton").addEventListener("click", () => scanTelegramFiles(true));
+  $("telegramFileResults").addEventListener("change", updateTelegramSelection);
+  $("telegramSelectAllButton").addEventListener("click", () => {
+    const inputs = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:not(:disabled)')];
+    const shouldSelect = inputs.some(input => !input.checked);
+    inputs.forEach(input => { input.checked = shouldSelect; });
+    updateTelegramSelection();
+  });
+  $("telegramImportButton").addEventListener("click", async () => {
+    const chatId = Number($("telegramGroupSelect").value);
+    const messageIds = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:checked')]
+      .map(input => Number(input.dataset.telegramMessage));
+    if (!chatId || !messageIds.length) return;
+    const button = $("telegramImportButton");
+    button.disabled = true;
+    button.textContent = "Importando arquivos...";
+    setMessage($("telegramImportMessage"), "Baixando, extraindo e cadastrando as multitracks. Não feche esta página.");
+    try {
+      const result = await request("/developer/telegram/import", {
+        method: "POST", body: JSON.stringify({ chat_id: chatId, message_ids: messageIds })
+      });
+      const imported = result.imported || [];
+      const skipped = result.skipped || [];
+      const errors = result.errors || [];
+      let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
+      if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
+      if (errors.length) summary += " " + errors.length + " arquivo(s) tiveram erro.";
+      setMessage($("telegramImportMessage"), summary, errors.length ? "error" : "success");
+      if (errors.length) {
+        $("telegramImportMessage").insertAdjacentHTML("afterend",
+          errors.map(item => '<p class="inline-message error"><strong>' + escapeHtml(item.name) + ':</strong> ' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      await scanTelegramFiles(false);
+      if (imported.length) {
+        await loadTracks();
+        setActiveTab("tracks");
+        setGlobalMessage(imported.length + " multitrack(s) do Telegram adicionada(s) à biblioteca como rascunho. Finalize nome, capa e prévia antes de publicar.", "success");
+      }
+    } catch (error) {
+      setMessage($("telegramImportMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Importar selecionados";
+      updateTelegramSelection();
+    }
+  });
+
+  $("telegramDisconnectButton").addEventListener("click", async () => {
+    const button = $("telegramDisconnectButton");
+    button.disabled = true;
+    try {
+      await request("/developer/telegram/connection", { method: "DELETE" });
+      $("telegramBrowser").hidden = true;
+      $("telegramCodeFields").hidden = true;
+      $("telegramSendCodeButton").hidden = false;
+      $("telegramFileResults").innerHTML = "";
+      setMessage($("telegramStatusMessage"), "Telegram desconectado.");
+      await loadTelegramStatus();
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
     }
   });
 
