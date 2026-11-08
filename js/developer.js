@@ -856,9 +856,6 @@
       }
       $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
       $("openDriveTab").querySelector("span").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
-      $("connectDriveSidebarButton").innerHTML = status.connected
-        ? '<i data-lucide="cloud-check"></i> Google Drive conectado'
-        : '<i data-lucide="cloud-upload"></i> Vincular Google Drive';
       $("driveDisconnectButton").hidden = !status.connected;
       if (window.lucide) window.lucide.createIcons();
       $("driveScanButton").disabled = !status.connected;
@@ -869,7 +866,7 @@
 
   async function beginDriveConnection() {
     setActiveTab("drive");
-    const buttons = [$("driveConnectButton"), $("openDriveTab"), $("connectDriveSidebarButton")];
+    const buttons = [$("driveConnectButton"), $("openDriveTab")];
     buttons.forEach(button => { if (button) button.disabled = true; });
     setMessage($("driveStatusMessage"), "Abrindo a autorização segura do Google Drive...");
     try {
@@ -884,7 +881,6 @@
 
   $("driveConnectButton").addEventListener("click", beginDriveConnection);
   $("openDriveTab").addEventListener("click", beginDriveConnection);
-  $("connectDriveSidebarButton").addEventListener("click", beginDriveConnection);
 
   $("driveDisconnectButton").addEventListener("click", async () => {
     try {
