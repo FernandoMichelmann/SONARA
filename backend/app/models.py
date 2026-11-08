@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
@@ -166,7 +166,7 @@ class TelegramArchiveIndex(Base):
     __table_args__ = (UniqueConstraint("chat_id", "message_id", name="uq_telegram_archive_chat_message"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    chat_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     message_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     document_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
