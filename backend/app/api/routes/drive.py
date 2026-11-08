@@ -1,4 +1,4 @@
-import base64, hashlib, json, logging, mimetypes, re, shutil, subprocess, tempfile, zipfile
+import base64, hashlib, json, logging, mimetypes, os, re, shutil, subprocess, tempfile, zipfile
 import rarfile
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -147,6 +147,25 @@ def _download_drive_file(service, file_id: str, destination: Path, max_bytes: in
 
 
 
+def _prefer_native_rar_backend():
+    """Expose unrar/unar to rarfile; Homebrew 7zz can list RAR but cannot decompress it."""
+    for name in ("unrar", "unar"):
+        candidates = (
+            shutil.which(name),
+            f"/opt/homebrew/bin/{name}",
+            f"/usr/local/bin/{name}",
+            f"/usr/bin/{name}",
+        )
+        for candidate in candidates:
+            if candidate and Path(candidate).is_file():
+                directory = str(Path(candidate).parent)
+                current_path = os.environ.get("PATH", "")
+                if directory not in current_path.split(os.pathsep):
+                    os.environ["PATH"] = directory + os.pathsep + current_path
+                return True
+    return False
+
+
 def _find_7zip_binary():
     """Locate a 7-Zip executable, including common macOS Homebrew paths."""
     for candidate in (
@@ -217,7 +236,8 @@ def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int
                            progress_callback=None):
     """Extract supported audio from ZIP/RAR archives using safe output filenames."""
     is_rar = archive_path.suffix.lower() == ".rar"
-    seven_zip = _find_7zip_binary() if is_rar else None
+    native_rar_backend = _prefer_native_rar_backend() if is_rar else False
+    seven_zip = _find_7zip_binary() if is_rar and not native_rar_backend else None
     try:
         archive = rarfile.RarFile(archive_path) if is_rar else zipfile.ZipFile(archive_path)
         with archive:
