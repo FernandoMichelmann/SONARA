@@ -159,3 +159,20 @@ class TelegramConnection(Base):
     session_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     account_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class TelegramArchiveIndex(Base):
+    __tablename__ = "telegram_archive_index"
+    __table_args__ = (UniqueConstraint("chat_id", "message_id", name="uq_telegram_archive_chat_message"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    chat_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    message_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    document_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    extension: Mapped[str] = mapped_column(String(8), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    message_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duplicate_of_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    possible_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
