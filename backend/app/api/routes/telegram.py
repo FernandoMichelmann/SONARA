@@ -5,7 +5,6 @@ import logging
 import mimetypes
 import re
 import shutil
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -19,7 +18,7 @@ from telethon.sync import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
-from app.api.routes.drive import AUDIO_DIR, MAX_FILE_BYTES, MAX_TRACK_BYTES, MAX_TRACK_FILES, _extract_archive_audio
+from app.api.routes.drive import AUDIO_DIR, MAX_TRACK_BYTES, MAX_TRACK_FILES, _extract_archive_audio
 from app.core.config import settings
 from app.db import get_db
 from app.dependencies import get_current_developer
@@ -27,7 +26,6 @@ from app.models import TelegramConnection, Track, User
 
 router = APIRouter(prefix="/developer/telegram", tags=["Importação Telegram"])
 logger = logging.getLogger("sonara.telegram")
-AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 ARCHIVE_EXTENSIONS = {".zip", ".rar"}
 PENDING_AUTH: dict[int, dict] = {}
 
