@@ -1147,6 +1147,64 @@
     $("telegramSelectAllButton").textContent = selected ? selected + " selecionado(s) · marcar até 30" : "Marcar até 30";
   }
 
+  async function loadTelegramStatus() {
+    try {
+      const status = await request("/developer/telegram/status");
+      const connected = Boolean(status.connected);
+      $("telegramBrowser").hidden = !connected;
+      $("telegramSendCodeButton").hidden = connected;
+      $("telegramDisconnectButton").hidden = !connected;
+      $("telegramPhone").disabled = connected;
+      if (connected) {
+        setMessage($("telegramStatusMessage"),
+          "Telegram conectado" + (status.account ? " como " + status.account : "") + ".",
+          "success");
+        await loadTelegramGroups();
+      } else {
+        setMessage($("telegramStatusMessage"),
+          status.configured
+            ? "Conecte sua conta do Telegram para consultar os grupos."
+            : "Configure as credenciais da API do Telegram no backend para conectar sua conta.",
+          status.configured ? "" : "error");
+      }
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    }
+  }
+
+  async function loadTelegramGroups() {
+    const button = $("telegramLoadGroupsButton");
+    const select = $("telegramGroupSelect");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Carregando grupos...";
+    }
+    try {
+      const data = await request("/developer/telegram/groups");
+      const groups = Array.isArray(data.items) ? data.items : [];
+      const previous = select.value;
+      select.innerHTML = '<option value="">Selecione um grupo</option>' + groups.map(group => {
+        const members = group.members
+          ? " · " + Number(group.members).toLocaleString("pt-BR") + " membros"
+          : "";
+        return '<option value="' + escapeHtml(group.id) + '">' +
+          escapeHtml(group.title) + escapeHtml(members) + '</option>';
+      }).join("");
+      if (groups.some(group => String(group.id) === previous)) select.value = previous;
+      $("telegramScanButton").disabled = !select.value;
+      setMessage($("telegramStatusMessage"),
+        groups.length + " grupo(s) encontrado(s).",
+        "success");
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Atualizar grupos";
+      }
+    }
+  }
+
   async function loadAllIndexedTelegramFiles(chatId) {
     telegramFilesData = [];
     telegramNextOffset = 0;
