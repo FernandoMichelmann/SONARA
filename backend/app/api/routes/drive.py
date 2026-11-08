@@ -1,4 +1,4 @@
-import base64, hashlib, json, logging, mimetypes, re, shutil, tempfile, zipfile
+import base64, hashlib, json, logging, mimetypes, re, shutil, subprocess, tempfile, zipfile
 import rarfile
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -147,11 +147,77 @@ def _download_drive_file(service, file_id: str, destination: Path, max_bytes: in
 
 
 
-def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int, current_total: int,
-                          progress_callback=None):
-    """Extract supported audio from ZIP/RAR archives using safe output filenames."""
+def _find_7zip_binary():
+    """Locate a 7-Zip executable, including common macOS Homebrew paths."""
+    for candidate in (
+        shutil.which("7zz"),
+        shutil.which("7z"),
+        "/opt/homebrew/bin/7zz",
+        "/usr/local/bin/7zz",
+        "/usr/bin/7zz",
+        "/opt/homebrew/bin/7z",
+        "/usr/local/bin/7z",
+        "/usr/bin/7z",
+    ):
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    return None
 
+
+def _copy_rar_entry_with_7zip(binary: str, archive_path: Path, entry, destination: Path,
+                              total: int, progress_callback=None):
+    """Stream one selected RAR entry through 7-Zip stdout with strict size limits."""
+    command = [
+        binary, "x", "-so", "-y", "-p-", "-bd", "-spd",
+        str(archive_path.resolve()), entry.filename,
+    ]
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryFile() as stderr_file:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=stderr_file)
+        written = 0
+        try:
+            with process.stdout, destination.open("wb") as target:
+                while True:
+                    chunk = process.stdout.read(8 * 1024 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > MAX_FILE_BYTES or total + written > MAX_TRACK_BYTES:
+                        raise ValueError("O conteúdo extraído excedeu os limites permitidos.")
+                    target.write(chunk)
+                    if progress_callback:
+                        progress_callback(
+                            f"Extraindo {Path(entry.filename).name}: "
+                            f"{min(100, int(written / max(1, entry.file_size) * 100))}%"
+                        )
+            return_code = process.wait()
+            if return_code != 0:
+                stderr_file.seek(0)
+                detail = stderr_file.read(2000).decode("utf-8", errors="replace").strip()
+                raise ValueError(
+                    "O 7-Zip não conseguiu extrair "
+                    f"{Path(entry.filename).name} (código {return_code}). "
+                    f"{detail or 'O arquivo pode estar protegido por senha ou danificado.'}"
+                )
+            if written != entry.file_size:
+                raise ValueError(
+                    f"A faixa {Path(entry.filename).name} foi extraída incompleta "
+                    f"({written} de {entry.file_size} bytes)."
+                )
+            return written
+        except Exception:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            destination.unlink(missing_ok=True)
+            raise
+
+
+def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int, current_total: int,
+                           progress_callback=None):
+    """Extract supported audio from ZIP/RAR archives using safe output filenames."""
     is_rar = archive_path.suffix.lower() == ".rar"
+    seven_zip = _find_7zip_binary() if is_rar else None
     try:
         archive = rarfile.RarFile(archive_path) if is_rar else zipfile.ZipFile(archive_path)
         with archive:
@@ -171,30 +237,40 @@ def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int
                     raise ValueError("Um arquivo de áudio compactado excede 500 MB.")
                 safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
                 destination = stems_dir / f"{index:02d}_{safe_name}"
-                written = 0
-                opener = archive.open(entry) if is_rar else archive.open(entry, "r")
-                with opener as source_file, destination.open("wb") as target:
-                    while True:
-                        chunk = source_file.read(8 * 1024 * 1024)
-                        if not chunk:
-                            break
-                        written += len(chunk)
-                        total += len(chunk)
-                        if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
-                            raise ValueError("O conteúdo extraído excedeu os limites permitidos.")
-                        target.write(chunk)
-                        if progress_callback:
-                            progress_callback(
-                                f"Extraindo {Path(entry.filename).name}: "
-                                f"{min(100, int(written / max(1, entry.file_size) * 100))}%"
-                            )
-                if written != entry.file_size:
-                    raise ValueError("Um arquivo de áudio compactado foi extraído incompleto.")
+                if is_rar and seven_zip:
+                    written = _copy_rar_entry_with_7zip(
+                        seven_zip, archive_path, entry, destination, total, progress_callback
+                    )
+                    total += written
+                else:
+                    written = 0
+                    opener = archive.open(entry) if is_rar else archive.open(entry, "r")
+                    with opener as source_file, destination.open("wb") as target:
+                        while True:
+                            chunk = source_file.read(8 * 1024 * 1024)
+                            if not chunk:
+                                break
+                            written += len(chunk)
+                            total += len(chunk)
+                            if written > MAX_FILE_BYTES or total > MAX_TRACK_BYTES:
+                                raise ValueError("O conteúdo extraído excedeu os limites permitidos.")
+                            target.write(chunk)
+                            if progress_callback:
+                                progress_callback(
+                                    f"Extraindo {Path(entry.filename).name}: "
+                                    f"{min(100, int(written / max(1, entry.file_size) * 100))}%"
+                                )
+                    if written != entry.file_size:
+                        raise ValueError("Um arquivo de áudio compactado foi extraído incompleto.")
                 downloaded.append(destination)
                 index += 1
             return downloaded, total, index
-    except (rarfile.Error, zipfile.BadZipFile, OSError) as error:
-        raise ValueError(f"Não foi possível abrir {archive_path.name}. O arquivo pode estar danificado, protegido por senha ou exigir um extrator RAR.") from error
+    except (rarfile.Error, zipfile.BadZipFile, OSError, subprocess.SubprocessError) as error:
+        logger.exception("Falha ao extrair arquivo compactado %s", archive_path.name)
+        raise ValueError(
+            f"Não foi possível extrair {archive_path.name}. "
+            "Verifique se o arquivo está íntegro, se não exige senha e se o 7-Zip está instalado no backend."
+        ) from error
 
 def _rar_audio_entries(archive_path: Path):
     try:
