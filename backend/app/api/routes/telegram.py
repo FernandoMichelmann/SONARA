@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import re
 import shutil
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -178,6 +179,7 @@ def list_telegram_groups(_developer: User = Depends(get_current_developer), db: 
 
 def _telegram_name_key(name: str, size: int) -> str:
     normalized = Path(name or "").stem
+    normalized = "".join(character for character in unicodedata.normalize("NFKD", normalized) if not unicodedata.combining(character))
     normalized = re.sub(r"\s*\((?:copia|copy|\d+)\)\s*$", "", normalized, flags=re.I)
     normalized = re.sub(r"\s+(?:copia|copy)\s*$", "", normalized, flags=re.I)
     normalized = re.sub(r"[^a-z0-9]+", " ", normalized.casefold())
