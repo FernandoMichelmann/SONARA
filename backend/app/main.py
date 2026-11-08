@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, inspect, text
-from app.api.routes import account, admin, auth, catalog, developer, payments, drive
+from app.api.routes import account, admin, auth, catalog, developer, payments, drive, telegram
 from app.core.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import RevenueEntry, Track, TrackCategory, User
@@ -23,6 +23,7 @@ def migrate_track_columns():
         "cover_path": "VARCHAR(600)",
         "cover_content_type": "VARCHAR(120)",
         "source_drive_folder_id": "VARCHAR(160)",
+        "source_telegram_message_id": "VARCHAR(180)",
     }
     with engine.begin() as connection:
         existing = {column["name"] for column in inspect(engine).get_columns("tracks")}
@@ -30,6 +31,7 @@ def migrate_track_columns():
             if column not in existing:
                 connection.execute(text(f"ALTER TABLE tracks ADD COLUMN {column} {definition}"))
         connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_tracks_source_drive_folder_id ON tracks (source_drive_folder_id)"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_tracks_source_telegram_message_id ON tracks (source_telegram_message_id)"))
 
 def migrate_user_profile_columns():
     """Add profile fields without deleting or rewriting existing accounts."""
@@ -110,3 +112,4 @@ app.include_router(catalog.router, prefix=settings.api_v1_prefix)
 app.include_router(account.router, prefix=settings.api_v1_prefix)
 app.include_router(payments.router, prefix=settings.api_v1_prefix)
 app.include_router(drive.router, prefix=settings.api_v1_prefix)
+app.include_router(telegram.router, prefix=settings.api_v1_prefix)
