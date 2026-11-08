@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_developer
-from app.models import RevenueEntry, Track, TrackCategory, User
+from app.models import HomepageFeatureSelection, PasswordResetToken, PaymentOrder, RevenueEntry, Track, TrackCategory, User, UserFavorite, UserDownload, UserPlaylist
 
 router = APIRouter(prefix="/developer", tags=["Administração do desenvolvedor"])
 AUDIO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "tracks"
@@ -79,6 +79,88 @@ def track_payload(track: Track):
     }
 
 
+class HomepageFeatureUpdate(BaseModel):
+    launches: list[int] = Field(default_factory=list, max_length=12)
+    most_downloaded: list[int] = Field(default_factory=list, max_length=14)
+
+
+def _homepage_selection_payload(db: Session):
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        return {"launches": [], "most_downloaded": [], "configured": False}
+    try:
+        launches = json.loads(selection.launches_json or "[]")
+        most_downloaded = json.loads(selection.most_downloaded_json or "[]")
+    except (TypeError, json.JSONDecodeError):
+        launches, most_downloaded = [], []
+    return {"launches": launches, "most_downloaded": most_downloaded, "configured": True}
+
+
+@router.get("/homepage-features")
+def get_homepage_features(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    return _homepage_selection_payload(db)
+
+
+@router.put("/homepage-features")
+def update_homepage_features(
+    payload: HomepageFeatureUpdate,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    launches = list(dict.fromkeys(payload.launches))
+    most_downloaded = list(dict.fromkeys(payload.most_downloaded))
+    requested_ids = set(launches + most_downloaded)
+    if any(track_id <= 0 for track_id in requested_ids):
+        raise HTTPException(status_code=422, detail="Seleção de tracks inválida.")
+    valid_ids = set(db.scalars(select(Track.id).where(Track.id.in_(requested_ids), Track.is_published.is_(True))).all()) if requested_ids else set()
+    if valid_ids != requested_ids:
+        raise HTTPException(status_code=422, detail="Todas as tracks selecionadas precisam estar publicadas no catálogo.")
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        selection = HomepageFeatureSelection(id=1)
+        db.add(selection)
+    selection.launches_json = json.dumps(launches)
+    selection.most_downloaded_json = json.dumps(most_downloaded)
+    db.commit()
+    return {"launches": launches, "most_downloaded": most_downloaded, "saved": True}
+
+
+@router.get("/overview")
+def developer_overview(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    """Retorna os três indicadores da visão geral em uma única consulta autenticada."""
+    users_total = db.scalar(
+        select(func.count(User.id)).where(User.role == "user")
+    ) or 0
+    published_tracks = db.scalar(
+        select(func.count(Track.id)).where(Track.is_published.is_(True))
+    ) or 0
+    manual_received = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "received")
+    ) or Decimal("0.00")
+    paid_cents = db.scalar(
+        select(func.coalesce(func.sum(
+            func.coalesce(PaymentOrder.paid_amount_cents, PaymentOrder.amount_cents)
+        ), 0))
+        .where(PaymentOrder.status == "paid")
+    ) or 0
+    revenue = Decimal(str(manual_received)) + Decimal(int(paid_cents)) / Decimal("100")
+    return {
+        "users_total": int(users_total),
+        "published_tracks": int(published_tracks),
+        "received_total": str(revenue.quantize(Decimal("0.01"))),
+        "paid_orders_count": int(db.scalar(
+            select(func.count(PaymentOrder.id)).where(PaymentOrder.status == "paid")
+        ) or 0),
+    }
+
+
 @router.get("/users")
 def list_users(
     q: str = Query(default="", max_length=254),
@@ -117,6 +199,30 @@ def update_user_status(
     user.is_active = payload.is_active
     db.commit()
     return {"id": user.id, "is_active": user.is_active}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    user = db.scalar(select(User).where(User.id == user_id, User.role == "user"))
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    # Preserve o histórico financeiro da plataforma, removendo apenas o vínculo
+    # com a conta excluída. Não há outras tabelas pessoais relacionadas ao usuário.
+    db.query(RevenueEntry).filter(RevenueEntry.created_by == user_id).update(
+        {RevenueEntry.created_by: None},
+        synchronize_session=False,
+    )
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete(
+        synchronize_session=False,
+    )
+    db.delete(user)
+    db.commit()
+    return {"id": user_id, "deleted": True, "message": "Usuário e dados da conta excluídos com sucesso."}
 
 
 @router.get("/tracks")
@@ -292,6 +398,93 @@ async def upload_track(
 
 
 
+@router.delete("/tracks")
+def delete_all_tracks(
+    _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db),
+):
+    """Exclui todas as tracks e seus arquivos, preservando usuários e dados financeiros."""
+    tracks = db.scalars(select(Track)).all()
+    track_ids = [track.id for track in tracks]
+    uploads_root = AUDIO_DIR.resolve()
+    covers_root = COVER_DIR.resolve()
+    track_directories = set()
+    cover_files = set()
+    preserved_files = 0
+
+    for track in tracks:
+        if track.stems_path:
+            try:
+                stems_path = Path(track.stems_path).resolve()
+                track_dir = stems_path.parent
+                if track_dir.parent == uploads_root and track_dir != uploads_root:
+                    track_directories.add(track_dir)
+                else:
+                    preserved_files += 1
+            except (OSError, RuntimeError):
+                preserved_files += 1
+        else:
+            preserved_files += 1
+
+        if track.cover_path:
+            try:
+                cover_path = Path(track.cover_path).resolve()
+                if cover_path.parent == covers_root:
+                    cover_files.add(cover_path)
+                else:
+                    preserved_files += 1
+            except (OSError, RuntimeError):
+                preserved_files += 1
+
+    try:
+        if track_ids:
+            db.query(UserFavorite).filter(UserFavorite.track_id.in_(track_ids)).delete(synchronize_session=False)
+            db.query(UserDownload).filter(UserDownload.track_id.in_(track_ids)).delete(synchronize_session=False)
+
+        # Remove referências das tracks excluídas sem apagar as playlists dos usuários.
+        for playlist in db.scalars(select(UserPlaylist)).all():
+            try:
+                current_ids = json.loads(playlist.track_ids_json or "[]")
+                playlist.track_ids_json = json.dumps(
+                    [item for item in current_ids if str(item) not in {str(track_id) for track_id in track_ids}],
+                    ensure_ascii=False,
+                )
+            except (TypeError, json.JSONDecodeError):
+                playlist.track_ids_json = "[]"
+
+        selection = db.get(HomepageFeatureSelection, 1)
+        if selection:
+            selection.launches_json = "[]"
+            selection.most_downloaded_json = "[]"
+
+        for track in tracks:
+            db.delete(track)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    deleted_directories = 0
+    for track_dir in track_directories:
+        shutil.rmtree(track_dir, ignore_errors=True)
+        if not track_dir.exists():
+            deleted_directories += 1
+    deleted_covers = 0
+    for cover_path in cover_files:
+        cover_path.unlink(missing_ok=True)
+        if not cover_path.exists():
+            deleted_covers += 1
+
+    return {
+        "deleted": len(track_ids),
+        "files_deleted": deleted_directories,
+        "covers_deleted": deleted_covers,
+        "files_preserved_for_safety": preserved_files,
+        "message": "Todas as tracks foram excluídas. Usuários, receitas, pagamentos e conexão com o Google Drive foram preservados.",
+    }
+
+
+
 @router.delete("/tracks/{track_id}")
 def delete_track(
     track_id: int,
@@ -336,7 +529,8 @@ def get_track_preview_source(
 
     source_stems = sorted(
         path for path in stems_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        if path.is_file()
+        and (path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS or bool(track.source_drive_folder_id))
         and not is_macos_metadata_file(path)
     )
     if not source_stems:
@@ -401,7 +595,8 @@ def create_track_preview(
     preview_dir.mkdir(parents=True, exist_ok=True)
     source_stems = sorted(
         path for path in stems_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
+        if path.is_file()
+        and (path.suffix.lower() in ALLOWED_AUDIO_EXTENSIONS or bool(track.source_drive_folder_id))
         and not is_macos_metadata_file(path)
     )
     if not source_stems:
@@ -443,7 +638,7 @@ def create_track_preview(
 
 
 @router.patch("/tracks/{track_id}")
-def update_track(
+async def update_track(
     track_id: int,
     title: str | None = Form(default=None, max_length=180),
     artist: str | None = Form(default=None, max_length=180),
@@ -453,6 +648,7 @@ def update_track(
     time_signature: str | None = Form(default=None, max_length=12),
     categories: str | None = Form(default=None),
     is_published: bool | None = Form(default=None),
+    cover: UploadFile | None = File(default=None),
     _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db),
 ):
@@ -460,6 +656,8 @@ def update_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track não encontrada.")
     if title is not None:
+        if not title.strip():
+            raise HTTPException(status_code=422, detail="Informe o nome da música.")
         track.title = title.strip()
     if artist is not None:
         track.artist = artist.strip()
@@ -479,15 +677,47 @@ def update_track(
             track.category = selected[0] if selected else "Multitrack"
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=422, detail="Categorias inválidas.")
+    new_cover = None
+    if cover and cover.filename:
+        extension = Path(cover.filename).suffix.lower()
+        if extension not in ALLOWED_IMAGE_EXTENSIONS:
+            raise HTTPException(status_code=415, detail="A capa deve ser JPG, PNG ou WEBP.")
+        COVER_DIR.mkdir(parents=True, exist_ok=True)
+        new_cover = COVER_DIR / (uuid4().hex + extension)
+        size = 0
+        try:
+            with new_cover.open("wb") as destination:
+                while chunk := await cover.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 12 * 1024 * 1024:
+                        raise HTTPException(status_code=413, detail="A capa excede 12 MB.")
+                    destination.write(chunk)
+            if size == 0:
+                raise HTTPException(status_code=400, detail="A imagem de capa está vazia.")
+        except Exception:
+            new_cover.unlink(missing_ok=True)
+            raise
     if is_published is not None:
         if is_published:
             preview_dir = Path(track.stems_path).parent / "previews" if track.stems_path else None
             previews = list(preview_dir.glob("*.mp3")) if preview_dir and preview_dir.is_dir() else []
             if not previews:
+                if new_cover: new_cover.unlink(missing_ok=True)
                 raise HTTPException(status_code=409, detail="Antes de publicar, configure e gere a prévia de 30 segundos desta multitrack.")
         track.is_published = is_published
-    db.commit()
-    db.refresh(track)
+    old_cover = Path(track.cover_path) if new_cover and track.cover_path else None
+    if new_cover:
+        track.cover_path = str(new_cover)
+        track.cover_content_type = mimetypes.guess_type(new_cover.name)[0] or "application/octet-stream"
+    try:
+        db.commit()
+        db.refresh(track)
+    except Exception:
+        db.rollback()
+        if new_cover: new_cover.unlink(missing_ok=True)
+        raise
+    if old_cover:
+        old_cover.unlink(missing_ok=True)
     return track_payload(track)
 
 
@@ -532,13 +762,32 @@ def revenue_summary(
     _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db),
 ):
-    received = db.scalar(select(func.coalesce(func.sum(RevenueEntry.amount), 0)).where(RevenueEntry.status == "received"))
-    pending = db.scalar(select(func.coalesce(func.sum(RevenueEntry.amount), 0)).where(RevenueEntry.status == "pending"))
-    count = db.scalar(select(func.count(RevenueEntry.id))) or 0
+    # Soma os lançamentos manuais recebidos com os pedidos efetivamente
+    # confirmados pela InfinitePay. Valores dos pedidos são armazenados em centavos.
+    manual_received = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "received")
+    ) or Decimal("0.00")
+    payment_received_cents = db.scalar(
+        select(func.coalesce(func.sum(
+            func.coalesce(PaymentOrder.paid_amount_cents, PaymentOrder.amount_cents)
+        ), 0))
+        .where(PaymentOrder.status == "paid")
+    ) or 0
+    pending = db.scalar(
+        select(func.coalesce(func.sum(RevenueEntry.amount), 0))
+        .where(RevenueEntry.status == "pending")
+    ) or Decimal("0.00")
+    manual_count = db.scalar(select(func.count(RevenueEntry.id))) or 0
+    paid_orders_count = db.scalar(
+        select(func.count(PaymentOrder.id)).where(PaymentOrder.status == "paid")
+    ) or 0
+    received = Decimal(str(manual_received)) + (Decimal(payment_received_cents) / Decimal("100"))
     return {
-        "received_total": str(received),
+        "received_total": str(received.quantize(Decimal("0.01"))),
         "pending_total": str(pending),
-        "entries_count": count,
+        "entries_count": manual_count + paid_orders_count,
+        "paid_orders_count": paid_orders_count,
+        "payment_received_total": str((Decimal(payment_received_cents) / Decimal("100")).quantize(Decimal("0.01"))),
         "currency": "BRL",
-        "note": "Valores baseados nos lançamentos registrados; ainda não sincronizados com um gateway de pagamento.",
     }

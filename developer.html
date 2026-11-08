@@ -9,15 +9,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/developer.css?v=preview-flow-2">
+  <link rel="stylesheet" href="css/developer.css?v=20261107-drive-progress-1">
+  <link rel="stylesheet" href="css/visuvate-developer.css?v=2">
+  <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="js/developer.js?v=preview-appledouble-fix-1" defer></script>
+  <script src="js/sonara-config.js?v=20261107-admin-login-recovery-1"></script>
+  <script src="js/developer.js?v=20261108-telegram-full-index-1" defer></script>
+    <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
+    <link rel="stylesheet" href="css/sonara-brand.css?v=1">
+    <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
 </head>
 <body>
   <main class="dev-shell">
     <header class="dev-brand" aria-label="SONARA Developer">
-      <span class="brand-mark"><i data-lucide="audio-waveform"></i></span>
-      <span><strong>SONARA</strong><small>DEVELOPER CONSOLE</small></span>
+      <img class="dev-brand-logo" src="assets/sonara-logo.svg?v=1" alt="SONARA Developer Console">
     </header>
 
     <section class="login-card" id="loginCard">
@@ -39,31 +44,32 @@
     <section class="dashboard-card" id="dashboardCard" hidden>
       <aside class="sidebar">
         <div class="sidebar-heading">PAINEL ADMINISTRATIVO</div>
-        <button class="nav-item active" data-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
-        <button class="nav-item" data-tab="users"><i data-lucide="users"></i> Usuários <span id="navUserCount">—</span></button>
-        <button class="nav-item" data-tab="tracks"><i data-lucide="audio-lines"></i> Tracks</button>
-        <button class="nav-item" data-tab="revenue"><i data-lucide="chart-no-axes-combined"></i> Receitas</button>
+        <button type="button" class="nav-item active" data-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
+        <button type="button" class="nav-item" data-tab="users"><i data-lucide="users"></i> Usuários <span id="navUserCount">—</span></button>
+        <button type="button" class="nav-item" data-tab="tracks"><i data-lucide="audio-lines"></i> Tracks</button>
+        <button type="button" class="nav-item" data-tab="drive"><i data-lucide="cloud"></i> Google Drive</button>
+        <button type="button" class="nav-item" data-tab="telegram"><i data-lucide="send"></i> Telegram</button>
+
+        <button type="button" class="nav-item" data-tab="revenue"><i data-lucide="chart-no-axes-combined"></i> Receitas</button>
         <div class="sidebar-bottom">
           <div class="identity-mini"><span class="identity-dot"></span><div><strong>Proprietário</strong><small id="sidebarIdentity">Sessão validada</small></div></div>
-          <button class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
+          <button type="button" class="logout-button" id="logoutButton"><i data-lucide="log-out"></i> Sair</button>
         </div>
       </aside>
 
       <div class="admin-content">
         <header class="dashboard-top">
           <div><div class="eyebrow"><span></span> SONARA CONTROL CENTER</div><h1 id="pageTitle">Visão geral</h1><p class="intro" id="pageIntro">Acompanhe os principais números da plataforma.</p></div>
-          <button class="refresh-button" id="refreshButton"><i data-lucide="refresh-cw"></i><span>Atualizar dados</span></button>
+          <div class="dashboard-header-actions"><button class="drive-shortcut-button" id="openDriveTab" type="button"><i data-lucide="cloud"></i><span>Vincular Google Drive</span></button><button type="button" class="refresh-button" id="refreshButton"><i data-lucide="refresh-cw"></i><span>Atualizar dados</span></button></div>
         </header>
         <div class="global-message" id="globalMessage" role="status" aria-live="polite"></div>
 
         <section class="tab-panel" id="panel-overview">
           <div class="stats-grid">
             <article class="stat-card"><span>USUÁRIOS CADASTRADOS</span><i data-lucide="users"></i><strong id="overviewUsers">—</strong><small>Contas comuns registradas</small></article>
-            <article class="stat-card"><span>TRACKS NO CATÁLOGO</span><i data-lucide="audio-lines"></i><strong id="overviewTracks">—</strong><small id="publishedTracks">Carregando publicação...</small></article>
-            <article class="stat-card"><span>RECEITA RECEBIDA</span><i data-lucide="wallet"></i><strong id="overviewRevenue">—</strong><small>Conforme lançamentos registrados</small></article>
-            <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="overviewPending">—</strong><small>Aguardando recebimento</small></article>
+            <article class="stat-card"><span>TRACKS NO CATÁLOGO</span><i data-lucide="audio-lines"></i><strong id="overviewTracks">—</strong></article>
+            <article class="stat-card"><span>RECEITA</span><i data-lucide="wallet"></i><strong id="overviewRevenue">—</strong><small>Total de pagamentos confirmados e receitas recebidas</small></article>
           </div>
-          <div class="info-panel"><div class="panel-title"><i data-lucide="shield-check"></i><h2>Status administrativo</h2></div><p id="developerIdentity">Sessão validada pelo servidor.</p><p class="muted">Os indicadores são carregados da API e do banco de dados. Receita ainda não é sincronizada automaticamente com um gateway de pagamento.</p></div>
         </section>
 
         <section class="tab-panel" id="panel-users" hidden>
@@ -114,6 +120,25 @@
             <p class="inline-message" id="trackUploadMessage" role="status"></p>
           </form>
 
+
+
+
+          <section class="preview-editor" id="trackMetadataEditor" hidden>
+            <div class="preview-editor-heading"><span class="preview-kicker">FINALIZAÇÃO DA MULTITRACK</span><h3>Nome e capa da música</h3><p>Os instrumentos já foram importados. Ajuste os dados da música e depois configure a prévia de áudio.</p></div>
+            <form id="trackMetadataForm" class="upload-form">
+              <div class="form-grid">
+                <div class="form-field"><label for="editTrackTitle">Nome da música *</label><input id="editTrackTitle" maxlength="180" required></div>
+                <div class="form-field"><label for="editTrackArtist">Artista</label><input id="editTrackArtist" maxlength="180"></div>
+                <div class="form-field" style="grid-column:1/-1"><label for="editTrackCover">Capa da música</label><input id="editTrackCover" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"><small>JPG, PNG ou WEBP · máximo 12 MB. Se não escolher outra imagem, a capa atual será mantida.</small></div>
+              </div>
+              <div class="track-step-actions">
+                <button type="button" class="table-action" id="cancelTrackMetadata">Cancelar</button>
+                <button type="submit" class="submit-button" id="saveTrackMetadata">Salvar informações</button>
+              </div>
+              <p class="inline-message" id="trackMetadataMessage" role="status"></p>
+            </form>
+          </section>
+
           <section class="preview-editor" id="previewEditor" hidden>
             <div class="preview-editor-heading"><span class="preview-kicker">EDITOR DE PRÉVIA</span><h3>Marque o início e o fim do trecho</h3><p>Ouça a mixagem completa e escolha exatamente qual parte ficará disponível no catálogo. A prévia pode ter até 30 segundos.</p></div>
             <div class="preview-editor-layout">
@@ -134,8 +159,125 @@
               </div>
             </div>
           </section>
-          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div></div>
+          <div class="section-toolbar list-toolbar"><div><h2>Tracks enviadas</h2><p>Dados musicais, categorias, stems e estado de publicação.</p></div><button type="button" class="table-action danger" id="deleteAllTracksButton">Excluir todas as tracks</button></div>
           <div class="table-wrap"><table><thead><tr><th>TRACK / ARTISTA</th><th>DETALHES</th><th>CATEGORIAS</th><th>STEMS</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody id="tracksTable"><tr><td colspan="6" class="empty-cell">Carregando tracks...</td></tr></tbody></table></div>
+
+          <section class="homepage-feature-editor" id="homepageFeatureEditor">
+            <div class="section-toolbar"><div><h2>Destaques da página inicial</h2><p>Escolha quais tracks publicadas aparecem em Lançamentos e Mais baixados. Selecione as faixas que deseja destacar em cada seção.</p></div></div>
+            <div class="homepage-feature-columns">
+              <div class="homepage-feature-group"><h3>Lançamentos</h3><p>Selecione até 12 tracks.</p><div class="homepage-feature-options" id="launchesFeatureOptions"><span class="muted">Carregando tracks...</span></div></div>
+              <div class="homepage-feature-group"><h3>Mais baixados</h3><p>Selecione até 14 tracks.</p><div class="homepage-feature-options" id="mostDownloadedFeatureOptions"><span class="muted">Carregando tracks...</span></div></div>
+            </div>
+            <div class="homepage-feature-actions"><button type="button" class="submit-button" id="saveHomepageFeatures"><i data-lucide="save"></i><span>Salvar destaques</span></button><p class="inline-message" id="homepageFeatureMessage" role="status"></p></div>
+          </section>
+
+        </section>
+
+          <section class="tab-panel" id="panel-drive" hidden>
+          <section class="upload-form" id="driveImportPanel">
+            <div class="section-toolbar"><div><h2>Importação em lote pelo Google Drive</h2><p>Conecte seu Drive, selecione a pasta principal das músicas e importe várias multitracks de uma vez.</p></div></div>
+            <div class="form-grid">
+              <div class="form-field" style="grid-column:1/-1"><label for="driveRootFolder">Link ou ID da pasta principal do Google Drive</label><input id="driveRootFolder" type="text" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off"></div>
+            </div>
+            <div class="track-step-actions" style="gap:12px;flex-wrap:wrap">
+              <button type="button" class="table-action" id="driveConnectButton">Vincular Google Drive</button>
+              <button type="button" class="submit-button" id="driveScanButton">Analisar pastas</button>
+              <button type="button" class="table-action" id="driveDisconnectButton" hidden>Desconectar</button>
+            </div>
+            <p class="inline-message" id="driveStatusMessage" role="status">O Drive ainda não foi conectado.</p>
+            <div id="driveProgressBar" class="drive-progress" hidden aria-live="polite"><div class="drive-progress-track"><div id="driveProgressFill" class="drive-progress-fill"></div></div><strong id="driveProgressLabel">0%</strong></div>
+            <div class="track-step-actions" style="margin-top:16px;justify-content:flex-end">
+              <button type="button" class="table-action" id="driveSelectAllButton" hidden>Marcar todas</button>
+            </div>
+            <div id="driveFolderResults" style="display:grid;gap:10px;margin-top:16px"></div>
+            <div class="track-step-actions" style="margin-top:16px">
+              <button type="button" class="submit-button" id="driveImportButton" disabled>Importar pastas selecionadas</button>
+            </div>
+          </section>
+          </section>
+
+        <section class="tab-panel" id="panel-telegram" hidden>
+          <section class="upload-form" id="telegramImportPanel">
+            <div class="section-toolbar">
+              <div>
+                <h2>Conectar conta do Telegram</h2>
+                <p>Use sua conta para acessar os grupos dos quais participa e importar multitracks em ZIP ou RAR.</p>
+              </div>
+            </div>
+
+            <div class="telegram-connection-card">
+              <div class="form-grid">
+                <div class="form-field" style="grid-column:1/-1">
+                  <label for="telegramPhone">Número de telefone com código do país</label>
+                  <input id="telegramPhone" type="tel" autocomplete="tel" placeholder="+55 41 99999-9999">
+                  <small>O Telegram enviará um código de confirmação para sua conta.</small>
+                </div>
+              </div>
+              <div class="track-step-actions" style="gap:10px;flex-wrap:wrap">
+                <button type="button" class="submit-button" id="telegramSendCodeButton">Entrar no Telegram / Enviar código</button>
+                <button type="button" class="table-action" id="telegramDisconnectButton" hidden>Desconectar Telegram</button>
+              </div>
+
+              <div id="telegramCodeFields" hidden>
+                <div class="form-grid" style="margin-top:16px">
+                  <div class="form-field">
+                    <label for="telegramCode">Código recebido</label>
+                    <input id="telegramCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Digite o código">
+                  </div>
+                  <div class="form-field">
+                    <label for="telegramPassword">Senha de verificação em duas etapas (se solicitada)</label>
+                    <input id="telegramPassword" type="password" autocomplete="current-password" placeholder="Senha 2FA do Telegram">
+                  </div>
+                </div>
+                <button type="button" class="submit-button" id="telegramVerifyButton">Confirmar código e conectar</button>
+              </div>
+              <p class="inline-message" id="telegramStatusMessage" role="status">Verificando configuração do Telegram...</p>
+              <p class="telegram-security-note">A sessão de acesso é armazenada criptografada no banco local da SONARA. Sua senha de verificação em duas etapas não é armazenada.</p>
+            </div>
+
+            <section id="telegramBrowser" hidden style="margin-top:24px">
+              <div class="section-toolbar">
+                <div>
+                  <h2>Escolher grupo e localizar arquivos</h2>
+                  <p>Selecione um grupo, busque os arquivos ZIP/RAR e marque somente as multitracks que deseja importar.</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-field" style="grid-column:1/-1">
+                  <label for="telegramGroupSelect">Grupo do Telegram</label>
+                  <select id="telegramGroupSelect">
+                    <option value="">Selecione um grupo</option>
+                  </select>
+                </div>
+              </div>
+              <div class="track-step-actions" style="gap:10px;flex-wrap:wrap">
+                <button type="button" class="table-action" id="telegramLoadGroupsButton">Atualizar grupos</button>
+                <button type="button" class="submit-button" id="telegramScanButton" disabled>Indexar grupo e listar arquivos</button>
+              </div>
+              <div class="section-toolbar" style="margin-top:24px">
+                <div>
+                  <h2>Biblioteca indexada do grupo</h2>
+                  <p>A SONARA analisa o histórico completo, ignora cópias exatas e mantém possíveis versões para conferência. A indexação não baixa os arquivos.</p>
+                </div>
+                <button type="button" class="table-action" id="telegramSelectAllButton" hidden>Marcar até 30</button>
+              </div>
+              <div class="form-field" style="margin:12px 0">
+                <label for="telegramFileSearch">Buscar música ou nome do arquivo</label>
+                <input id="telegramFileSearch" type="search" placeholder="Digite parte do nome da multitrack..." autocomplete="off">
+              </div>
+              <p class="inline-message" id="telegramIndexSummary" role="status">Selecione um grupo e inicie a indexação.</p>
+              <div id="telegramFileResults" style="display:grid;gap:9px;max-height: min(70vh, 760px);overflow:auto;position:relative;overscroll-behavior:contain"></div>
+              <div class="track-step-actions" style="margin-top:16px;gap:10px;flex-wrap:wrap">
+                <button type="button" class="table-action" id="telegramLoadMoreButton" hidden>Carregar mais arquivos</button>
+                <button type="button" class="submit-button" id="telegramImportButton" disabled>Importar selecionados</button>
+              </div>
+              <div id="telegramProgressBar" class="drive-progress" hidden aria-live="polite">
+                <div class="drive-progress-track"><div id="telegramProgressFill" class="drive-progress-fill"></div></div>
+                <strong id="telegramProgressLabel">0%</strong>
+              </div>
+              <p class="inline-message" id="telegramImportMessage" role="status"></p>
+            </section>
+          </section>
         </section>
 
         <section class="tab-panel" id="panel-revenue" hidden>
@@ -144,7 +286,6 @@
             <article class="stat-card"><span>RECEITA PENDENTE</span><i data-lucide="clock-3"></i><strong id="revenuePending">R$ 0,00</strong><small>Registros aguardando recebimento</small></article>
             <article class="stat-card"><span>LANÇAMENTOS</span><i data-lucide="receipt-text"></i><strong id="revenueEntries">0</strong><small>Registros financeiros</small></article>
           </div>
-          <div class="info-panel revenue-note"><i data-lucide="info"></i><p>Por enquanto, estes são lançamentos financeiros registrados manualmente. Os valores não representam vendas confirmadas automaticamente. A integração com pagamentos será uma etapa separada.</p></div>
           <div class="section-toolbar"><div><h2>Registrar receita</h2><p>Adicione uma venda ou recebimento real para manter seu controle atualizado.</p></div></div>
           <form id="revenueForm" class="upload-form">
             <div class="form-grid">
