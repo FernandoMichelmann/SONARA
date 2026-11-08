@@ -918,19 +918,15 @@
         const hasArchives = isRar || Number(folder.archive_count) > 0;
         const isArchive = isZip || isRar;
         const disabled = folder.already_imported || (!isArchive && !hasAudio && !hasArchives);
-        const detail = folder.already_imported ? "Já importada" :
-          isZip ? "ZIP · será extraído automaticamente" :
-          isRar ? "RAR detectado · conteúdo será validado na importação" :
-          hasArchives ? "ZIP/RAR detectado(s) · conteúdo será validado na importação" :
-          hasAudio ? "Pronta para importar" : "Sem áudio compatível";
-        return '<label class="check-field" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
+        const detail = isZip ? "ZIP · extração automática" :
+          isRar ? "RAR · extração automática" :
+          hasArchives ? "Contém arquivo(s) compactado(s)" :
+          hasAudio ? Number(folder.audio_count) + " arquivo(s) de áudio" : "Sem áudio compatível";
+        return '<label class="check-field drive-folder-row ' + (folder.already_imported ? "is-imported" : "") + '" style="padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
           '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "") + '>' +
-          '<span style="display:grid;gap:3px"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) + '</strong><small>' +
-          (isZip ? "ZIP com extração automática" :
-            isRar ? "Arquivo RAR · extração na importação" :
-            (Number(folder.audio_count || 0) + " arquivo(s) de áudio" +
-              (Number(folder.archive_count) ? " + " + folder.archive_count + " ZIP/RAR(s)" : ""))) + ' · ' + detail +
-          '</small></span></label>';
+          '<span class="drive-folder-copy"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) +
+          (folder.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importada</span>' : '') +
+          '</strong><small>' + detail + '</small></span></label>';
       }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
       const selectableFolders = folders.filter(folder => !folder.already_imported &&
         (folder.item_type === "zip" || folder.item_type === "rar" ||
@@ -1138,12 +1134,13 @@
       const size = file.size >= 1024 * 1024 * 1024
         ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
         : (file.size / (1024 * 1024)).toFixed(1) + " MB";
-      return '<label class="check-field telegram-file-row" style="padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:10px;display:flex;gap:12px;align-items:center">' +
+      return '<label class="check-field telegram-file-row ' + (file.already_imported ? "is-imported" : "") + '" style="padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
         '<input type="checkbox" data-telegram-message="' + escapeHtml(file.message_id) + '" ' +
         (file.already_imported ? "disabled" : "") + '>' +
-        '<span style="display:grid;gap:3px"><strong>🗜️ ' + escapeHtml(file.name) + '</strong><small>' +
-        escapeHtml(file.extension) + " · " + size + (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") +
-        (file.already_imported ? " · Já importado" : "") + '</small></span></label>';
+        '<span style="display:grid;gap:5px"><strong>🗜️ ' + escapeHtml(file.name) +
+        (file.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importado</span>' : '') +
+        '</strong><small>' + escapeHtml(file.extension) + " · " + size +
+        (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") + '</small></span></label>';
     }).join("");
     if (append) container.insertAdjacentHTML("beforeend", html);
     else container.innerHTML = html || '<p class="muted">Nenhum arquivo ZIP ou RAR encontrado neste grupo.</p>';
