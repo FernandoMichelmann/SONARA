@@ -176,3 +176,10 @@ class TelegramArchiveIndex(Base):
     duplicate_of_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     possible_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class TelegramArchiveIndexState(Base):
+    __tablename__ = "telegram_archive_index_states"
+    chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    is_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    last_indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
