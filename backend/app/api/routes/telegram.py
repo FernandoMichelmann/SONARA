@@ -28,6 +28,7 @@ router = APIRouter(prefix="/developer/telegram", tags=["Importação Telegram"])
 logger = logging.getLogger("sonara.telegram")
 ARCHIVE_EXTENSIONS = {".zip", ".rar"}
 PENDING_AUTH: dict[int, dict] = {}
+TELEGRAM_IMPORT_PROGRESS: dict[str, dict] = {}
 
 
 def _configured():
@@ -72,6 +73,7 @@ class VerifyRequest(BaseModel):
 class ImportRequest(BaseModel):
     chat_id: int
     message_ids: list[int] = Field(min_length=1, max_length=30)
+    job_id: str = Field(min_length=8, max_length=80)
 
 
 @router.get("/status")
@@ -208,20 +210,49 @@ def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
         client.disconnect()
 
 
+@router.get("/import-progress/{job_id}")
+def get_telegram_import_progress(job_id: str, _developer: User = Depends(get_current_developer)):
+    progress = TELEGRAM_IMPORT_PROGRESS.get(job_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Progresso da importação não encontrado.")
+    return dict(progress)
+
+
 @router.post("/import")
 def import_telegram_archives(payload: ImportRequest, _developer: User = Depends(get_current_developer),
     db: Session = Depends(get_db)):
-    client = _client(_saved_session(db))
     imported, skipped, errors = [], [], []
+    progress = {
+        "job_id": payload.job_id, "status": "processing",
+        "total": len(set(payload.message_ids)), "completed": 0, "item_percent": 0,
+        "current": "Preparando conexão com o Telegram...", "imported": 0, "skipped": 0, "errors": 0,
+    }
+    TELEGRAM_IMPORT_PROGRESS[payload.job_id] = progress
+
+    def update_progress(current=None, item_percent=None):
+        if current is not None:
+            progress["current"] = str(current)[:240]
+        if item_percent is not None:
+            progress["item_percent"] = max(0, min(100, int(item_percent)))
+        progress["imported"] = len(imported)
+        progress["skipped"] = len(skipped)
+        progress["errors"] = len(errors)
+
+    client = _client(_saved_session(db))
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     try:
         client.connect()
         entity = client.get_entity(payload.chat_id)
-        for message_id in dict.fromkeys(payload.message_ids):
+        message_ids = list(dict.fromkeys(payload.message_ids))
+        progress["total"] = len(message_ids)
+        for index, message_id in enumerate(message_ids, 1):
             source_key = f"{payload.chat_id}:{message_id}"
+            update_progress(f"Preparando arquivo {index} de {len(message_ids)}...")
             existing = db.scalar(select(Track).where(Track.source_telegram_message_id == source_key))
             if existing:
                 skipped.append({"id": existing.id, "title": existing.title, "message_id": message_id})
+                progress["completed"] += 1
+                update_progress(f"Arquivo {index} de {len(message_ids)} já estava importado.", 0)
                 continue
             archive_name = f"Mensagem {message_id}"
             track_dir = AUDIO_DIR / uuid4().hex
@@ -236,14 +267,32 @@ def import_telegram_archives(payload: ImportRequest, _developer: User = Depends(
                 extension = Path(archive_name).suffix.lower()
                 if extension not in ARCHIVE_EXTENSIONS:
                     raise ValueError("Somente arquivos ZIP e RAR podem ser importados.")
-                if int(message.file.size or 0) <= 0 or int(message.file.size or 0) > MAX_TRACK_BYTES:
+                file_size = int(message.file.size or 0)
+                if file_size <= 0 or file_size > MAX_TRACK_BYTES:
                     raise ValueError("O arquivo está vazio ou excede o limite de 2 GB.")
                 archive_path = track_dir / ("source" + extension)
-                client.download_media(message, file=str(archive_path))
+                update_progress(f"Baixando {archive_name} do Telegram...", 0)
+
+                def download_progress(received, total_bytes):
+                    percent = int(received / max(1, total_bytes) * 100)
+                    update_progress(f"Baixando {archive_name} · {percent}%", percent)
+
+                client.download_media(message, file=str(archive_path), progress_callback=download_progress)
                 if not archive_path.exists() or archive_path.stat().st_size <= 0:
                     raise ValueError("O Telegram não entregou o arquivo completo.")
-                downloaded, total, _ = _extract_archive_audio(archive_path, stems_dir, 1, 0)
+                update_progress(f"Extraindo os áudios de {archive_name}...", 0)
+
+                def extraction_progress(message_text):
+                    import re as _re
+                    match = _re.search(r"(\d+)%", str(message_text))
+                    update_progress(str(message_text), int(match.group(1)) if match else 0)
+
+                downloaded, total, _ = _extract_archive_audio(
+                    archive_path, stems_dir, 1, 0, extraction_progress
+                )
                 archive_path.unlink(missing_ok=True)
+                if not downloaded:
+                    raise ValueError("O arquivo compactado não contém áudios compatíveis.")
                 if len(downloaded) > MAX_TRACK_FILES:
                     raise ValueError("A multitrack excede o limite de arquivos de áudio.")
                 main_stem = next((item for item in downloaded if any(
@@ -259,12 +308,24 @@ def import_telegram_archives(payload: ImportRequest, _developer: User = Depends(
                 db.commit()
                 db.refresh(track)
                 imported.append({"id": track.id, "title": track.title, "stems": len(downloaded)})
+                update_progress(f"{archive_name} importado com sucesso.", 100)
             except Exception as error:
                 db.rollback()
                 shutil.rmtree(track_dir, ignore_errors=True)
                 logger.exception("Falha ao importar mensagem %s do Telegram", message_id)
-                errors.append({"message_id": message_id, "name": locals().get("archive_name", f"Mensagem {message_id}"),
-                    "message": str(error)[:280]})
+                errors.append({"message_id": message_id, "name": archive_name, "message": str(error)[:280]})
+                update_progress(f"Erro em {archive_name}: {str(error)[:150]}", 0)
+            progress["completed"] += 1
+            update_progress()
+        progress["status"] = "completed"
+        progress["current"] = "Importação concluída."
+        progress["item_percent"] = 100
+        update_progress()
         return {"imported": imported, "skipped": skipped, "errors": errors}
+    except Exception as error:
+        progress["status"] = "failed"
+        progress["current"] = "A importação foi interrompida: " + str(error)[:180]
+        update_progress()
+        raise
     finally:
         client.disconnect()

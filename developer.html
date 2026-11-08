@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/sonara-config.js?v=20261107-admin-login-recovery-1"></script>
-  <script src="js/developer.js?v=20261108-telegram-import-1" defer></script>
+  <script src="js/developer.js?v=20261108-telegram-progress-2" defer></script>
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
     <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
@@ -265,6 +265,10 @@
               <div class="track-step-actions" style="margin-top:16px;gap:10px;flex-wrap:wrap">
                 <button type="button" class="table-action" id="telegramLoadMoreButton" hidden>Carregar mais arquivos</button>
                 <button type="button" class="submit-button" id="telegramImportButton" disabled>Importar selecionados</button>
+              </div>
+              <div id="telegramProgressBar" class="drive-progress" hidden aria-live="polite">
+                <div class="drive-progress-track"><div id="telegramProgressFill" class="drive-progress-fill"></div></div>
+                <strong id="telegramProgressLabel">0%</strong>
               </div>
               <p class="inline-message" id="telegramImportMessage" role="status"></p>
             </section>

@@ -1263,24 +1263,70 @@
     const messageIds = [...$("telegramFileResults").querySelectorAll('input[data-telegram-message]:checked')]
       .map(input => Number(input.dataset.telegramMessage));
     if (!chatId || !messageIds.length) return;
+
     const button = $("telegramImportButton");
+    const jobId = window.crypto?.randomUUID?.() || ("sonara-telegram-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+    let progressTimer = null;
+    let progressStopped = false;
+
+    const renderTelegramProgress = data => {
+      const total = Number(data.total || messageIds.length || 0);
+      const completed = Number(data.completed || 0);
+      const itemPercent = Number(data.item_percent || 0);
+      const percent = total
+        ? Math.min(100, Math.round((completed + itemPercent / 100) / total * 100))
+        : 0;
+      const details = completed + " de " + (total || messageIds.length) +
+        " arquivo(s) processado(s) · " + (data.imported || 0) + " importado(s) · " +
+        (data.skipped || 0) + " ignorado(s) · " + (data.errors || 0) + " erro(s)";
+      setMessage($("telegramImportMessage"),
+        "Importação em andamento: " + percent + "%\n" + details +
+        "\nAgora: " + (data.current || "Preparando..."));
+      $("telegramProgressBar").hidden = false;
+      $("telegramProgressFill").style.width = percent + "%";
+      $("telegramProgressLabel").textContent = percent + "%";
+    };
+
     button.disabled = true;
-    button.textContent = "Importando arquivos...";
-    setMessage($("telegramImportMessage"), "Baixando, extraindo e cadastrando as multitracks. Não feche esta página.");
+    button.textContent = "Importando... aguarde";
+    $("telegramProgressBar").hidden = false;
+    $("telegramProgressFill").style.width = "0%";
+    $("telegramProgressLabel").textContent = "0%";
+    setMessage($("telegramImportMessage"), "Conectando ao Telegram e preparando a importação. Não feche esta página.");
+
+    progressTimer = window.setInterval(async () => {
+      if (progressStopped) return;
+      try {
+        const state = await request("/developer/telegram/import-progress/" + encodeURIComponent(jobId));
+        renderTelegramProgress(state);
+      } catch (error) {
+        // A primeira consulta pode acontecer antes de o servidor registrar o trabalho.
+      }
+    }, 800);
+
     try {
       const result = await request("/developer/telegram/import", {
-        method: "POST", body: JSON.stringify({ chat_id: chatId, message_ids: messageIds })
+        method: "POST",
+        body: JSON.stringify({ chat_id: chatId, message_ids: messageIds, job_id: jobId })
       });
+      const finalProgress = await request("/developer/telegram/import-progress/" + encodeURIComponent(jobId)).catch(() => null);
+      if (finalProgress) renderTelegramProgress(finalProgress);
+
       const imported = result.imported || [];
       const skipped = result.skipped || [];
       const errors = result.errors || [];
       let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
       if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
       if (errors.length) summary += " " + errors.length + " arquivo(s) tiveram erro.";
+      if (!imported.length && !skipped.length && !errors.length) summary = "A importação terminou, mas nenhum arquivo foi processado.";
       setMessage($("telegramImportMessage"), summary, errors.length ? "error" : "success");
       if (errors.length) {
         $("telegramImportMessage").insertAdjacentHTML("afterend",
           errors.map(item => '<p class="inline-message error"><strong>' + escapeHtml(item.name) + ':</strong> ' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      if (imported.length) {
+        $("telegramProgressFill").style.width = "100%";
+        $("telegramProgressLabel").textContent = "100%";
       }
       await scanTelegramFiles(false);
       if (imported.length) {
@@ -1291,6 +1337,8 @@
     } catch (error) {
       setMessage($("telegramImportMessage"), error.message, "error");
     } finally {
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
       button.disabled = false;
       button.textContent = "Importar selecionados";
       updateTelegramSelection();
