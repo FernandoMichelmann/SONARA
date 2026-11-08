@@ -168,7 +168,7 @@ def _copy_rar_entry_with_7zip(binary: str, archive_path: Path, entry, destinatio
                               total: int, progress_callback=None):
     """Stream one selected RAR entry through 7-Zip stdout with strict size limits."""
     command = [
-        binary, "x", "-so", "-y", "-p-", "-bd",
+        binary, "x", "-so", "-y", "-p-", "-bd", "-spd",
         str(archive_path.resolve()), entry.filename,
     ]
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -235,7 +235,7 @@ def _extract_archive_audio(archive_path: Path, stems_dir: Path, start_index: int
             for entry in entries:
                 if entry.file_size > MAX_FILE_BYTES:
                     raise ValueError("Um arquivo de áudio compactado excede 500 MB.")
-                safe_name = re.sub(r"[^\\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
+                safe_name = re.sub(r"[^\w.() -]", "_", Path(entry.filename).name).strip() or f"stem-{index}"
                 destination = stems_dir / f"{index:02d}_{safe_name}"
                 if is_rar and seven_zip:
                     written = _copy_rar_entry_with_7zip(
