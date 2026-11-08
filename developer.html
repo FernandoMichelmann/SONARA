@@ -196,6 +196,81 @@
           </section>
           </section>
 
+        <section class="tab-panel" id="panel-telegram" hidden>
+          <section class="upload-form" id="telegramImportPanel">
+            <div class="section-toolbar">
+              <div>
+                <h2>Conectar conta do Telegram</h2>
+                <p>Use sua conta para acessar os grupos dos quais participa e importar multitracks em ZIP ou RAR.</p>
+              </div>
+            </div>
+
+            <div class="telegram-connection-card">
+              <div class="form-grid">
+                <div class="form-field" style="grid-column:1/-1">
+                  <label for="telegramPhone">Número de telefone com código do país</label>
+                  <input id="telegramPhone" type="tel" autocomplete="tel" placeholder="+55 41 99999-9999">
+                  <small>O Telegram enviará um código de confirmação para sua conta.</small>
+                </div>
+              </div>
+              <div class="track-step-actions" style="gap:10px;flex-wrap:wrap">
+                <button type="button" class="submit-button" id="telegramSendCodeButton">Entrar no Telegram / Enviar código</button>
+                <button type="button" class="table-action" id="telegramDisconnectButton" hidden>Desconectar Telegram</button>
+              </div>
+
+              <div id="telegramCodeFields" hidden>
+                <div class="form-grid" style="margin-top:16px">
+                  <div class="form-field">
+                    <label for="telegramCode">Código recebido</label>
+                    <input id="telegramCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Digite o código">
+                  </div>
+                  <div class="form-field">
+                    <label for="telegramPassword">Senha de verificação em duas etapas (se solicitada)</label>
+                    <input id="telegramPassword" type="password" autocomplete="current-password" placeholder="Senha 2FA do Telegram">
+                  </div>
+                </div>
+                <button type="button" class="submit-button" id="telegramVerifyButton">Confirmar código e conectar</button>
+              </div>
+              <p class="inline-message" id="telegramStatusMessage" role="status">Verificando configuração do Telegram...</p>
+              <p class="telegram-security-note">A sessão de acesso é armazenada criptografada no banco local da SONARA. Sua senha de verificação em duas etapas não é armazenada.</p>
+            </div>
+
+            <section id="telegramBrowser" hidden style="margin-top:24px">
+              <div class="section-toolbar">
+                <div>
+                  <h2>Escolher grupo e localizar arquivos</h2>
+                  <p>Selecione um grupo, busque os arquivos ZIP/RAR e marque somente as multitracks que deseja importar.</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-field" style="grid-column:1/-1">
+                  <label for="telegramGroupSelect">Grupo do Telegram</label>
+                  <select id="telegramGroupSelect">
+                    <option value="">Selecione um grupo</option>
+                  </select>
+                </div>
+              </div>
+              <div class="track-step-actions" style="gap:10px;flex-wrap:wrap">
+                <button type="button" class="table-action" id="telegramLoadGroupsButton">Atualizar grupos</button>
+                <button type="button" class="submit-button" id="telegramScanButton" disabled>Buscar ZIP e RAR</button>
+              </div>
+              <div class="section-toolbar" style="margin-top:24px">
+                <div>
+                  <h2>Arquivos encontrados</h2>
+                  <p>Selecione até 30 arquivos por importação. Arquivos já importados ficam identificados e bloqueados.</p>
+                </div>
+                <button type="button" class="table-action" id="telegramSelectAllButton" hidden>Marcar todas</button>
+              </div>
+              <div id="telegramFileResults" style="display:grid;gap:9px"></div>
+              <div class="track-step-actions" style="margin-top:16px;gap:10px;flex-wrap:wrap">
+                <button type="button" class="table-action" id="telegramLoadMoreButton" hidden>Carregar mais arquivos</button>
+                <button type="button" class="submit-button" id="telegramImportButton" disabled>Importar selecionados</button>
+              </div>
+              <p class="inline-message" id="telegramImportMessage" role="status"></p>
+            </section>
+          </section>
+        </section>
+
         <section class="tab-panel" id="panel-revenue" hidden>
           <div class="stats-grid revenue-stats">
             <article class="stat-card"><span>RECEITA RECEBIDA</span><i data-lucide="wallet"></i><strong id="revenueReceived">R$ 0,00</strong><small>Registros marcados como recebidos</small></article>
