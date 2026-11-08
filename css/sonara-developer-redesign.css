@@ -100,3 +100,14 @@ tbody tr:hover td{background:rgba(133,173,255,.04)}
 #telegramCodeFields{padding-top:6px}
 #telegramCodeFields input{letter-spacing:.08em}
 @media(max-width:720px){.telegram-connection-card{padding:12px}.telegram-file-row{align-items:flex-start!important}}
+
+
+/* Status visual de itens já importados */
+.drive-folder-row,.telegram-file-row{transition:border-color .18s ease,background .18s ease,opacity .18s ease}
+.drive-folder-row .drive-folder-copy{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.drive-folder-row strong,.telegram-file-row strong{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.imported-status{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid rgba(141,227,209,.2);border-radius:999px;background:rgba(81,176,153,.1);color:#9ce8d8;font-size:9px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.imported-status span{display:grid;place-items:center;width:13px;height:13px;border-radius:50%;background:rgba(141,227,209,.16);font-size:9px}
+.drive-folder-row.is-imported,.telegram-file-row.is-imported{border-color:rgba(141,227,209,.16)!important;background:linear-gradient(110deg,rgba(81,176,153,.055),rgba(255,255,255,.015));opacity:.78;cursor:not-allowed}
+.drive-folder-row.is-imported input,.telegram-file-row.is-imported input{opacity:.45;cursor:not-allowed}
+.drive-folder-row:not(.is-imported):hover,.telegram-file-row:not(.is-imported):hover{border-color:rgba(133,173,255,.4)!important;background:rgba(133,173,255,.055)}
