@@ -10,25 +10,27 @@ from pathlib import Path
 from uuid import uuid4
 
 from cryptography.fernet import Fernet
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from telethon.sync import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
+from telethon.tl.types import InputMessagesFilterDocument
 
 from app.api.routes.drive import AUDIO_DIR, MAX_TRACK_BYTES, MAX_TRACK_FILES, _extract_archive_audio
 from app.core.config import settings
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.dependencies import get_current_developer
-from app.models import TelegramConnection, Track, User
+from app.models import TelegramArchiveIndex, TelegramConnection, Track, User
 
 router = APIRouter(prefix="/developer/telegram", tags=["Importação Telegram"])
 logger = logging.getLogger("sonara.telegram")
 ARCHIVE_EXTENSIONS = {".zip", ".rar"}
 PENDING_AUTH: dict[int, dict] = {}
 TELEGRAM_IMPORT_PROGRESS: dict[str, dict] = {}
+TELEGRAM_INDEX_PROGRESS: dict[int, dict] = {}
 
 
 def _configured():
@@ -174,21 +176,37 @@ def list_telegram_groups(_developer: User = Depends(get_current_developer), db: 
         client.disconnect()
 
 
-@router.get("/files")
-def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
-    _developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
-    if limit < 1 or limit > 100:
-        raise HTTPException(status_code=422, detail="O limite deve ficar entre 1 e 100 arquivos.")
-    client = _client(_saved_session(db))
+def _telegram_name_key(name: str, size: int) -> str:
+    normalized = Path(name or "").stem
+    normalized = re.sub(r"\\s*\\((?:copia|copy|\\d+)\\)\\s*$", "", normalized, flags=re.I)
+    normalized = re.sub(r"\\s+(?:copia|copy)\\s*$", "", normalized, flags=re.I)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.casefold())
+    return normalized.strip() + "|" + str(int(size or 0))
+
+
+def _run_telegram_index(chat_id: int, session_string: str, incremental: bool):
+    state = TELEGRAM_INDEX_PROGRESS.setdefault(chat_id, {})
+    state.update({"status": "processing", "processed": 0, "found": 0, "exact_duplicates": 0,
+                  "possible_duplicates": 0, "current": "Conectando ao Telegram..."})
+    db = SessionLocal()
+    client = _client(session_string)
     try:
+        existing_rows = list(db.scalars(select(TelegramArchiveIndex).where(TelegramArchiveIndex.chat_id == chat_id)))
+        known_messages = {row.message_id for row in existing_rows}
+        known_documents = {row.document_id: row.message_id for row in existing_rows}
+        known_names = {_telegram_name_key(row.name, row.size) for row in existing_rows}
+        entity = None
         client.connect()
         entity = client.get_entity(chat_id)
-        items = []
-        scanned = 0
-        last_message_id = None
-        for message in client.iter_messages(entity, limit=limit, offset_id=offset_id or 0):
-            scanned += 1
-            last_message_id = int(message.id)
+        # Primeira indexação percorre o histórico completo. Atualizações consultam
+        # as mensagens mais recentes, preservando o catálogo já indexado.
+        message_limit = 1500 if incremental or existing_rows else None
+        pending = []
+        found = len(existing_rows)
+        exact = sum(1 for row in existing_rows if row.duplicate_of_message_id is not None)
+        possible = sum(1 for row in existing_rows if row.possible_duplicate)
+        for message in client.iter_messages(entity, limit=message_limit, filter=InputMessagesFilterDocument()):
+            state["processed"] = int(state.get("processed", 0)) + 1
             document = message.document
             if not document:
                 continue
@@ -196,19 +214,114 @@ def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
             extension = Path(name).suffix.lower()
             if extension not in ARCHIVE_EXTENSIONS:
                 continue
+            message_id = int(message.id)
+            if message_id in known_messages:
+                continue
             size = int(message.file.size or 0)
-            items.append({"message_id": int(message.id), "document_id": str(document.id),
-                "name": name or f"arquivo-{message.id}{extension}",
-                "extension": extension.lstrip(".").upper(), "size": size,
-                "date": message.date.isoformat() if message.date else None,
-                "already_imported": bool(db.scalar(select(Track.id).where(
-                    Track.source_telegram_message_id == f"{chat_id}:{message.id}")))})
-        return {"items": items, "next_offset_id": last_message_id if scanned == limit else None}
+            document_id = str(document.id)
+            duplicate_of = known_documents.get(document_id)
+            possible_duplicate = False if duplicate_of else _telegram_name_key(name, size) in known_names
+            row = TelegramArchiveIndex(
+                chat_id=chat_id, message_id=message_id, document_id=document_id,
+                name=name or f"arquivo-{message_id}{extension}", extension=extension.lstrip(".").upper(),
+                size=size, message_date=message.date, duplicate_of_message_id=duplicate_of,
+                possible_duplicate=possible_duplicate,
+            )
+            pending.append(row)
+            known_messages.add(message_id)
+            if not duplicate_of:
+                known_documents[document_id] = message_id
+                if possible_duplicate:
+                    possible += 1
+                known_names.add(_telegram_name_key(name, size))
+            else:
+                exact += 1
+            found += 1
+            if len(pending) >= 200:
+                db.add_all(pending)
+                db.commit()
+                pending.clear()
+            if state["processed"] % 100 == 0:
+                state.update({"found": found, "exact_duplicates": exact, "possible_duplicates": possible,
+                              "current": f"Analisando mensagens do grupo · {found:,} arquivos encontrados"})
+        if pending:
+            db.add_all(pending)
+            db.commit()
+        state.update({"status": "completed", "found": found, "exact_duplicates": exact,
+                      "possible_duplicates": possible, "current": "Indexação concluída.",
+                      "completed_at": datetime.now(timezone.utc).isoformat()})
     except Exception as error:
-        logger.exception("Falha ao listar arquivos do grupo Telegram")
-        raise HTTPException(status_code=502, detail="Não foi possível listar os arquivos deste grupo.") from error
+        db.rollback()
+        logger.exception("Falha ao indexar histórico do grupo Telegram %s", chat_id)
+        state.update({"status": "failed", "current": "A indexação foi interrompida: " + str(error)[:180]})
     finally:
         client.disconnect()
+        db.close()
+
+
+@router.post("/index")
+def start_telegram_index(chat_id: int, background_tasks: BackgroundTasks,
+    _developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
+    current = TELEGRAM_INDEX_PROGRESS.get(chat_id, {})
+    if current.get("status") == "processing":
+        return {"started": False, "status": "processing"}
+    existing_count = int(db.scalar(select(func.count()).select_from(TelegramArchiveIndex).where(
+        TelegramArchiveIndex.chat_id == chat_id)) or 0)
+    session_string = _saved_session(db)
+    TELEGRAM_INDEX_PROGRESS[chat_id] = {
+        "status": "queued", "processed": 0, "found": existing_count,
+        "exact_duplicates": 0, "possible_duplicates": 0,
+        "current": "Preparando indexação do grupo..."
+    }
+    background_tasks.add_task(_run_telegram_index, chat_id, session_string, existing_count > 0)
+    return {"started": True, "status": "queued", "existing_count": existing_count}
+
+
+@router.get("/index/status")
+def telegram_index_status(chat_id: int, _developer: User = Depends(get_current_developer),
+    db: Session = Depends(get_db)):
+    state = TELEGRAM_INDEX_PROGRESS.get(chat_id)
+    total = int(db.scalar(select(func.count()).select_from(TelegramArchiveIndex).where(
+        TelegramArchiveIndex.chat_id == chat_id)) or 0)
+    exact = int(db.scalar(select(func.count()).select_from(TelegramArchiveIndex).where(
+        TelegramArchiveIndex.chat_id == chat_id,
+        TelegramArchiveIndex.duplicate_of_message_id.is_not(None))) or 0)
+    possible = int(db.scalar(select(func.count()).select_from(TelegramArchiveIndex).where(
+        TelegramArchiveIndex.chat_id == chat_id, TelegramArchiveIndex.possible_duplicate.is_(True))) or 0)
+    if not state:
+        state = {"status": "completed" if total else "idle", "processed": 0, "found": total,
+                 "exact_duplicates": exact, "possible_duplicates": possible,
+                 "current": "Índice salvo disponível." if total else "Grupo ainda não indexado."}
+    return {**state, "total": total, "unique": total - exact, "exact_duplicates": exact,
+            "possible_duplicates": possible}
+
+
+@router.get("/files")
+def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 100, q: str = "",
+    _developer: User = Depends(get_current_developer), db: Session = Depends(get_db)):
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=422, detail="O limite deve ficar entre 1 e 500 arquivos.")
+    base = select(TelegramArchiveIndex).where(
+        TelegramArchiveIndex.chat_id == chat_id,
+        TelegramArchiveIndex.duplicate_of_message_id.is_(None))
+    if q.strip():
+        base = base.where(TelegramArchiveIndex.name.ilike("%" + q.strip()[:120] + "%"))
+    total = int(db.scalar(select(func.count()).select_from(base.subquery())) or 0)
+    if offset_id:
+        base = base.where(TelegramArchiveIndex.message_id < offset_id)
+    rows = list(db.scalars(base.order_by(TelegramArchiveIndex.message_id.desc()).limit(limit)))
+    imported_keys = {f"{chat_id}:{row.message_id}" for row in rows}
+    imported = set(db.scalars(select(Track.source_telegram_message_id).where(
+        Track.source_telegram_message_id.in_(imported_keys)))) if imported_keys else set()
+    items = [{
+        "message_id": row.message_id, "document_id": row.document_id, "name": row.name,
+        "extension": row.extension, "size": row.size,
+        "date": row.message_date.isoformat() if row.message_date else None,
+        "already_imported": f"{chat_id}:{row.message_id}" in imported,
+        "possible_duplicate": row.possible_duplicate,
+    } for row in rows]
+    return {"items": items, "total": total,
+            "next_offset_id": rows[-1].message_id if len(rows) == limit else None}
 
 
 @router.get("/import-progress/{job_id}")
