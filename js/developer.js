@@ -99,7 +99,8 @@
         setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
       }
     });
-    loadTelegramStatus();\n    if (driveCallbackState === "connected") {
+    loadTelegramStatus();
+    if (driveCallbackState === "connected") {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }
@@ -121,7 +122,8 @@
       overview: ["Visão geral", "Acompanhe os principais números da plataforma."],
       users: ["Usuários", "Acompanhe as contas que se cadastraram na SONARA."],
       tracks: ["Biblioteca de tracks", "Envie arquivos e controle a publicação no catálogo."],
-      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],\n      telegram: ["Importação pelo Telegram", "Conecte sua conta, escolha um grupo e importe arquivos ZIP/RAR."],
+      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],
+      telegram: ["Importação pelo Telegram", "Conecte sua conta, escolha um grupo e importe arquivos ZIP/RAR."],
       revenue: ["Receitas", "Acompanhe os lançamentos financeiros registrados."]
     };
     $("pageTitle").textContent = labels[tab][0];
