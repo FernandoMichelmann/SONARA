@@ -266,6 +266,10 @@
                 <button type="button" class="table-action" id="telegramLoadMoreButton" hidden>Carregar mais arquivos</button>
                 <button type="button" class="submit-button" id="telegramImportButton" disabled>Importar selecionados</button>
               </div>
+              <div id="telegramProgressBar" class="drive-progress" hidden aria-live="polite">
+                <div class="drive-progress-track"><div id="telegramProgressFill" class="drive-progress-fill"></div></div>
+                <strong id="telegramProgressLabel">0%</strong>
+              </div>
               <p class="inline-message" id="telegramImportMessage" role="status"></p>
             </section>
           </section>
