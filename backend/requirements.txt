@@ -16,3 +16,4 @@ cryptography>=43
 rarfile>=4.2,<5.0
 
 telethon>=1.42,<2.0
+cryptg>=0.6.1,<0.7
