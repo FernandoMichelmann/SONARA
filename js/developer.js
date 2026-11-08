@@ -1086,6 +1086,21 @@
   // Importação seletiva de arquivos ZIP/RAR diretamente de grupos do Telegram.
   let telegramNextOffset = 0;
   let telegramFilesLoaded = false;
+  let telegramSeenDocumentIds = new Set();
+  let telegramSeenNameSize = new Map();
+  let telegramExactDuplicates = 0;
+
+  function telegramDuplicateNameKey(name, size) {
+    const normalized = String(name || "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\.(zip|rar)$/i, "")
+      .replace(/\s*\((?:copia|copy|\d+)\)\s*$/i, "")
+      .replace(/\s+(?:copia|copy)\s*$/i, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    return normalized + "|" + Number(size || 0);
+  }
 
   async function loadTelegramStatus() {
     try {
@@ -1130,7 +1145,20 @@
 
   function renderTelegramFiles(items, append = false) {
     const container = $("telegramFileResults");
-    const html = (items || []).map(file => {
+    const uniqueItems = [];
+    (items || []).forEach(file => {
+      const documentId = String(file.document_id || "");
+      if (documentId && telegramSeenDocumentIds.has(documentId)) {
+        telegramExactDuplicates += 1;
+        return;
+      }
+      if (documentId) telegramSeenDocumentIds.add(documentId);
+      const nameSizeKey = telegramDuplicateNameKey(file.name, file.size);
+      const possibleDuplicate = telegramSeenNameSize.has(nameSizeKey);
+      if (!possibleDuplicate) telegramSeenNameSize.set(nameSizeKey, file.message_id);
+      uniqueItems.push({ ...file, possible_duplicate: possibleDuplicate });
+    });
+    const html = uniqueItems.map(file => {
       const size = file.size >= 1024 * 1024 * 1024
         ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
         : (file.size / (1024 * 1024)).toFixed(1) + " MB";
@@ -1139,6 +1167,7 @@
         (file.already_imported ? "disabled" : "") + '>' +
         '<span style="display:grid;gap:5px"><strong>🗜️ ' + escapeHtml(file.name) +
         (file.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importado</span>' : '') +
+        (file.possible_duplicate ? '<span class="imported-status" style="background:rgba(217,148,45,.12);color:#b7791f">Possível repetido · confira a versão</span>' : '') +
         '</strong><small>' + escapeHtml(file.extension) + " · " + size +
         (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") + '</small></span></label>';
     }).join("");
@@ -1165,6 +1194,9 @@
     button.disabled = true;
     if (!append) {
       telegramNextOffset = 0;
+      telegramSeenDocumentIds = new Set();
+      telegramSeenNameSize = new Map();
+      telegramExactDuplicates = 0;
       $("telegramFileResults").innerHTML = "";
       $("telegramLoadMoreButton").hidden = true;
     }
@@ -1177,7 +1209,11 @@
       telegramNextOffset = data.next_offset_id || 0;
       $("telegramLoadMoreButton").hidden = !telegramNextOffset;
       telegramFilesLoaded = true;
-      setMessage($("telegramImportMessage"), (data.items || []).length + " arquivo(s) listado(s) nesta página. Marque os que deseja importar.", "success");
+      setMessage($("telegramImportMessage"),
+        (data.items || []).length + " arquivo(s) analisados nesta página · " +
+        telegramExactDuplicates + " duplicado(s) exato(s) ignorado(s). " +
+        "Arquivos com nome e tamanho iguais são sinalizados para conferência, sem serem descartados.",
+        "success");
     } catch (error) {
       setMessage($("telegramImportMessage"), error.message, "error");
     } finally {

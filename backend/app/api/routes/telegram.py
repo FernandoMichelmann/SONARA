@@ -197,7 +197,8 @@ def list_telegram_archives(chat_id: int, offset_id: int = 0, limit: int = 50,
             if extension not in ARCHIVE_EXTENSIONS:
                 continue
             size = int(message.file.size or 0)
-            items.append({"message_id": int(message.id), "name": name or f"arquivo-{message.id}{extension}",
+            items.append({"message_id": int(message.id), "document_id": str(document.id),
+                "name": name or f"arquivo-{message.id}{extension}",
                 "extension": extension.lstrip(".").upper(), "size": size,
                 "date": message.date.isoformat() if message.date else None,
                 "already_imported": bool(db.scalar(select(Track.id).where(
