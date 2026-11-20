@@ -1,0 +1,8 @@
+/* SONARA iOS/PWA safe-area support */
+@supports (padding: max(0px)) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .app { min-height: 100vh; min-height: 100dvh; }
+}
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; }
+button, a, input, select, textarea { touch-action: manipulation; }

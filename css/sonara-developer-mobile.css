@@ -1,0 +1,108 @@
+/* SONARA Developer — responsive control center */
+*,*::before,*::after{box-sizing:border-box}
+html,body{width:100%;min-width:320px;overflow-x:hidden;-webkit-text-size-adjust:100%}
+img,svg{max-width:100%}
+button,input,select,textarea{font:inherit;max-width:100%;touch-action:manipulation}
+.dev-shell{width:min(100% - 36px,1600px);min-width:0;margin-inline:auto}
+.dashboard-card{width:100%;min-width:0}
+.dashboard-card>.sidebar,.admin-content{min-width:0}
+.admin-content{overflow:hidden}
+.table-wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table-wrap table{min-width:680px}
+.form-field,.form-grid>*{min-width:0}
+.form-field input,.form-field select,.form-field textarea{width:100%;min-width:0}
+.upload-dropzone input[type=file]{width:100%;max-width:100%}
+.preview-editor,.upload-form,.revenue-form{min-width:0}
+.track-form-tabs{display:flex;flex-wrap:wrap}
+.track-form-tab{min-height:42px}
+.dashboard-header-actions{min-width:0}
+@media(max-width:900px){
+ .dev-shell{width:calc(100% - 28px)}
+ .dashboard-card{grid-template-columns:190px minmax(0,1fr)}
+ .admin-content{padding:22px 18px}
+ .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .dashboard-top{align-items:flex-start;flex-wrap:wrap}
+ .dashboard-header-actions{justify-content:flex-start}
+}
+@media(max-width:650px){
+ .dev-shell{width:100%;padding:10px 10px calc(18px + env(safe-area-inset-bottom))}
+ .dev-brand{padding:8px 4px 14px}
+ .dev-brand-logo{max-width:170px;height:auto}
+ .login-card{width:100%;max-width:470px;margin:3vh auto 18px;padding:25px 18px;border-radius:17px}
+ .login-card h1{font-size:clamp(23px,7vw,30px)}
+ .login-card .intro{font-size:12px;line-height:1.65}
+ .login-card form label{font-size:11px}
+ .login-card .field{min-height:48px}
+ .login-card .field input{min-width:0;font-size:16px}
+ .submit-button,.table-action,.logout-button,.refresh-button,.drive-shortcut-button{min-height:42px}
+ .dashboard-card{display:flex;flex-direction:column;min-height:0;border-radius:15px;overflow:visible}
+ .dashboard-card>.sidebar{position:sticky;top:0;z-index:25;display:block;width:100%;padding:10px 9px;border-right:0;border-bottom:1px solid var(--dr-line);background:rgba(7,13,22,.97);backdrop-filter:blur(18px)}
+ .sidebar-heading{padding:3px 5px 9px;font-size:8px}
+ .dashboard-card .sidebar>.nav-item{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;min-height:40px;margin:2px;padding:0 10px;border-radius:9px;font-size:10px;white-space:nowrap}
+ .dashboard-card .sidebar>.nav-item svg{width:15px;height:15px;flex:0 0 auto}
+ .sidebar-bottom{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px}
+ .identity-mini{min-width:0;flex:1;margin:0;padding:4px 7px;border:0}
+ .identity-mini strong{font-size:10px}
+ .identity-mini small{max-width:160px;font-size:9px}
+ .logout-button{width:auto;flex:0 0 auto;padding:9px 11px}
+ .admin-content{width:100%;padding:17px 12px 22px;overflow:visible}
+ .dashboard-top{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin-bottom:14px;padding-bottom:15px}
+ .dashboard-top h1{margin-top:9px;font-size:clamp(24px,7vw,31px)}
+ .dashboard-top .intro{font-size:11px;line-height:1.6}
+ .dashboard-header-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .dashboard-header-actions>*{width:100%;min-width:0;padding-inline:8px;font-size:10px}
+ .stats-grid,.revenue-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}
+ .stat-card{min-width:0;padding:13px 11px;border-radius:12px}
+ .stat-card>span{font-size:8px;line-height:1.45;letter-spacing:.04em}
+ .stat-card>svg{right:10px;top:10px;width:15px;height:15px}
+ .stat-card>strong{margin-top:14px;font-size:clamp(19px,6vw,25px);overflow-wrap:anywhere}
+ .stat-card>small{font-size:8px;line-height:1.45}
+ .section-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:11px;margin:18px 0 13px}
+ .section-toolbar h2{font-size:15px}
+ .section-toolbar p{font-size:10px;line-height:1.55}
+ .search-field{width:100%;height:44px}
+ .search-field input{font-size:16px}
+ .table-wrap{border-radius:11px}
+ .table-wrap table{min-width:700px}
+ th,td{padding:11px 10px;font-size:10px}
+ .table-action{min-height:36px;padding:8px 9px;font-size:10px}
+ .upload-form,.preview-editor,.revenue-form{margin:13px 0;padding:14px;border-radius:13px}
+ .track-form-tabs{display:grid;grid-template-columns:1fr;gap:7px;border:0}
+ .track-form-tab{width:100%;min-height:43px;padding:10px;border:1px solid var(--dr-line);border-radius:9px;text-align:left}
+ .form-grid{grid-template-columns:1fr!important;gap:0}
+ .form-field{margin-bottom:13px}
+ .form-field label{font-size:11px}
+ .form-field input,.form-field select,.form-field textarea,.category-create input{min-height:46px;font-size:16px}
+ .category-manager{padding:12px}
+ .category-heading{display:flex;flex-direction:column;gap:5px}
+ .category-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .category-option{min-width:0;padding:9px 7px;font-size:10px;overflow-wrap:anywhere}
+ .category-create{display:flex;flex-direction:column;max-width:none}
+ .category-create>*{width:100%}
+ .upload-dropzone{padding:22px 12px}
+ .upload-dropzone p{font-size:11px;line-height:1.6}
+ .track-step-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .track-step-actions>*{width:100%;min-width:0}
+ .cover-upload-layout,.preview-editor-layout{grid-template-columns:1fr;gap:15px}
+ .cover-preview{width:min(100%,220px);margin-inline:auto}
+ .preview-editor-heading h3{font-size:17px}
+ .preview-square{width:min(100%,230px);margin-inline:auto}
+ .preview-editor-controls audio{width:100%}
+ .preview-editor-controls label{gap:8px;flex-wrap:wrap}
+ .preview-editor-controls input[type=range]{min-height:28px}
+ .homepage-feature-columns{grid-template-columns:1fr}
+ .homepage-feature-editor{padding:13px}
+ .homepage-feature-actions{align-items:stretch;flex-direction:column}
+ .homepage-feature-actions>*{width:100%}
+ .admin-footer{padding-top:22px;font-size:8px;letter-spacing:.1em}
+}
+@media(max-width:380px){
+ .dev-shell{padding-inline:7px}
+ .dashboard-card>.sidebar{padding-inline:6px}
+ .dashboard-card .sidebar>.nav-item{padding-inline:7px;font-size:9px}
+ .admin-content{padding-inline:9px}
+ .stats-grid,.revenue-stats{gap:6px}
+ .stat-card{padding:11px 8px}
+ .dashboard-header-actions{grid-template-columns:1fr}
+ .track-step-actions{grid-template-columns:1fr}
+}

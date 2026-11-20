@@ -1,0 +1,358 @@
+/* SONARA — faithful visual direction based on the supplied streaming dashboard reference. */
+:root{
+ --ref-bg:#090611;--ref-sidebar:#0b0815;--ref-panel:#100d1b;--ref-panel-2:#151120;
+ --ref-line:rgba(210,202,232,.10);--ref-text:#f7f4fb;--ref-muted:#aaa3b5;
+ --ref-red:#f04452;--ref-purple:#7b2ee8;--ref-blue:#3026d9;
+}
+html,body{background:var(--ref-bg)!important;color:var(--ref-text)!important}
+body{
+ background:radial-gradient(ellipse at 15% 0%,rgba(99,37,128,.12),transparent 35%),
+ repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 92px),
+ #090611!important;font-family:Inter,Arial,sans-serif!important;letter-spacing:-.012em
+}
+.app{min-height:100vh;background:transparent!important}
+.sidebar{
+ width:238px!important;padding:27px 16px 112px!important;background:rgba(10,7,18,.97)!important;
+ border-right:1px solid rgba(211,198,235,.09)!important;backdrop-filter:none!important
+}
+.brand{padding:0 12px 30px!important;margin-bottom:16px!important;gap:10px!important}
+.brand-symbol{width:34px!important;height:34px!important;filter:drop-shadow(0 0 12px rgba(229,50,93,.28))}
+.brand-name{font-size:20px!important;letter-spacing:-.035em!important;font-weight:800!important}
+.brand-caption{display:none!important}
+.nav-label{color:#777080!important;font-size:9px!important;letter-spacing:.16em!important;margin:17px 11px 9px!important}
+.nav-item{height:43px!important;margin:3px 0!important;padding:0 13px!important;border:0!important;border-radius:10px!important;color:#c1bacb!important;font-size:12px!important;font-weight:500!important;gap:12px!important}
+.nav-item i{color:#aaa2b5!important;width:16px!important;height:16px!important}
+.nav-item:hover{background:rgba(255,255,255,.055)!important;color:#fff!important}
+.nav-item.active{background:linear-gradient(105deg,#e72d32 0%,#7d176c 54%,#251bd1 100%)!important;color:white!important;box-shadow:none!important}
+.nav-item.active i{color:white!important}
+.sidebar-bottom{padding:18px 3px 0!important}
+.upgrade-card{padding:16px!important;border:1px solid rgba(255,255,255,.045)!important;border-radius:12px!important;background:#15111e!important;box-shadow:none!important}
+.upgrade-card h4{font-size:12px!important;font-weight:700!important}
+.upgrade-card p{font-size:10px!important;color:#a59daf!important;line-height:1.55!important;margin:7px 0 13px!important}
+.upgrade-card button,.primary-button{
+ border:1px solid rgba(239,65,81,.7)!important;border-radius:999px!important;
+ background:linear-gradient(100deg,rgba(235,51,57,.16),rgba(77,38,207,.16))!important;
+ color:#fff!important;padding:9px 15px!important;font-size:11px!important;font-weight:650!important;box-shadow:none!important
+}
+.main{margin-left:238px!important;min-width:0;padding-bottom:118px!important}
+.topbar{
+ height:75px!important;padding:0 32px!important;background:rgba(9,6,17,.96)!important;
+ border-bottom:1px solid rgba(211,198,235,.08)!important;backdrop-filter:none!important;gap:18px!important
+}
+.search{height:37px!important;max-width:410px!important;border-radius:999px!important;background:#171321!important;border:1px solid rgba(220,211,237,.12)!important;padding:0 13px!important}
+.search input{font-size:11px!important;color:#fff!important}
+.search input::placeholder{color:#898292!important}
+.top-right{gap:10px!important}
+.top-right .icon-button{display:none!important}
+.top-right .avatar{width:36px!important;height:36px!important;border:1px solid rgba(255,255,255,.14)!important;background:#211b2b!important;color:#fff!important}
+.sonara-upgrade-top{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 17px;border:0;border-radius:999px;background:linear-gradient(105deg,#ed3438,#7c22b9 65%,#3325dc);color:#fff;font-size:11px;font-weight:750}
+.content{max-width:none!important;padding:20px 22px 145px!important}
+.page-home-intro{display:none!important}
+.page.active#page-home{display:block!important}
+#page-home .hero.hero-banner-only,
+#page-home .section{
+ border:1px solid var(--ref-line)!important;border-radius:17px!important;background:rgba(15,11,25,.88)!important;
+ padding:16px 16px 14px!important;margin:0 0 19px!important;overflow:hidden!important;box-shadow:none!important
+}
+#page-home .hero.hero-banner-only{height:clamp(205px,20vw,258px)!important;min-height:0!important}
+#page-home .hero-banner-viewport{height:155px!important;border-radius:11px!important;mask-image:none!important;-webkit-mask-image:none!important}
+#page-home .hero-banner-track{gap:12px!important;animation-duration:52s!important}
+#page-home .hero-banner-card{height:145px!important;aspect-ratio:1/1!important;border-radius:11px!important;border:0!important;background:#171321!important}
+#page-home .hero-banner-card img{object-fit:cover!important}
+#page-home .section-heading{margin:0 0 13px!important}
+#page-home .section-heading h2{font-size:16px!important;font-weight:700!important;letter-spacing:-.035em!important}
+#page-home .section-heading button{color:#eee8f4!important;text-decoration:underline!important;text-underline-offset:3px!important;font-size:10px!important;font-weight:500!important}
+#page-home .music-grid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important}
+#page-home .music-card{padding:9px!important;border:1px solid rgba(218,207,237,.055)!important;border-radius:13px!important;background:#15111e!important;box-shadow:none!important}
+#page-home .music-card:hover{transform:translateY(-3px)!important;border-color:rgba(222,52,92,.4)!important;box-shadow:0 8px 22px rgba(0,0,0,.24)!important}
+#page-home .music-card .cover{aspect-ratio:1/1!important;border-radius:9px!important;margin-bottom:9px!important;background:#211b2a!important}
+#page-home .music-card .cover::before{display:none!important}
+#page-home .music-card .cover-art{width:100%;height:100%;object-fit:cover}
+#page-home .music-card h3{font-size:11px!important;font-weight:700!important;margin:0 0 5px!important;white-space:normal!important;line-height:1.35!important}
+#page-home .music-card p{font-size:10px!important;color:#aaa2b2!important;line-height:1.4!important;margin:0!important}
+#page-home .music-card>.icon-button{margin-top:7px!important;background:transparent!important;border:0!important}
+#page-home .cover-play{background:linear-gradient(130deg,#e8324a,#612bd4)!important}
+#page-home .section:last-of-type{margin-bottom:24px!important}
+#page-home .track-table{border:0!important;background:transparent!important;border-radius:0!important}
+#page-home .track-table th{background:transparent!important;color:#81798d!important;border-bottom:1px solid var(--ref-line)!important}
+#page-home .track-table td{border-bottom:1px solid rgba(255,255,255,.055)!important;color:#c9c1d0!important}
+#page-home .mini-cover{background:linear-gradient(135deg,#e93445,#6526b8)!important;border-radius:8px!important}
+.page-title{font-size:27px!important;letter-spacing:-.045em!important}
+.page-subtitle{color:var(--ref-muted)!important}
+.page:not(#page-home) .music-card{background:#15111e!important;border-color:var(--ref-line)!important}
+.page:not(#page-home) .music-card .cover{border-radius:10px!important}
+.page:not(#page-home) .plan-card,.page:not(#page-home) .upgrade-card{background:#15111e!important;border-color:var(--ref-line)!important}
+.player{
+ left:238px!important;min-height:82px!important;padding:10px 25px!important;gap:20px!important;
+ background:rgba(12,9,20,.98)!important;border-top:1px solid rgba(221,210,237,.12)!important;
+ box-shadow:0 -10px 32px rgba(0,0,0,.3)!important
+}
+.player-cover{border-radius:8px!important;background:linear-gradient(135deg,#e83448,#6629bd)!important}
+.player-song h4{font-size:11px!important}.player-song p{color:#9991a3!important}
+.controls .play{background:linear-gradient(135deg,#f04452,#6429d0)!important;color:white!important}
+.progress-fill{background:linear-gradient(90deg,#f04452,#7726d1,#3828dc)!important}
+.mobile-nav{background:#100c19!important;border-top:1px solid var(--ref-line)!important}
+.mobile-nav button.active{color:#f34b65!important}
+@media(max-width:1100px){
+ #page-home .music-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:760px){
+ .sidebar{display:none!important}.main{margin-left:0!important;padding-bottom:150px!important}
+ .topbar{height:64px!important;padding:0 14px!important}.content{padding:16px 13px 145px!important}
+ #page-home .hero.hero-banner-only{height:185px!important;padding:12px!important}
+ #page-home .hero-banner-card{height:125px!important}
+ #page-home .section{padding:13px!important}
+ #page-home .music-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .player{left:0!important;bottom:58px!important;min-height:75px!important;padding:9px 12px!important}
+ .player-song{max-width:42%}
+}
+
+
+/* Netflix-inspired SONARA Highlights page */
+body:has(#page-home.active){background:#080808!important;color:#f5f5f5!important}
+body:has(#page-home.active) .sidebar{display:none!important}
+body:has(#page-home.active) .main{margin-left:0!important;padding-bottom:95px!important;background:#080808!important}
+body:has(#page-home.active) .topbar{
+ height:58px!important;padding:0 4.2vw!important;background:linear-gradient(180deg,rgba(0,0,0,.96),rgba(0,0,0,.82))!important;
+ border:0!important;display:flex!important;align-items:center!important;gap:24px!important
+}
+.topbar-left{display:flex;align-items:center;gap:28px;width:100%;min-width:0}
+.home-wordmark{display:none;font-size:23px;font-weight:950;letter-spacing:-1.7px;color:#ef233c;line-height:1}
+.featured-nav{display:none;align-items:center;gap:18px;white-space:nowrap}
+.featured-nav button{border:0;background:none;color:#d5d5d5;font-size:11px;padding:5px 0;cursor:pointer}
+.featured-nav button:hover,.featured-nav button.active{color:#fff;font-weight:750}
+body:has(#page-home.active) .home-wordmark,body:has(#page-home.active) .featured-nav{display:flex}
+body:has(#page-home.active) .topbar-left .search{margin-left:auto;max-width:250px!important;height:32px!important;background:rgba(30,30,30,.85)!important;border:1px solid rgba(255,255,255,.24)!important}
+body:has(#page-home.active) .topbar-left .mobile-menu{display:none!important}
+body:has(#page-home.active) .top-right{gap:14px!important}
+body:has(#page-home.active) .sonara-upgrade-top{height:30px!important;padding:0 13px!important;font-size:10px!important}
+body:has(#page-home.active) .content{max-width:none!important;padding:0 0 120px!important}
+body:has(#page-home.active) #page-home{display:block!important;padding:0!important}
+body:has(#page-home.active) .featured-rail-section,
+body:has(#page-home.active) .originals-section{padding:8px 0 0!important;margin:0 0 17px!important;background:transparent!important;border:0!important}
+.featured-rail-heading,.originals-heading{display:flex;align-items:center;justify-content:space-between;padding:0 4.2vw;margin:0 0 9px}
+.featured-rail-heading h1{font-size:19px!important;font-weight:800;letter-spacing:-.45px;margin:0}
+.originals-heading h2{font-size:17px!important;font-weight:800;letter-spacing:-.35px;margin:0}
+.featured-rail-heading button,.originals-heading button{border:0;background:none;color:#aaa;font-size:10px;cursor:pointer}
+.featured-rail-heading button:hover,.originals-heading button:hover{color:white}
+.featured-horizontal-rail,.originals-poster-rail{
+ display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:0 4.2vw 7px;
+ scrollbar-width:none;scroll-behavior:smooth
+}
+.featured-horizontal-rail::-webkit-scrollbar,.originals-poster-rail::-webkit-scrollbar{display:none}
+.featured-tile{
+ position:relative;flex:0 0 clamp(116px,16vw,195px);height:clamp(66px,9vw,108px);
+ border:0;border-radius:2px;overflow:hidden;padding:0;background:#171717;cursor:pointer;text-align:left
+}
+.featured-tile img,.original-poster img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .35s ease}
+.featured-tile:hover img,.original-poster:hover img{transform:scale(1.06)}
+.featured-tile-shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.78),transparent 65%)}
+.featured-tile-copy{position:absolute;left:9px;right:7px;bottom:7px;display:flex;flex-direction:column;gap:2px;color:#fff}
+.featured-tile-copy strong{font-size:10px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.featured-tile-copy small{font-size:8px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.featured-empty{padding:18px 4.2vw;color:#888;font-size:12px}
+.originals-section{padding-top:0!important}
+.originals-poster-rail{gap:8px;padding-bottom:14px}
+.original-poster{
+ position:relative;flex:0 0 clamp(102px,15vw,176px);aspect-ratio:2/3;
+ overflow:hidden;padding:0;border:0;border-radius:2px;background:#151515;cursor:pointer;text-align:left
+}
+.original-poster img{object-fit:cover}
+.poster-shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.94) 0%,rgba(0,0,0,.22) 35%,transparent 68%)}
+.poster-label{position:absolute;left:7px;top:7px;padding:3px 4px;background:#e50914;color:#fff;font-size:7px;font-weight:900;letter-spacing:.6px}
+.poster-copy{position:absolute;left:8px;right:7px;bottom:9px;display:flex;flex-direction:column;gap:3px;color:white}
+.poster-copy strong{font-size:clamp(11px,1.25vw,16px);font-weight:900;line-height:1.05;text-transform:uppercase;text-shadow:0 1px 4px #000}
+.poster-copy small{font-size:9px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poster-number{position:absolute;right:6px;top:4px;color:rgba(255,255,255,.88);font-size:10px;font-weight:900;text-shadow:0 1px 4px #000}
+.original-poster:hover{outline:2px solid rgba(255,255,255,.85);outline-offset:-2px}
+body:has(#page-home.active) .home-catalog-section{margin:10px 4.2vw 0!important;padding:16px!important;background:#111!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:8px!important}
+body:has(#page-home.active) .home-catalog-section .section-heading h2{font-size:15px!important}
+body:has(#page-home.active) .home-catalog-section .music-grid{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:12px!important}
+body:has(#page-home.active) .home-catalog-section .music-card{background:#171717!important;border:0!important;padding:7px!important;border-radius:4px!important}
+body:has(#page-home.active) .home-catalog-section .music-card .cover{border-radius:2px!important}
+body:has(#page-home.active) .home-catalog-section .music-card h3{font-size:10px!important}
+body:has(#page-home.active) .home-catalog-section .music-card p{font-size:9px!important}
+body:has(#page-home.active) .home-catalog-section .cover-play{width:30px!important;height:30px!important}
+body:has(#page-home.active) .player{left:0!important;min-height:68px!important;background:rgba(8,8,8,.98)!important;border-top:1px solid #292929!important}
+body:has(#page-home.active) .mobile-nav{display:none!important}
+@media(max-width:760px){
+ body:has(#page-home.active) .topbar{height:54px!important;padding:0 14px!important;gap:10px!important}
+ .topbar-left{gap:13px}
+ .home-wordmark{font-size:20px}
+ .featured-nav{gap:10px;overflow:hidden}
+ .featured-nav button{font-size:9px}
+ body:has(#page-home.active) .topbar-left .search{width:32px;max-width:32px!important;padding:0 8px!important}
+ body:has(#page-home.active) .topbar-left .search input,body:has(#page-home.active) .topbar-left .search span{display:none!important}
+ body:has(#page-home.active) .top-right .sonara-upgrade-top{display:none!important}
+ .featured-rail-heading,.originals-heading{padding:0 14px}
+ .featured-rail-heading h1{font-size:17px!important}
+ .originals-heading h2{font-size:15px!important}
+ .featured-horizontal-rail,.originals-poster-rail{padding-left:14px;padding-right:14px;gap:6px}
+ .featured-tile{flex-basis:142px;height:80px}
+ .original-poster{flex-basis:105px}
+ body:has(#page-home.active) .home-catalog-section{margin-left:14px!important;margin-right:14px!important}
+ body:has(#page-home.active) .home-catalog-section .music-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ body:has(#page-home.active) .player{bottom:0!important}
+}
+
+/* Keep the homepage wordmark identical to the approved SONARA logo */
+.home-wordmark{display:none!important}
+.home-wordmark-logo{display:none;width:132px;height:30px;object-fit:contain;object-position:left center;flex:0 0 auto}
+body:has(#page-home.active) .home-wordmark-logo{display:block}
+
+/* Homepage header: use the exact official SONARA wordmark and consistent navigation typography */
+.home-wordmark{display:none!important}
+.home-wordmark-logo{display:none;width:184px!important;height:auto!important;max-width:184px!important;object-fit:contain;object-position:left center;flex:0 0 184px}
+body:has(#page-home.active) .home-wordmark-logo{display:block!important}
+body:has(#page-home.active) .topbar-left{gap:25px!important;align-items:center!important}
+body:has(#page-home.active) .featured-nav{display:flex!important;align-items:center!important;gap:20px!important}
+body:has(#page-home.active) .featured-nav button{
+ font-family:Inter,Arial,sans-serif!important;font-size:11px!important;font-weight:500!important;
+ letter-spacing:0!important;color:#d5d5d5!important;padding:6px 0!important;line-height:1.2!important
+}
+body:has(#page-home.active) .featured-nav button:hover,
+body:has(#page-home.active) .featured-nav button.active{color:#fff!important;font-weight:700!important}
+@media(max-width:760px){
+ body:has(#page-home.active) .home-wordmark-logo{width:120px!important;max-width:120px!important;flex-basis:120px!important}
+ body:has(#page-home.active) .topbar-left{gap:12px!important}
+ body:has(#page-home.active) .featured-nav{gap:10px!important}
+ body:has(#page-home.active) .featured-nav button{font-size:9px!important}
+}
+
+
+/* Homepage navigation refinement — larger labels, balanced spacing and Upgrade gradient hover */
+body:has(#page-home.active) .topbar-left{
+  gap:clamp(18px,2.1vw,32px)!important;
+}
+body:has(#page-home.active) .featured-nav{
+  flex:1 1 auto!important;
+  min-width:0!important;
+  justify-content:space-between!important;
+  gap:clamp(12px,1.6vw,25px)!important;
+}
+body:has(#page-home.active) .featured-nav button{
+  flex:0 0 auto!important;
+  min-height:36px!important;
+  padding:8px 11px!important;
+  border:1px solid transparent!important;
+  border-radius:999px!important;
+  font-family:Inter,Arial,sans-serif!important;
+  font-size:13px!important;
+  font-weight:550!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  color:#d5d5d5!important;
+  background:transparent!important;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease!important;
+}
+body:has(#page-home.active) .featured-nav button:hover{
+  color:#fff!important;
+  background:linear-gradient(105deg,#ed3438 0%,#7c22b9 65%,#3325dc 100%)!important;
+  box-shadow:0 5px 18px rgba(124,34,185,.22)!important;
+}
+body:has(#page-home.active) .featured-nav button.active{
+  color:#fff!important;
+  font-weight:700!important;
+  background:rgba(255,255,255,.075)!important;
+  border-color:rgba(255,255,255,.09)!important;
+}
+body:has(#page-home.active) .featured-nav button.active:hover{
+  background:linear-gradient(105deg,#ed3438 0%,#7c22b9 65%,#3325dc 100%)!important;
+  border-color:transparent!important;
+}
+@media(max-width:1100px) and (min-width:761px){
+  body:has(#page-home.active) .featured-nav{gap:7px!important}
+  body:has(#page-home.active) .featured-nav button{font-size:11px!important;padding:7px 7px!important}
+}
+@media(max-width:760px){
+  body:has(#page-home.active) .featured-nav{
+    flex:0 1 auto!important;
+    justify-content:flex-start!important;
+    gap:6px!important;
+  }
+  body:has(#page-home.active) .featured-nav button{
+    min-height:30px!important;
+    padding:6px 7px!important;
+    font-size:9px!important;
+  }
+}
+
+
+/* SONARA dedicated registration experience */
+.sonara-register-page{min-height:calc(100vh - 160px);padding:28px 18px 70px!important;background:radial-gradient(ellipse at 50% 0%,rgba(105,40,150,.16),transparent 48%)!important}
+.register-shell{width:min(100%,820px);margin:0 auto}
+.register-back{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#aaa2b2;font-size:12px;padding:8px 0;cursor:pointer}
+.register-back:hover,.register-existing button:hover{color:#fff}
+.register-brand{display:flex;justify-content:center;margin:22px 0 24px}
+.register-brand img{width:172px;height:auto;max-height:42px;object-fit:contain}
+.register-kicker{text-align:center;color:#e85a70;font-size:10px;font-weight:800;letter-spacing:.2em}
+.sonara-register-page h1{text-align:center;font-size:clamp(28px,4vw,42px);letter-spacing:-.055em;margin:9px 0}
+.register-intro{text-align:center;color:#aaa2b2;font-size:13px;margin:0 auto 22px;max-width:500px;line-height:1.6}
+.register-progress{display:flex;gap:7px;width:min(100%,350px);margin:0 auto 25px}
+.register-progress span{height:3px;flex:1;border-radius:99px;background:linear-gradient(90deg,#ed3438,#7c22b9 65%,#3325dc)}
+.register-progress span:not(:first-child){opacity:.22}
+.register-form{padding:clamp(18px,3vw,30px);border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(17,13,27,.94);box-shadow:0 22px 70px rgba(0,0,0,.22)}
+.register-section-heading{display:flex;align-items:center;gap:13px;margin-bottom:22px}
+.register-section-heading>span{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(237,52,56,.22),rgba(51,37,220,.22));color:#fff;font-size:12px;font-weight:800}
+.register-section-heading h2{font-size:16px;margin:0 0 4px}
+.register-section-heading p{font-size:11px;color:#928a9d;margin:0}
+.register-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.register-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.register-field.full{grid-column:1/-1}
+.register-field label{font-size:11px;color:#d7d0df;font-weight:650}
+.register-field input{width:100%;height:45px;padding:0 13px;border:1px solid rgba(220,211,237,.13);border-radius:9px;background:#0d0a15;color:#fff;font:inherit;font-size:12px;outline:none;color-scheme:dark}
+.register-field input:focus{border-color:#8b42c8;box-shadow:0 0 0 3px rgba(123,46,232,.13)}
+.register-field input::placeholder{color:#716a7c}
+.register-message{min-height:18px;color:#ff8993;font-size:11px;margin:12px 0 2px}
+.register-next-step{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-top:15px;border-top:1px solid rgba(255,255,255,.08)}
+.register-next-step>div{display:flex;align-items:flex-start;gap:8px;max-width:330px;color:#91899a;font-size:10px;line-height:1.5}
+.register-next-step>div i{flex:0 0 auto;width:15px;height:15px;color:#9e7ae0}
+.register-submit{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:0 19px;border:0;border-radius:999px;background:linear-gradient(105deg,#ed3438,#7c22b9 65%,#3325dc);color:#fff;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap}
+.register-submit:disabled{opacity:.65;cursor:wait}
+.register-existing{text-align:center;color:#aaa2b2;font-size:11px;margin:20px 0}
+.register-existing button{border:0;background:none;color:#fff;font-weight:700;cursor:pointer}
+.sonara-register-top{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 13px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:transparent;color:#fff;font-size:10px;font-weight:700;cursor:pointer}
+.sonara-register-top:hover{background:rgba(255,255,255,.09)}
+@media(max-width:760px){
+ .sonara-register-page{padding:16px 12px 55px!important}
+ .register-brand{margin:18px 0}
+ .register-brand img{width:145px}
+ .register-form{padding:17px 14px;border-radius:14px}
+ .register-fields{grid-template-columns:1fr;gap:13px}
+ .register-field.full{grid-column:auto}
+ .register-next-step{align-items:stretch;flex-direction:column}
+ .register-submit{width:100%}
+ .sonara-register-top{display:none!important}
+ body:has(#page-register.active) .topbar{display:none!important}
+ body:has(#page-register.active) .player,body:has(#page-register.active) .mobile-nav{display:none!important}
+ body:has(#page-register.active) .main{padding-bottom:0!important}
+}
+
+
+@media(max-width:760px){
+ body:has(#page-home.active) .top-right{gap:5px!important;flex:0 0 auto!important}
+ body:has(#page-home.active) .top-right .sonara-upgrade-top,
+ body:has(#page-home.active) .top-right .sonara-register-top{display:inline-flex!important;align-items:center!important;height:27px!important;padding:0 8px!important;font-size:8px!important;white-space:nowrap!important}
+ body:has(#page-home.active) .home-wordmark-logo{width:98px!important;max-width:98px!important;flex-basis:98px!important}
+ body:has(#page-home.active) .topbar-left{gap:7px!important;flex:1 1 auto!important}
+ body:has(#page-home.active) .featured-nav{gap:3px!important}
+ body:has(#page-home.active) .featured-nav button{padding:5px 4px!important;font-size:8px!important}
+}
+
+
+/* SONARA — plano único com acesso vitalício */
+#page-subscription .plan-grid{grid-template-columns:minmax(0,620px)!important;justify-content:center!important;gap:0!important}
+#page-subscription .lifetime-plan{position:relative;overflow:hidden;padding:clamp(25px,4vw,38px)!important;border:1px solid rgba(139,92,246,.62)!important;border-radius:18px!important;background:radial-gradient(ellipse at 100% 0%,rgba(124,58,237,.22),transparent 42%),linear-gradient(145deg,#171326 0%,#111622 62%,#101522 100%)!important;box-shadow:0 24px 70px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)}
+#page-subscription .lifetime-plan-topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:23px}
+#page-subscription .lifetime-plan-label{color:#d8c5ff;font-size:10px;font-weight:800;letter-spacing:.16em}
+#page-subscription .lifetime-plan-onetime{padding:7px 10px;border:1px solid rgba(54,201,143,.3);border-radius:999px;background:rgba(54,201,143,.09);color:#65e0ad;font-size:9px;font-weight:800;letter-spacing:.08em}
+#page-subscription .lifetime-plan h3{font-size:22px;margin-bottom:9px}
+#page-subscription .lifetime-plan .price{color:#fff;font-size:clamp(38px,6vw,50px);letter-spacing:-.055em;margin-bottom:12px}
+#page-subscription .lifetime-plan-description{max-width:480px;font-size:13px;line-height:1.8}
+#page-subscription .lifetime-plan ul{margin:25px 0 27px;padding-top:17px;border-top:1px solid rgba(255,255,255,.09)}
+#page-subscription .lifetime-plan li{display:flex;align-items:center;gap:10px;font-size:12px;margin:15px 0}
+#page-subscription .lifetime-plan li::before{content:"✓";display:grid;place-items:center;flex:0 0 19px;width:19px;height:19px;margin:0;border-radius:50%;background:rgba(54,201,143,.12);color:#65e0ad;font-size:11px;font-weight:800}
+#page-subscription .lifetime-plan button{min-height:48px;border:0;border-radius:9px;background:linear-gradient(105deg,#6d45d8,#3478f6);color:#fff;font-size:12px;font-weight:800;box-shadow:0 9px 25px rgba(76,91,220,.22)}
+#page-subscription .lifetime-plan button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+#page-subscription .lifetime-plan-footnote{margin-top:13px;text-align:center;color:#8f98ab;font-size:10px}
+@media(max-width:760px){#page-subscription .lifetime-plan{padding:23px 19px!important}#page-subscription .lifetime-plan-topline{align-items:flex-start}}

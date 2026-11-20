@@ -1,12 +1,22 @@
 let tracks = [];
+        let homepageFeatureSelection = { launches: [], most_downloaded: [], configured: false };
 
         // Conteúdo fictício exclusivamente para demonstração visual.
         let favorites = new Set();
+        let personalDownloadHistory = [];
         let currentTrack = null;
         let playing = false;
         let stemPlayers = [];
+        let stemAudioContext = null;
+        let stemAudioBuffers = [];
+        let stemAudioSources = [];
+        let stemGainNodes = [];
+        let stemPlaybackStartAt = 0;
+        let stemPlaybackOffset = 0;
+        let stemPlaybackActive = false;
+        let stemBufferTrackId = null;
         const audioPlayer = new Audio();
-        const SONARA_CATALOG_API = "http://127.0.0.1:8000/api/v1";
+        const SONARA_CATALOG_API = window.SONARA_API_BASE_URL || "";
 
         function escapeHTML(value) {
             return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -37,36 +47,77 @@ let tracks = [];
             lucide.createIcons();
         }
 
+        function renderFeaturedRails() {
+            const featuredRail = document.getElementById("featuredRail");
+            const originalsRail = document.getElementById("originalsRail");
+            const available = tracks.filter(track => track.coverUrl);
+            const byId = new Map(available.map(track => [Number(track.id), track]));
+            const launches = homepageFeatureSelection.configured
+                ? homepageFeatureSelection.launches.map(id => byId.get(Number(id))).filter(Boolean)
+                : available.slice(0, 12);
+            const mostDownloaded = homepageFeatureSelection.configured
+                ? homepageFeatureSelection.most_downloaded.map(id => byId.get(Number(id))).filter(Boolean)
+                : [...available].sort((a, b) => Number(b.download_count || 0) - Number(a.download_count || 0)).slice(0, 14);
+
+            if (featuredRail) {
+                featuredRail.innerHTML = launches.slice(0, 12).map(track => `
+                    <button class="featured-tile" type="button" onclick="selectTrack(${track.id})" aria-label="Abrir ${escapeHTML(track.title)}">
+                        <img src="${escapeHTML(track.coverUrl)}" alt="" loading="lazy">
+                        <span class="featured-tile-shade"></span>
+                        <span class="featured-tile-copy"><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)}</small></span>
+                    </button>
+                `).join("") || '<div class="featured-empty">As novidades do catálogo aparecerão aqui.</div>';
+            }
+
+            if (originalsRail) {
+                originalsRail.innerHTML = mostDownloaded.slice(0, 14).map((track, index) => `
+                    <button class="original-poster" type="button" onclick="selectTrack(${track.id})" aria-label="Reproduzir ${escapeHTML(track.title)}">
+                        <img src="${escapeHTML(track.coverUrl)}" alt="Capa de ${escapeHTML(track.title)}" loading="lazy">
+                        <span class="poster-shade"></span>
+                        <span class="poster-copy"><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)}</small></span>
+                        <span class="poster-number">${String(index + 1).padStart(2, "0")}</span>
+                    </button>
+                `).join("") || '<div class="featured-empty">Adicione capas aos lançamentos para montar esta seleção.</div>';
+            }
+        }
+
         function renderAll() {
             const filtered = tracks.filter(t =>
                 `${t.title} ${t.artist} ${t.key} ${t.bpm} ${t.genre}`
                     .toLowerCase().includes(searchTerm.toLowerCase())
             );
 
+            renderFeaturedRails();
             renderCards("musicGrid", filtered);
             renderCards("exploreGrid", filtered);
-            renderCards("libraryGrid", tracks);
+            
             renderCards("favoritesGrid", tracks.filter(t => favorites.has(t.id)));
+            renderCards("downloadsGrid", getDownloadedTracks());
 
             document.getElementById("emptyState").style.display =
                 filtered.length ? "none" : "block";
-
-            document.getElementById("recentTracks").innerHTML = filtered.map(t => `
-    <tr>
-      <td class="track-name">
-        <div class="mini-cover"><i data-lucide="audio-lines" size="17"></i></div>
-        <span>${escapeHTML(t.title)}</span>
-      </td>
-      <td>${escapeHTML(t.key)}</td>
-      <td>${escapeHTML(t.bpm)}</td>
-      <td><span class="badge">${t.audioUrl ? "PUBLICADA" : "SEM ÁUDIO"}</span></td>
-    </tr>
-  `).join("");
 
             lucide.createIcons();
         }
 
         function navigate(page) {
+            if (["favorites", "downloads", "playlists", "settings"].includes(page) && !sonaraCurrentUser) {
+                openAuthModal();
+                setAuthMode("register");
+                showToast("Entre na sua conta para acessar sua área pessoal.");
+                return;
+            }
+            if (page === "favorites") loadUserFavorites();
+            if (page === "downloads") loadUserDownloads();
+            if (page === "playlists") loadUserPlaylists();
+            if (page === "settings") loadSettingsForm();
+            if (page === "subscription") {
+                // Atualiza a assinatura com o estado mais recente do backend ao abrir a página.
+                updateLifetimePlanUI();
+                if (sonaraCurrentUser) {
+                    refreshSonaraUserAccess().then(() => updateLifetimePlanUI());
+                }
+            }
             document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
             document.querySelectorAll("[data-page]").forEach(el => el.classList.remove("active"));
 
@@ -76,6 +127,20 @@ let tracks = [];
 
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
+
+        function openRegistrationPage() {
+            if (sonaraCurrentUser) {
+                navigate("subscription");
+                showToast("Sua conta já está criada. Confira os planos SONARA.");
+                return;
+            }
+            closeAuthModal();
+            navigate("register");
+            document.getElementById("sonaraRegistrationForm")?.reset();
+            document.getElementById("registerMessage").textContent = "";
+            lucide.createIcons();
+        }
+
 
         document.querySelectorAll("[data-page]").forEach(button => {
             button.addEventListener("click", () => navigate(button.dataset.page));
@@ -91,19 +156,21 @@ let tracks = [];
         function stopStemPlayers(reset = true) {
             audioPlayer.pause();
             if (reset) { try { audioPlayer.currentTime = 0; } catch {} }
-            if (stemSyncTimer) {
-                clearInterval(stemSyncTimer);
-                stemSyncTimer = null;
-            }
-            stemPlayers.forEach(player => {
+            stopProgressSync();
+            stemAudioSources.forEach(source => {
+                try { source.onended = null; source.stop(); } catch {}
+                try { source.disconnect(); } catch {}
+            });
+            stemAudioSources = [];
+            stemPlaybackActive = false;
+            if (reset) stemPlaybackOffset = 0;
+            stemPlayers.forEach((player, index) => {
                 player.pause();
-                if (reset) {
-                    try { player.currentTime = 0; } catch {}
-                }
+                if (reset) { try { player.currentTime = 0; } catch {} }
+                updateStemButton(index, false);
             });
             activeStemIndex = null;
             updateAllStemsButton(false);
-            stemPlayers.forEach((_, index) => updateStemButton(index, false));
         }
 
         function updateAllStemsButton(isPlaying, loading = false) {
@@ -111,18 +178,34 @@ let tracks = [];
             if (!button) return;
             button.disabled = loading;
             button.innerHTML = loading
-                ? '<i data-lucide="loader-circle"></i> Carregando tracks...'
+                ? '<i data-lucide="loader-circle"></i> LOADING'
                 : isPlaying
-                    ? '<i data-lucide="pause"></i> Pausar seleção'
-                    : '<i data-lucide="play"></i> Tocar seleção';
+                    ? '<i data-lucide="square"></i> STOP'
+                    : '<i data-lucide="play"></i> PLAY';
             const footerPlay = document.getElementById("playButton");
-            if (footerPlay) {
-                const hasActiveAudio = isPlaying || !audioPlayer.paused || stemPlayers.some(player => !player.paused);
-                footerPlay.innerHTML = hasActiveAudio
-                    ? '<i data-lucide="pause" size="17"></i>'
-                    : '<i data-lucide="play" size="17"></i>';
-            }
+            if (footerPlay) footerPlay.innerHTML = isPlaying
+                ? '<i data-lucide="pause" size="17"></i>'
+                : '<i data-lucide="play" size="17"></i>';
             lucide.createIcons();
+        }
+
+        function ensureStemAudioContext() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) throw new Error("Seu navegador não oferece suporte ao player de áudio sincronizado.");
+            if (!stemAudioContext) stemAudioContext = new AudioContextClass();
+            return stemAudioContext;
+        }
+
+        function applyStemVolumes() {
+            stemPlayers.forEach((player, index) => {
+                const audible = !soloStemIndices.size || soloStemIndices.has(index);
+                const level = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
+                const gain = audible ? level * masterStemVolume : 0;
+                player.volume = gain;
+                if (stemGainNodes[index] && stemAudioContext) {
+                    stemGainNodes[index].gain.setTargetAtTime(gain, stemAudioContext.currentTime, 0.008);
+                }
+            });
         }
 
         function createStemPlayers() {
@@ -132,40 +215,76 @@ let tracks = [];
                 player.preload = "none";
                 player.src = stem.url;
                 player.volume = masterStemVolume;
-                player.addEventListener("ended", () => {
-                    const index = stemPlayers.indexOf(player);
-                    if (index >= 0) updateStemButton(index, false);
-                    if (stemPlayers.every(item => item.paused || item.ended)) {
-                        updateAllStemsButton(false);
-                        stopProgressSync();
-                    }
-                });
-                player.addEventListener("error", () => {
-                    const index = stemPlayers.indexOf(player);
-                    if (index >= 0) {
-                        updateStemButton(index, false);
-                        showToast("Falha ao carregar: " + (currentTrack?.stems?.[index]?.name || "track"));
-                    }
-                });
                 return player;
             });
+        }
+
+        async function loadStemBuffers() {
+            if (stemBufferTrackId === currentTrack.id && stemAudioBuffers.length === stemPlayers.length) return;
+            const context = ensureStemAudioContext();
+            const stems = currentTrack.stems || [];
+            const buffers = await Promise.all(stems.map(async (stem, index) => {
+                const response = await fetch(stem.url, { cache: "force-cache" });
+                if (!response.ok) throw new Error("Não foi possível carregar " + (stem.name || "a faixa " + (index + 1)) + ".");
+                const bytes = await response.arrayBuffer();
+                try {
+                    return await context.decodeAudioData(bytes.slice(0));
+                } catch {
+                    throw new Error("O áudio de " + (stem.name || "uma das faixas") + " está inválido ou em formato incompatível. Reenvie esse instrumento.");
+                }
+            }));
+            stemAudioBuffers = buffers;
+            stemBufferTrackId = currentTrack.id;
         }
 
         function startProgressSync() {
             stopProgressSync();
             stemSyncTimer = setInterval(() => {
-                const player = !audioPlayer.paused ? audioPlayer : (activeStemIndex === null ? stemPlayers.find(item => !item.paused) : stemPlayers[activeStemIndex]);
-                if (!player || !Number.isFinite(player.duration)) return;
-                document.getElementById("currentTime").textContent = formatAudioTime(player.currentTime);
-                document.getElementById("durationTime").textContent = formatAudioTime(player.duration);
+                if (!stemPlaybackActive || !stemAudioContext) return;
+                const elapsed = Math.max(0, stemAudioContext.currentTime - stemPlaybackStartAt);
+                const position = stemPlaybackOffset + elapsed;
+                const duration = Math.max(0, ...stemAudioBuffers.map(buffer => buffer.duration));
+                document.getElementById("currentTime").textContent = formatAudioTime(position);
+                document.getElementById("durationTime").textContent = formatAudioTime(duration);
                 document.getElementById("progressFill").style.width =
-                    player.duration ? (player.currentTime / player.duration * 100) + "%" : "0%";
-            }, 200);
+                    duration ? Math.min(100, position / duration * 100) + "%" : "0%";
+                if (position >= duration) {
+                    stopStemPlayers(true);
+                }
+            }, 100);
         }
 
         function stopProgressSync() {
             if (stemSyncTimer) clearInterval(stemSyncTimer);
             stemSyncTimer = null;
+        }
+
+        function startSynchronizedStems(offset = 0) {
+            const context = ensureStemAudioContext();
+            stemAudioSources.forEach(source => { try { source.stop(); } catch {} });
+            stemAudioSources = [];
+            stemGainNodes = [];
+            const startAt = context.currentTime + 0.12;
+            stemAudioBuffers.forEach((buffer, index) => {
+                const source = context.createBufferSource();
+                const gain = context.createGain();
+                source.buffer = buffer;
+                source.connect(gain);
+                gain.connect(context.destination);
+                const audible = !soloStemIndices.size || soloStemIndices.has(index);
+                const level = Math.max(0, Math.min(1, stemVolumeLevels[index] ?? 1));
+                gain.gain.value = audible ? level * masterStemVolume : 0;
+                source.start(startAt, Math.min(offset, Math.max(0, buffer.duration - 0.01)));
+                stemAudioSources.push(source);
+                stemGainNodes.push(gain);
+            });
+            stemPlaybackOffset = offset;
+            stemPlaybackStartAt = startAt;
+            stemPlaybackActive = true;
+            activeStemIndex = 0;
+            stemPlayers.forEach((_, index) => updateStemButton(index, true));
+            updateAllStemsButton(true);
+            startProgressSync();
         }
 
         function selectTrack(id) {
@@ -176,6 +295,12 @@ let tracks = [];
             currentTrack = selected;
             audioPlayer.pause(); audioPlayer.removeAttribute('src'); audioPlayer.load();
             stemPlayers = [];
+            stemAudioBuffers = [];
+            stemAudioSources = [];
+            stemGainNodes = [];
+            stemBufferTrackId = null;
+            stemPlaybackOffset = 0;
+            stemPlaybackActive = false;
             soloStemIndices = new Set();
             document.getElementById("playerTitle").textContent = currentTrack.title;
             document.getElementById("playerArtist").textContent = currentTrack.artist || "SONARA";
@@ -198,18 +323,8 @@ let tracks = [];
             }
 
             const download = document.getElementById("downloadMultitrack");
-            download.onclick = () => {
-                if (!currentTrack?.zipDownloadUrl) {
-                    showToast("O ZIP original não está disponível para esta música.");
-                    return;
-                }
-                const link = document.createElement("a");
-                link.href = currentTrack.zipDownloadUrl;
-                link.download = "";
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            };
+            updateDownloadAccessButton();
+            download.onclick = handleDownloadAccess;
 
             const stems = currentTrack.stems || [];
             stemVolumeLevels = stems.map(() => 1);
@@ -217,7 +332,7 @@ let tracks = [];
             document.getElementById("stemCount").textContent = stems.length + (stems.length === 1 ? " track" : " tracks");
             const list = document.getElementById("stemList");
             list.innerHTML = stems.length ? stems.map((stem, index) => {
-                const label = stem.name.replace(/^\\d+_/, "").replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ");
+                const label = stem.name.replace(/^\d+_/, "").replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ");
                 return `<div class="stem-row">
                     <div class="stem-index">${String(index + 1).padStart(2, "0")}</div>
                     <div class="stem-details"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(stem.name)}</span></div>
@@ -255,10 +370,12 @@ let tracks = [];
         }
 
 
-        function toggleSolo(index) {
-            if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); }
+        async function toggleSolo(index) {
+            if (!Number.isInteger(index) || index < 0 || index >= (currentTrack?.stems?.length || 0)) return;
+
             if (soloStemIndices.has(index)) soloStemIndices.delete(index);
             else soloStemIndices.add(index);
+
             document.querySelectorAll(".stem-solo").forEach((button, buttonIndex) => {
                 const active = soloStemIndices.has(buttonIndex);
                 button.classList.toggle("solo-active", active);
@@ -267,12 +384,10 @@ let tracks = [];
                     ? '<i data-lucide="headphones"></i> SOLO ATIVO'
                     : '<i data-lucide="headphones"></i> SOLO';
             });
-            stemPlayers.forEach((player, playerIndex) => {
-                const audible = !soloStemIndices.size || soloStemIndices.has(playerIndex);
-                player.volume = (stemVolumeLevels[playerIndex] ?? 1) * masterStemVolume * (audible ? 1 : 0);
-                if (!audible) player.pause();
-            });
-            updateAllStemsButton(stemPlayers.some(player => !player.paused));
+
+            // SOLO altera apenas o ganho de cada canal, sem reiniciar o relógio comum.
+            applyStemVolumes();
+            updateAllStemsButton(stemPlaybackActive);
             lucide.createIcons();
         }
 
@@ -313,10 +428,9 @@ let tracks = [];
         }
 
         function setStemVolume(index, value) {
-            if (stemPlayers[index]) {
-                stemVolumeLevels[index] = Number(value) / 100;
-                stemPlayers[index].volume = stemVolumeLevels[index] * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
-            }
+            if (!stemPlayers[index]) return;
+            stemVolumeLevels[index] = Number(value) / 100;
+            applyStemVolumes();
         }
 
         async function toggleAllStems() {
@@ -326,58 +440,23 @@ let tracks = [];
                 showToast("Esta música não possui tracks de áudio disponíveis.");
                 return;
             }
-            if (!soloStemIndices.size) {
-                if (!currentTrack.mixUrl) { showToast('Mixagem desta música indisponível.'); return; }
-                if (!audioPlayer.paused) { audioPlayer.pause(); updateAllStemsButton(false); stopProgressSync(); return; }
-                stemLoading = true; updateAllStemsButton(false, true);
-                try {
-                    if (audioPlayer.src !== currentTrack.mixUrl) { audioPlayer.src = currentTrack.mixUrl; audioPlayer.preload = 'auto'; audioPlayer.load(); }
-                    audioPlayer.volume = masterStemVolume;
-                    await audioPlayer.play();
-                    activeStemIndex = null; updateAllStemsButton(true); startProgressSync();
-                } catch (error) { audioPlayer.pause(); updateAllStemsButton(false); showToast(error.message || 'Não foi possível reproduzir a mixagem.'); }
-                finally { stemLoading = false; }
-                return;
-            }
-            const selectedIndices = [...soloStemIndices];
-            const selectedPlayers = selectedIndices.map(index => stemPlayers[index]).filter(Boolean);
-            const allPlaying = selectedPlayers.length > 0 && selectedPlayers.every(player => !player.paused);
-            if (allPlaying) {
-                selectedPlayers.forEach(player => player.pause());
-                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
-                updateAllStemsButton(false);
-                stopProgressSync();
+
+            if (stemPlaybackActive) {
+                stopStemPlayers(true);
                 return;
             }
 
             stemLoading = true;
             updateAllStemsButton(false, true);
             try {
-                stemPlayers.forEach(player => player.pause());
-                selectedPlayers.forEach(player => {
-                    player.preload = "auto";
-                    player.load();
-                    player.currentTime = 0;
-                    const index = stemPlayers.indexOf(player);
-                    player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume * (soloStemIndices.size && !soloStemIndices.has(index) ? 0 : 1);
-                });
-                const results = await Promise.allSettled(selectedPlayers.map(player => player.play()));
-                const failed = results.findIndex(result => result.status === "rejected");
-                if (failed !== -1) {
-                    selectedPlayers.forEach(player => player.pause());
-                    throw new Error("Não foi possível iniciar a prévia de " + (currentTrack.stems[selectedIndices[failed]]?.name || "um instrumento") + ".");
-                }
-                stemPlayers.forEach((player, index) => updateStemButton(index, !player.paused));
-                activeStemIndex = selectedIndices[0] ?? null;
-                updateAllStemsButton(true);
-                startProgressSync();
+                const context = ensureStemAudioContext();
+                await context.resume();
+                await loadStemBuffers();
+                applyStemVolumes();
+                startSynchronizedStems(0);
             } catch (error) {
-                stemPlayers.forEach((player, index) => {
-                    player.pause();
-                    updateStemButton(index, false);
-                });
-                updateAllStemsButton(false);
-                showToast(error.message || "Falha ao iniciar a prévia.");
+                stopStemPlayers(true);
+                showToast(error.message || "Não foi possível iniciar a multitrack.");
             } finally {
                 stemLoading = false;
             }
@@ -431,9 +510,7 @@ let tracks = [];
         });
         document.querySelector('.player-volume input[type="range"]').addEventListener("input", event => {
             masterStemVolume = Number(event.target.value) / 100;
-            stemPlayers.forEach((player, index) => {
-                player.volume = (stemVolumeLevels[index] ?? 1) * masterStemVolume;
-            });
+            applyStemVolumes();
             audioPlayer.volume = masterStemVolume;
         });
         audioPlayer.volume = 0.7;
@@ -463,11 +540,21 @@ let tracks = [];
         }
 
         async function loadPublicCatalog() {
+            if (!SONARA_CATALOG_API) {
+                const badge = document.getElementById("catalogBadge");
+                if (badge) badge.textContent = "Servidor de testes não configurado";
+                console.warn("SONARA: configure SONARA_API_BASE_URL em js/sonara-config.js para conectar ao backend.");
+                return;
+            }
             const badge = document.getElementById("catalogBadge");
             try {
-                const response = await fetch(SONARA_CATALOG_API + "/catalog/tracks");
+                const [response, featureResponse] = await Promise.all([
+                    fetch(SONARA_CATALOG_API + "/catalog/tracks"),
+                    fetch(SONARA_CATALOG_API + "/catalog/homepage-features")
+                ]);
                 if (!response.ok) throw new Error("Catálogo indisponível");
                 const data = await response.json();
+                if (featureResponse.ok) homepageFeatureSelection = await featureResponse.json();
                 const covers = ["cover-one", "cover-two", "cover-three", "cover-four"];
                 tracks = (data.items || []).map((track, index) => ({
                     id: Number(track.id),
@@ -487,7 +574,7 @@ let tracks = [];
                 if (badge) badge.textContent = "CATÁLOGO OFICIAL";
                 searchTerm = document.getElementById("searchInput").value;
                 renderAll();
-                renderHeroSlideshow();
+                renderFeaturedRails();
             } catch {
                 tracks = [];
                 if (badge) badge.textContent = "CATÁLOGO INDISPONÍVEL";
@@ -496,12 +583,23 @@ let tracks = [];
             }
         }
 
-        function toggleFavorite(id) {
-            if (favorites.has(id)) favorites.delete(id);
-            else favorites.add(id);
-
-            renderAll();
-            showToast(favorites.has(id) ? "Adicionada aos favoritos." : "Removida dos favoritos.");
+        async function toggleFavorite(id) {
+            if (!sonaraCurrentUser) {
+                openAuthModal();
+                setAuthMode("register");
+                showToast("Crie sua conta para salvar músicas nos favoritos.");
+                return;
+            }
+            const wasFavorite = favorites.has(Number(id));
+            try {
+                await sonaraApi("/account/favorites/" + id, { method: wasFavorite ? "DELETE" : "POST" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+                if (wasFavorite) favorites.delete(Number(id));
+                else favorites.add(Number(id));
+                renderAll();
+                showToast(wasFavorite ? "Removida dos favoritos." : "Adicionada aos favoritos.");
+                const empty = document.getElementById("favoritesEmpty");
+                if (empty) empty.hidden = favorites.size > 0;
+            } catch (error) { showToast(error.message || "Não foi possível atualizar seus favoritos."); }
         }
 
         function showToast(message) {
@@ -539,10 +637,188 @@ let tracks = [];
         lucide.createIcons();
 
 /* SONARA user authentication */
-const SONARA_API_BASE = "http://127.0.0.1:8000/api/v1";
+const SONARA_API_BASE = window.SONARA_API_BASE_URL || "";
 const SONARA_USER_TOKEN = "sonaraUserAccessToken";
 let sonaraCurrentUser = null;
 let authMode = "login";
+let passwordResetToken = new URLSearchParams(window.location.search).get("reset_token") || "";
+
+function updateDownloadAccessButton() {
+    const button = document.getElementById("downloadMultitrack");
+    if (!button) return;
+    const isLoggedIn = Boolean(sonaraCurrentUser);
+    const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+    button.innerHTML = hasAccess
+        ? '<i data-lucide="download"></i> Baixar Multitrack'
+        : '<i data-lucide="credit-card"></i> Adquirir acesso';
+    button.setAttribute("aria-label", hasAccess ? "Baixar arquivo ZIP da multitrack" : "Adquirir acesso vitalício para baixar multitracks");
+    if (!isLoggedIn) button.innerHTML = '<i data-lucide="user-plus"></i> Entre para baixar';
+    updatePersonalNavigation();
+    updateLifetimePlanUI();
+    lucide.createIcons();
+}
+function updatePersonalNavigation() {
+    const isLoggedIn = Boolean(sonaraCurrentUser);
+    document.querySelectorAll('[data-page="favorites"], [data-page="downloads"], [data-page="playlists"]').forEach(button => {
+        button.hidden = !isLoggedIn;
+        button.setAttribute("aria-hidden", String(!isLoggedIn));
+    });
+    updateHeaderAuthState();
+}
+function updateHeaderAuthState() {
+    const loginButton = document.getElementById("headerLoginButton");
+    const registerButton = document.getElementById("headerRegisterButton");
+    const welcomeButton = document.getElementById("userWelcomeButton");
+    const welcomeName = document.getElementById("userWelcomeName");
+    const welcomeAvatar = document.getElementById("userWelcomeAvatar");
+    const loggedIn = Boolean(sonaraCurrentUser);
+    if (loginButton) loginButton.hidden = loggedIn;
+    if (registerButton) registerButton.hidden = loggedIn;
+    if (welcomeButton) welcomeButton.hidden = !loggedIn;
+    if (loggedIn) {
+        const fullName = (sonaraCurrentUser.full_name || "").trim();
+        const displayName = fullName || "Usuário";
+        if (welcomeName) welcomeName.textContent = displayName;
+        if (welcomeAvatar) welcomeAvatar.textContent = displayName.charAt(0).toUpperCase();
+        if (welcomeButton) welcomeButton.setAttribute("aria-label", "Bem-vindo(a), " + displayName + ". Abrir minha conta");
+    }
+}
+async function loadUserFavorites() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/favorites", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        favorites = new Set((result.items || []).map(item => Number(item.id)));
+        renderAll();
+        const empty = document.getElementById("favoritesEmpty");
+        if (empty) empty.hidden = favorites.size > 0;
+    } catch (error) { showToast(error.message || "Não foi possível carregar seus favoritos."); }
+}
+function getDownloadedTracks() {
+    const byId = new Map(tracks.map(track => [Number(track.id), track]));
+    const seen = new Set();
+    return personalDownloadHistory.filter(item => {
+        const id = Number(item.id);
+        if (seen.has(id) || !byId.has(id)) return false;
+        seen.add(id);
+        return true;
+    }).map(item => byId.get(Number(item.id)));
+}
+let personalPlaylists = [];
+async function loadUserPlaylists() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/playlists", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        personalPlaylists = result.items || [];
+        renderUserPlaylists();
+    } catch (error) { showToast(error.message || "Não foi possível carregar suas playlists."); }
+}
+function renderUserPlaylists() {
+    const list = document.getElementById("playlistList");
+    const empty = document.getElementById("playlistsEmpty");
+    if (!list) return;
+    list.innerHTML = personalPlaylists.map(item => '<article class="playlist-card"><h3></h3><p>' + item.track_ids.length + ' música(s)</p><button type="button" data-delete-playlist="' + item.id + '">Excluir</button></article>').join("");
+    list.querySelectorAll(".playlist-card h3").forEach((node, index) => { node.textContent = personalPlaylists[index].name; });
+    if (empty) empty.hidden = personalPlaylists.length > 0;
+    list.querySelectorAll("[data-delete-playlist]").forEach(button => button.addEventListener("click", async () => {
+        await sonaraApi("/account/playlists/" + button.dataset.deletePlaylist, { method: "DELETE" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        await loadUserPlaylists();
+    }));
+}
+document.getElementById("playlistCreateForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("playlistNameInput");
+    try {
+        await sonaraApi("/account/playlists", { method: "POST", body: JSON.stringify({ name: input.value.trim() }) }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        input.value = "";
+        await loadUserPlaylists();
+        showToast("Playlist criada com sucesso.");
+    } catch (error) { showToast(error.message || "Não foi possível criar a playlist."); }
+});
+async function loadUserDownloads() {
+    if (!sonaraCurrentUser) return;
+    try {
+        const result = await sonaraApi("/account/downloads", { method: "GET" }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        personalDownloadHistory = result.items || [];
+        renderAll();
+        const note = document.getElementById("downloadsNotice");
+        if (note) note.textContent = personalDownloadHistory.length
+            ? "Aqui ficam as multitracks que você baixou nesta conta."
+            : "As multitracks baixadas aparecerão aqui.";
+        const empty = document.getElementById("downloadsEmpty");
+        if (empty) empty.hidden = getDownloadedTracks().length > 0;
+    } catch (error) { showToast(error.message || "Não foi possível carregar seus downloads."); }
+}
+async function refreshSonaraUserAccess() {
+    const token = sessionStorage.getItem(SONARA_USER_TOKEN);
+    if (!token) return null;
+    try {
+        const freshUser = await sonaraApi("/auth/me", { method: "GET" }, token);
+        sonaraCurrentUser = freshUser;
+        updateDownloadAccessButton();
+        return Boolean(freshUser.lifetime_access);
+    } catch (error) {
+        console.warn("Não foi possível atualizar o acesso SONARA:", error);
+        return null;
+    }
+}
+
+async function handleDownloadAccess() {
+    if (!sonaraCurrentUser) {
+        openAuthModal();
+        setAuthMode("register");
+        return;
+    }
+
+    // Consulta o backend antes de decidir se o cliente ainda precisa comprar.
+    // Isso evita manter o botão de compra quando o webhook já confirmou o pagamento.
+    const confirmedAccess = await refreshSonaraUserAccess();
+    if (confirmedAccess === false || (confirmedAccess === null && !sonaraCurrentUser?.lifetime_access)) {
+        closeMultitrack();
+        navigate("subscription");
+        showToast("Adquira o acesso vitalício para baixar as multitracks.");
+        return;
+    }
+    if (!currentTrack) return;
+    if (!SONARA_API_BASE) { showToast("Backend da SONARA não configurado para este acesso."); return; }
+    const button = document.getElementById("downloadMultitrack");
+    const trackBeingDownloaded = currentTrack;
+    button.disabled = true;
+    button.innerHTML = '<i data-lucide="loader-circle"></i> Preparando ZIP...';
+    lucide.createIcons();
+    try {
+        const token = sessionStorage.getItem(SONARA_USER_TOKEN);
+        const response = await fetch(SONARA_API_BASE + "/tracks/" + trackBeingDownloaded.id + "/download", {
+            method: "GET",
+            headers: { Authorization: "Bearer " + token }
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Não foi possível baixar esta multitrack.");
+        }
+
+        const zipBlob = await response.blob();
+        if (!zipBlob.size) throw new Error("O arquivo ZIP recebido está vazio.");
+        const objectUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = trackBeingDownloaded.title.replace(/[\\/:*?"<>|]/g, "_") + ".zip";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+
+        await sonaraApi("/account/downloads/" + trackBeingDownloaded.id, { method: "POST" }, token);
+        await loadUserDownloads();
+        closeMultitrack();
+        navigate("downloads");
+        showToast("Download iniciado! Multitrack adicionada aos seus Downloads.");
+    } catch (error) {
+        showToast(error.message || "Não foi possível baixar esta multitrack.");
+    } finally {
+        button.disabled = false;
+        updateDownloadAccessButton();
+    }
+}
 
 function setAuthMode(mode) {
     authMode = mode;
@@ -557,9 +833,10 @@ function setAuthMode(mode) {
     document.querySelectorAll(".auth-name-field").forEach(field => field.hidden = !registering);
     document.getElementById("authPassword").autocomplete = registering ? "new-password" : "current-password";
     document.getElementById("authSubmit").innerHTML = registering
-        ? 'Criar minha conta <i data-lucide="arrow-right"></i>'
+        ? 'Criar conta e continuar <i data-lucide="arrow-right"></i>'
         : 'Entrar <i data-lucide="arrow-right"></i>';
     document.getElementById("authMessage").textContent = "";
+    document.getElementById("authMessage").style.color = "";
     lucide.createIcons();
 }
 
@@ -569,6 +846,8 @@ function openAuthModal() {
     overlay.setAttribute("aria-hidden", "false");
     const form = document.getElementById("userAuthForm");
     const account = document.getElementById("authAccount");
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("resetPasswordForm").hidden = true;
     if (sonaraCurrentUser) {
         form.hidden = true;
         document.getElementById("authTabs").hidden = true;
@@ -579,7 +858,7 @@ function openAuthModal() {
         document.getElementById("authAccountEmail").textContent = sonaraCurrentUser.email;
     } else {
         form.hidden = false;
-        document.getElementById("authTabs").hidden = false;
+        document.getElementById("authTabs").hidden = true;
         account.hidden = true;
         setAuthMode("login");
     }
@@ -593,6 +872,7 @@ function closeAuthModal() {
 }
 
 async function sonaraApi(path, options = {}, token = "") {
+    if (!SONARA_API_BASE) throw new Error("Backend da SONARA não configurado. Configure o endereço público de testes.");
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
     const response = await fetch(SONARA_API_BASE + path, { ...options, headers });
@@ -605,30 +885,449 @@ async function sonaraApi(path, options = {}, token = "") {
     return data;
 }
 
+
+function updateLifetimePlanUI() {
+    const button = document.getElementById("lifetimeCheckoutButton");
+    const status = document.getElementById("lifetimeAccessStatus");
+    const sidebarTitle = document.getElementById("sidebarUpgradeTitle");
+    const sidebarDescription = document.getElementById("sidebarUpgradeDescription");
+    const sidebarButton = document.getElementById("sidebarUpgradeButton");
+    const sidebarCard = document.getElementById("sidebarUpgradeCard");
+    const pageTitle = document.getElementById("subscriptionPageTitle");
+    const pageSubtitle = document.getElementById("subscriptionPageSubtitle");
+    const planGrid = document.getElementById("lifetimePlanGrid");
+    const activeView = document.getElementById("lifetimeActiveView");
+    const hasAccess = Boolean(sonaraCurrentUser?.lifetime_access);
+
+    if (pageTitle) pageTitle.hidden = hasAccess;
+    if (pageSubtitle) pageSubtitle.hidden = hasAccess;
+    if (planGrid) planGrid.hidden = hasAccess;
+    if (activeView) activeView.hidden = !hasAccess;
+    if (sidebarCard) sidebarCard.hidden = hasAccess;
+
+    if (button) {
+        button.disabled = hasAccess;
+        button.textContent = hasAccess ? "VOCÊ JÁ TEM O ACESSO" : "Adquirir acesso vitalício";
+        button.setAttribute("aria-label", hasAccess ? "Você já tem o acesso vitalício SONARA" : "Adquirir acesso vitalício");
+    }
+    if (status) {
+        status.textContent = hasAccess
+            ? "Sua conta já possui acesso vitalício. Obrigado por fazer parte da SONARA!"
+            : (sonaraCurrentUser ? "Finalize o pagamento para liberar os downloads de todas as multitracks." : "Entre ou crie sua conta para concluir a compra.");
+    }
+
+    if (sidebarTitle && sidebarDescription && sidebarButton) {
+        sidebarTitle.textContent = hasAccess ? "Acesso liberado!" : "Desbloqueie seu som.";
+        sidebarDescription.textContent = hasAccess
+            ? "Sua conta já tem acesso vitalício a todas as multitracks da SONARA."
+            : "Acesse a experiência completa de multitracks com a SONARA.";
+        sidebarButton.textContent = hasAccess ? "ACESSO JÁ ATIVO" : "Ver acesso vitalício";
+        sidebarButton.disabled = hasAccess;
+        sidebarButton.setAttribute("aria-label", hasAccess ? "Acesso vitalício já ativo" : "Ver acesso vitalício");
+    }
+}
+
+async function startLifetimeCheckout() {
+    if (!sonaraCurrentUser) {
+        openAuthModal();
+        showToast("Entre ou crie sua conta para adquirir o acesso vitalício.");
+        return;
+    }
+    if (sonaraCurrentUser.lifetime_access) {
+        showToast("Sua conta já possui acesso vitalício.");
+        return;
+    }
+    const button = document.getElementById("lifetimeCheckoutButton");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Preparando pagamento...";
+    }
+    try {
+        const result = await sonaraApi("/payments/checkout", {
+            method: "POST",
+            body: JSON.stringify({})
+        }, sessionStorage.getItem(SONARA_USER_TOKEN));
+        if (result.already_active) {
+            sonaraCurrentUser.lifetime_access = true;
+            updateLifetimePlanUI();
+            showToast(result.message || "Seu acesso vitalício já está ativo.");
+            return;
+        }
+        if (!result.checkout_url || !result.checkout_url.startsWith("https://")) {
+            throw new Error("A InfinitePay não retornou um link de pagamento válido.");
+        }
+        window.location.assign(result.checkout_url);
+    } catch (error) {
+        showToast(error.message || "Não foi possível iniciar o pagamento.");
+        updateLifetimePlanUI();
+    } finally {
+        if (button && !sonaraCurrentUser?.lifetime_access) {
+            button.disabled = false;
+            button.textContent = "Adquirir acesso vitalício";
+        }
+    }
+}
+
+
+
+let sonaraLanguage = "pt";
+const SONARA_TEXT_TRANSLATIONS = {
+"SONARA — Plataforma premium de multitracks para músicos e equipes de louvor.":"SONARA — Premium multitrack platform for musicians and worship teams.",
+"WORKSPACE":"WORKSPACE","Início":"Home","Explorar":"Explore","Favoritos":"Favorites","Assinatura":"Subscription","Configurações":"Settings","CONTA":"ACCOUNT",
+"Desbloqueie seu som.":"Unlock your sound.","Acesse a experiência completa de multitracks com a SONARA.":"Get the full multitrack experience with SONARA.","Ver acesso vitalício":"View lifetime access",
+"Entrar":"Log in","Criar conta":"Create account","Bem-vindo(a),":"Welcome,","Lançamentos":"New releases","Ver catálogo":"View catalog","Mais baixados":"Most downloaded","Explorar tudo":"Explore all","Mais para descobrir":"More to discover","Nenhuma música encontrada.":"No tracks found.",
+"Encontre a música ideal para sua próxima apresentação.":"Find the perfect track for your next performance.","Catálogo musical":"Music catalog","CARREGANDO CATÁLOGO":"LOADING CATALOG","As músicas que você marcou para guardar.":"Tracks you saved for later.","Meus Downloads":"My Downloads","Sua biblioteca de multitracks baixadas.":"Your downloaded multitrack library.","Suas solicitações aparecerão aqui.":"Your requests will appear here.","Você ainda não salvou músicas nos favoritos.":"You haven't saved any favorites yet.","Você ainda não baixou nenhuma multitrack.":"You haven't downloaded any multitrack yet.",
+"Minhas Playlists":"My Playlists","Organize suas multitracks favoritas em coleções pessoais.":"Organize your favorite multitracks into personal collections.","Nome da nova playlist":"New playlist name","Criar playlist":"Create playlist","Você ainda não criou playlists. Crie uma para organizar suas músicas.":"You haven't created any playlists yet. Create one to organize your tracks.",
+"Acesso vitalício SONARA":"SONARA Lifetime Access","Um único pagamento. Sua experiência musical sem mensalidades ou renovações.":"One payment. Your music experience with no monthly fees or renewals.","ACESSO VITALÍCIO":"LIFETIME ACCESS","PAGAMENTO ÚNICO":"ONE-TIME PAYMENT","SONARA Vitalício":"SONARA Lifetime","Pague uma única vez e tenha acesso vitalício à plataforma SONARA, com todos os recursos incluídos neste plano.":"Pay once and get lifetime access to the SONARA platform, with all features included in this plan.","Acesso vitalício à plataforma":"Lifetime platform access","Todas as multitracks disponíveis":"All available multitracks","Biblioteca pessoal":"Personal library","Catálogo musical completo":"Full music catalog","Favoritos":"Favorites","Adquirir acesso vitalício":"Get lifetime access","Acesso vitalício ativo":"Lifetime access active","Entre para baixar":"Log in to download","Adquirir acesso":"Get access","Pagamento único de R$ 49,90 · Sem mensalidade · Sem renovação automática":"One-time payment of BRL 49.90 · No monthly fee · No automatic renewal",
+"Voltar para a SONARA":"Back to SONARA","CRIE SUA CONTA":"CREATE YOUR ACCOUNT","Seu som começa aqui.":"Your sound starts here.","Preencha os dados abaixo. Depois de criar sua conta, você irá direto para o acesso vitalício.":"Fill in the details below. After creating your account, you'll go straight to lifetime access.","Dados pessoais":"Personal details","Só precisamos do essencial para criar seu acesso.":"We only need the essentials to set up your access.","Nome completo":"Full name","Digite seu nome completo":"Enter your full name","E-mail":"Email","Senha":"Password","Mínimo de 10 caracteres":"At least 10 characters","Repetir senha":"Confirm password","Digite a senha novamente":"Enter your password again","Seus dados são enviados com conexão segura. Depois do cadastro, você poderá concluir a compra do acesso vitalício.":"Your data is sent securely. After registration, you can complete your lifetime access purchase.","Criar conta e continuar":"Create account and continue","Já tem uma conta?":"Already have an account?","Fazer login":"Log in",
+"Uma plataforma criada para facilitar a preparação musical de músicos e equipes.":"A platform designed to make musical preparation easier for musicians and teams.","Ajuda e suporte":"Help & Support","Perguntas frequentes":"Frequently Asked Questions","Falar com o suporte":"Contact support","Problemas de acesso":"Access issues","Como faço para criar uma conta?":"How do I create an account?","Clique em “Cadastre-se”, informe seus dados e conclua o cadastro. Use o mesmo e-mail para entrar na plataforma.":"Click “Sign up”, enter your details, and complete registration. Use the same email to log in to the platform.","Esqueci minha senha. Como recuperar?":"I forgot my password. How can I reset it?","Na tela de login, selecione “Esqueceu sua senha?”. Enviaremos um link de recuperação para o e-mail cadastrado.":"On the login screen, select “Forgot your password?”. We'll send a reset link to your registered email address.","O que é uma multitrack?":"What is a multitrack?","É uma música dividida em faixas individuais, como bateria, baixo, guitarras, teclas e vozes, para controlar cada instrumento durante a reprodução.":"A song divided into individual stems, such as drums, bass, guitars, keys, and vocals, so you can control each instrument during playback.","Posso ouvir instrumentos separadamente?":"Can I listen to instruments separately?","Quando a multitrack estiver disponível, abra a música e use os controles de reprodução e SOLO para escolher as faixas que deseja ouvir.":"When a multitrack is available, open the song and use the playback and SOLO controls to choose which stems to hear.","Como funciona o acesso vitalício?":"How does lifetime access work?","Consulte a página “Assinatura” para ver as condições do plano. Se tiver dúvidas sobre disponibilidade ou aquisição, fale com nosso suporte antes de realizar qualquer pagamento.":"Visit the “Subscription” page to review the plan terms. If you have questions about availability or purchase, contact support before making any payment.","Preciso de ajuda com minha conta ou meus arquivos?":"Need help with your account or files?","Envie uma mensagem para sonaramultitracks@gmail.com, descrevendo o problema. Não envie sua senha.":"Email sonaramultitracks@gmail.com and describe the issue. Do not send your password.","Todos os direitos reservados.":"All rights reserved.","Selecione uma música":"Select a track","Faixa anterior em breve.":"Previous track coming soon.","Próxima faixa em breve.":"Next track coming soon.","Volume":"Volume","Fechar":"Close","Tocar seleção":"Play selection","Pausar seleção":"Pause selection","Baixar Multitrack ZIP":"Download Multitrack ZIP","Marque SOLO nos instrumentos que deseja ouvir. Sem nenhum SOLO ativo, todos os instrumentos serão reproduzidos.":"Enable SOLO on the instruments you want to hear. If no SOLO is active, all instruments will play.",
+"SUA EXPERIÊNCIA MUSICAL":"YOUR MUSIC EXPERIENCE","Entre na sua conta":"Log in to your account","Acesse sua biblioteca e organize sua jornada musical.":"Access your library and organize your musical journey.","Seu nome":"Your name","Esqueceu sua senha?":"Forgot your password?","E-mail cadastrado":"Registered email","Enviar link de recuperação":"Send recovery link","Voltar para o login":"Back to login","Nova senha":"New password","Repita a nova senha":"Confirm new password","Digite novamente":"Enter it again","Salvar nova senha":"Save new password","Sair da conta":"Log out","Sua sessão é protegida pela SONARA.":"Your session is protected by SONARA.",
+"Recuperar senha":"Reset password","Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.":"Enter your account email. We'll send you a secure link to create a new password.","Criar nova senha":"Create a new password","Escolha uma nova senha para acessar sua conta SONARA.":"Choose a new password to access your SONARA account.",
+"Login realizado com sucesso!":"Successfully logged in!","Você saiu da sua conta.":"You have logged out.","Conta criada! Continue para o acesso vitalício SONARA.":"Account created! Continue to SONARA lifetime access.","Não foi possível conectar à SONARA. Verifique se o backend está iniciado.":"Could not connect to SONARA. Make sure the backend is running.","E-mail ou senha inválidos.":"Invalid email or password.","Este e-mail já possui uma conta.":"An account with this email already exists.","As senhas não coincidem.":"Passwords do not match.","As senhas não coincidem.":"Passwords do not match.","Senha redefinida. Faça login com sua nova senha.":"Password reset. Log in with your new password.","Você ainda não salvou músicas nos favoritos.":"You haven't saved any tracks to your favorites yet."
+,
+"As novidades do catálogo aparecerão aqui.":"New releases will appear here.",
+"Adicione capas aos lançamentos para montar esta seleção.":"Add cover art to releases to build this selection.",
+"Entre na sua conta para acessar sua área pessoal.":"Log in to access your personal area.",
+"Sua conta já está criada. Confira os planos SONARA.":"Your account is already active. Check out SONARA plans.",
+"Nenhuma track de áudio foi encontrada nesta música.":"No audio stems were found for this song.",
+"Esta track não possui um arquivo de áudio disponível.":"This stem has no available audio file.",
+"Não foi possível reproduzir esta track.":"Could not play this stem.",
+"Esta música não possui tracks de áudio disponíveis.":"This song has no available audio stems.",
+"Mixagem desta música indisponível.":"Mix for this song is unavailable.",
+"Não foi possível reproduzir a mixagem.":"Could not play the mix.",
+"Não foi possível iniciar a prévia de":"Could not start the preview for",
+"Falha ao iniciar a prévia.":"Failed to start the preview.",
+"Selecione uma música primeiro.":"Select a track first.",
+"Catálogo indisponível":"Catalog unavailable",
+"CATÁLOGO OFICIAL":"OFFICIAL CATALOG",
+"CATÁLOGO INDISPONÍVEL":"CATALOG UNAVAILABLE",
+"Não foi possível carregar o catálogo. Verifique se a API SONARA está ativa.":"Could not load the catalog. Make sure the SONARA API is running.",
+"Crie sua conta para salvar músicas nos favoritos.":"Create an account to save tracks to favorites.",
+"Não foi possível atualizar seus favoritos.":"Could not update your favorites.",
+"Usuário":"User",
+"Não foi possível carregar seus favoritos.":"Could not load your favorites.",
+"Não foi possível carregar suas playlists.":"Could not load your playlists.",
+"Não foi possível criar a playlist.":"Could not create the playlist.",
+"Aqui ficam as multitracks que você baixou nesta conta.":"Your downloaded multitracks will appear here.",
+"As multitracks baixadas aparecerão aqui.":"Downloaded multitracks will appear here.",
+"Não foi possível carregar seus downloads.":"Could not load your downloads.",
+"Não foi possível baixar esta multitrack.":"Could not download this multitrack.",
+"O arquivo ZIP recebido está vazio.":"The downloaded ZIP file is empty.",
+"Carregando tracks...":"Loading stems...",
+"Falha ao carregar:":"Failed to load:",
+"Baixar Multitrack":"Download Multitrack",
+"Download iniciado.":"Download started.",
+"Download registrado com sucesso.":"Download successfully recorded.",
+"Não foi possível salvar o download no seu histórico.":"Could not save the download to your history.",
+"Playlist criada com sucesso.":"Playlist created successfully.",
+"Playlist removida com sucesso.":"Playlist successfully deleted.",
+"Tem certeza de que deseja excluir esta playlist?":"Are you sure you want to delete this playlist?",
+"Não foi possível excluir a playlist.":"Could not delete the playlist.",
+"Adicionado aos favoritos.":"Added to favorites.",
+"Removido dos favoritos.":"Removed from favorites.",
+"Idioma atualizado com sucesso.":"Language updated successfully.",
+"Não foi possível salvar o idioma.":"Could not save the language.",
+"Não foi possível atualizar o nome.":"Could not update the name.",
+"Nome atualizado com sucesso.":"Name updated successfully.",
+"Senha atualizada com sucesso.":"Password updated successfully.",
+"Não foi possível atualizar a senha.":"Could not update the password.",
+"A confirmação da nova senha não confere.":"The new password confirmation does not match.",
+"Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.":"If the email is registered, you will receive a link to reset your password.",
+"As senhas não coincidem.":"Passwords do not match.",
+"Informe seu nome e sobrenome.":"Enter your first and last name.",
+"Não foi possível conectar à SONARA. Verifique se o backend está iniciado.":"Could not connect to SONARA. Make sure the backend is running.",
+"Este e-mail já possui uma conta.":"An account with this email already exists.",
+"E-mail ou senha inválidos.":"Invalid email or password.",
+"Login realizado com sucesso!":"Successfully logged in!",
+"Você saiu da sua conta.":"You have logged out."
+};
+const sonaraOriginalText = new WeakMap();
+const sonaraOriginalAttributes = new WeakMap();
+function translateSonaraText(value) {
+    if (!value) return value;
+    const leading = String(value).match(/^\\s*/)?.[0] || "";
+    const trailing = String(value).match(/\\s*$/)?.[0] || "";
+    const core = String(value).trim();
+    if (sonaraLanguage === "en" && SONARA_TEXT_TRANSLATIONS[core]) return leading + SONARA_TEXT_TRANSLATIONS[core] + trailing;
+    return value;
+}
+function translateSonaraDocument(root = document) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+        if (node.parentElement?.closest("[data-i18n]")) return;
+        if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
+        const original = sonaraOriginalText.get(node);
+        const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+        if (node.nodeValue !== translated) node.nodeValue = translated;
+    });
+    const elements = [];
+    if (root.nodeType === Node.ELEMENT_NODE && root.matches?.("input[placeholder],textarea[placeholder],[aria-label],[title],meta[name=description]")) elements.push(root);
+    root.querySelectorAll?.("input[placeholder],textarea[placeholder],[aria-label],[title],meta[name=description]").forEach(element => elements.push(element));
+    elements.forEach(element => {
+        if (element.closest("[data-i18n]")) return;
+        let originals = sonaraOriginalAttributes.get(element);
+        if (!originals) { originals = {}; sonaraOriginalAttributes.set(element, originals); }
+        ["placeholder","aria-label","title","content"].forEach(attribute => {
+            if (element.hasAttribute(attribute) && !(attribute in originals)) originals[attribute] = element.getAttribute(attribute);
+            if (attribute in originals) {
+                const original = originals[attribute];
+                const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+                if (element.getAttribute(attribute) !== translated) element.setAttribute(attribute, translated);
+            }
+        });
+    });
+}
+const SONARA_TRANSLATIONS = {"pt":{"settingsTitle":"Configurações","settingsSubtitle":"Gerencie seu idioma e os dados da sua conta.","languageTitle":"Idioma","languageDescription":"Escolha o idioma da SONARA.","languageLabel":"Idioma da plataforma","languageHint":"A preferência será salva na sua conta.","profileTitle":"Nome de usuário","profileDescription":"Atualize como seu nome aparece na SONARA.","fullNameLabel":"Nome completo","saveName":"Salvar nome","passwordTitle":"Alterar senha","passwordDescription":"Confirme sua senha atual para criar uma nova.","currentPasswordLabel":"Senha atual","newPasswordLabel":"Nova senha","confirmPasswordLabel":"Confirmar nova senha","passwordHint":"Use pelo menos 10 caracteres.","changePassword":"Atualizar senha","navHome":"Início","navExplore":"Multitracks","navFavorites":"Favoritos","navDownloads":"Downloads","navSubscription":"Assinatura","navSettings":"Configurações","accountLabel":"CONTA"},"en":{"settingsTitle":"Settings","settingsSubtitle":"Manage your language and account details.","languageTitle":"Language","languageDescription":"Choose the SONARA language.","languageLabel":"Platform language","languageHint":"Your preference will be saved to your account.","profileTitle":"Username","profileDescription":"Update the name displayed across SONARA.","fullNameLabel":"Full name","saveName":"Save name","passwordTitle":"Change password","passwordDescription":"Confirm your current password to create a new one.","currentPasswordLabel":"Current password","newPasswordLabel":"New password","confirmPasswordLabel":"Confirm new password","passwordHint":"Use at least 10 characters.","changePassword":"Update password","navHome":"Home","navExplore":"Multitracks","navFavorites":"Favorites","navDownloads":"Downloads","navSubscription":"Subscription","navSettings":"Settings","accountLabel":"ACCOUNT"}};
+function applySonaraLanguage(language) {
+    sonaraLanguage = language === "en" ? "en" : "pt";
+    document.documentElement.lang = sonaraLanguage === "en" ? "en" : "pt-BR";
+    document.title = sonaraLanguage === "en" ? "SONARA — Every Track. One Platform." : "SONARA — Every Track. One Platform.";
+    document.querySelectorAll("[data-i18n]").forEach(element => {
+        const key = element.dataset.i18n;
+        const value = SONARA_TRANSLATIONS[sonaraLanguage][key];
+        if (value) {
+            const textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+            if (textNode) textNode.textContent = " " + value;
+            else element.textContent = value;
+        }
+    });
+    const selector = document.getElementById("accountLanguage");
+    if (selector) selector.value = sonaraLanguage;
+    translateSonaraDocument();
+}
+const sonaraLanguageObserver = new MutationObserver(records => {
+    records.forEach(record => {
+        if (record.type === "childList") record.addedNodes.forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                if (node.parentElement?.closest("[data-i18n]")) return;
+                if (!sonaraOriginalText.has(node)) sonaraOriginalText.set(node, node.nodeValue);
+                const original = sonaraOriginalText.get(node);
+                const translated = sonaraLanguage === "en" ? translateSonaraText(original) : original;
+                if (node.nodeValue !== translated) node.nodeValue = translated;
+            } else if (node.nodeType === Node.ELEMENT_NODE) translateSonaraDocument(node);
+        });
+    });
+});
+sonaraLanguageObserver.observe(document.body, { childList: true, subtree: true });
+function loadSettingsForm() {
+    if (!sonaraCurrentUser) return;
+    const name = document.getElementById("settingsFullName");
+    if (name) name.value = sonaraCurrentUser.full_name || "";
+    applySonaraLanguage(sonaraCurrentUser.language || "pt");
+}
+document.getElementById("accountLanguage")?.addEventListener("change", async event => {
+    if (!sonaraCurrentUser) return;
+    const language = event.target.value;
+    try {
+        const updated = await sonaraApi("/account/profile", {method:"PATCH",body:JSON.stringify({language})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        sonaraCurrentUser.language = updated.language;
+        applySonaraLanguage(updated.language);
+        showToast(updated.language === "en" ? "Language preference saved." : "Idioma atualizado com sucesso.");
+    } catch(error) {
+        event.target.value = sonaraLanguage;
+        showToast(error.message || "Não foi possível salvar o idioma.");
+    }
+});
+document.getElementById("profileSettingsForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("settingsFullName");
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+        const updated = await sonaraApi("/account/profile", {method:"PATCH",body:JSON.stringify({full_name:input.value.trim()})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        sonaraCurrentUser.full_name = updated.full_name;
+        updateHeaderAuthState();
+        if (document.getElementById("authAccountName")) document.getElementById("authAccountName").textContent = updated.full_name;
+        showToast(sonaraLanguage === "en" ? "Name updated successfully." : "Nome atualizado com sucesso.");
+    } catch(error) { showToast(error.message || "Não foi possível atualizar o nome."); }
+    finally { button.disabled = false; }
+});
+document.getElementById("changePasswordForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const current = document.getElementById("settingsCurrentPassword");
+    const next = document.getElementById("settingsNewPassword");
+    const confirm = document.getElementById("settingsConfirmPassword");
+    if (next.value !== confirm.value) {
+        showToast(sonaraLanguage === "en" ? "The new passwords do not match." : "A confirmação da nova senha não confere.");
+        confirm.focus(); return;
+    }
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+        await sonaraApi("/account/change-password", {method:"POST",body:JSON.stringify({current_password:current.value,new_password:next.value})}, sessionStorage.getItem(SONARA_USER_TOKEN));
+        event.currentTarget.reset();
+        showToast(sonaraLanguage === "en" ? "Password updated successfully." : "Senha atualizada com sucesso.");
+    } catch(error) { showToast(error.message || "Não foi possível atualizar a senha."); }
+    finally { button.disabled = false; }
+});
+
 async function restoreSonaraUserSession() {
     const token = sessionStorage.getItem(SONARA_USER_TOKEN);
     if (!token) return;
     try {
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, token);
-        const avatar = document.getElementById("userAccountButton");
-        avatar.textContent = (sonaraCurrentUser.full_name || "S").trim().charAt(0).toUpperCase();
-        avatar.setAttribute("aria-label", "Conta de " + sonaraCurrentUser.full_name);
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
+        updatePersonalNavigation();
+        updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
+        await handlePaymentReturn();
     } catch {
         sessionStorage.removeItem(SONARA_USER_TOKEN);
         sonaraCurrentUser = null;
+        favorites = new Set();
+        personalDownloadHistory = [];
+        updatePersonalNavigation();
+        renderAll();
     }
 }
 
-document.getElementById("userAccountButton").addEventListener("click", openAuthModal);
+
+async function handlePaymentReturn() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment_return") !== "1") return;
+
+    const orderNsu = params.get("order_nsu") || "";
+    const transactionNsu = params.get("transaction_nsu") || "";
+    const slug = params.get("slug") || "";
+    let confirmationMessage = "";
+
+    // A InfinitePay envia esses três identificadores na redirect_url.
+    // Se algum deles não vier, ainda verificamos o acesso já liberado pelo webhook.
+    if (orderNsu && transactionNsu && slug) {
+        try {
+            const result = await sonaraApi("/payments/confirm", {
+                method: "POST",
+                body: JSON.stringify({ order_nsu: orderNsu, transaction_nsu: transactionNsu, slug })
+            }, sessionStorage.getItem(SONARA_USER_TOKEN));
+            confirmationMessage = result.message || "";
+        } catch (error) {
+            confirmationMessage = error.message || "A confirmação ainda está em processamento.";
+        }
+    }
+
+    // O webhook pode confirmar o pagamento alguns instantes depois do redirecionamento.
+    // Consulte /auth/me até o backend refletir o acesso, sem confiar apenas na URL de retorno.
+    for (let attempt = 0; attempt < 12; attempt++) {
+        const hasAccess = await refreshSonaraUserAccess();
+        if (hasAccess === true) {
+            showToast("Pagamento confirmado! Seu acesso vitalício está liberado.");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+        }
+        if (attempt < 11) {
+            await new Promise(resolve => window.setTimeout(resolve, 2500));
+        }
+    }
+
+    showToast(confirmationMessage || "Pagamento recebido. Estamos aguardando a confirmação da InfinitePay. Atualize a página em alguns instantes.");
+}
+
+// Atualiza o estado quando o cliente volta à aba depois de concluir o checkout.
+window.addEventListener("focus", () => {
+    if (sonaraCurrentUser) refreshSonaraUserAccess();
+});
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && sonaraCurrentUser) refreshSonaraUserAccess();
+});
+
 document.getElementById("authClose").addEventListener("click", closeAuthModal);
 document.getElementById("authOverlay").addEventListener("click", event => {
     if (event.target.id === "authOverlay") closeAuthModal();
 });
-document.querySelectorAll("[data-auth-mode]").forEach(button =>
-    button.addEventListener("click", () => setAuthMode(button.dataset.authMode))
-);
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") closeAuthModal();
+});
+
+function showForgotPassword() {
+    document.getElementById("userAuthForm").hidden = true;
+    document.getElementById("forgotPasswordForm").hidden = false;
+    document.getElementById("resetPasswordForm").hidden = true;
+    document.getElementById("authAccount").hidden = true;
+    document.getElementById("authTitle").textContent = "Recuperar senha";
+    document.getElementById("authDescription").textContent = "Informe o e-mail da sua conta. Enviaremos um link seguro para criar uma nova senha.";
+    document.getElementById("forgotEmail").value = document.getElementById("authEmail").value.trim();
+    document.getElementById("forgotMessage").textContent = "";
+    document.getElementById("forgotEmail").focus();
+}
+
+function showResetPassword() {
+    document.getElementById("userAuthForm").hidden = true;
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("resetPasswordForm").hidden = false;
+    document.getElementById("authAccount").hidden = true;
+    document.getElementById("authTitle").textContent = "Criar nova senha";
+    document.getElementById("authDescription").textContent = "Escolha uma nova senha para acessar sua conta SONARA.";
+    document.getElementById("resetMessage").textContent = "";
+}
+
+document.getElementById("forgotPasswordLink").addEventListener("click", showForgotPassword);
+document.getElementById("backToLoginFromReset").addEventListener("click", () => {
+    passwordResetToken = "";
+    window.history.replaceState({}, document.title, window.location.pathname);
+    document.getElementById("resetPasswordForm").hidden = true;
+    document.getElementById("userAuthForm").hidden = false;
+    setAuthMode("login");
+});
+document.getElementById("backToLoginFromForgot").addEventListener("click", () => {
+    document.getElementById("forgotPasswordForm").hidden = true;
+    document.getElementById("userAuthForm").hidden = false;
+    setAuthMode("login");
+});
+
+document.getElementById("forgotPasswordForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("forgotSubmit");
+    const message = document.getElementById("forgotMessage");
+    button.disabled = true;
+    message.textContent = "";
+    try {
+        const result = await sonaraApi("/auth/forgot-password", {
+            method: "POST",
+            body: JSON.stringify({ email: document.getElementById("forgotEmail").value.trim() })
+        });
+        message.style.color = "#36C98F";
+        message.textContent = result.message || "Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.";
+    } catch (error) {
+        message.style.color = "";
+        message.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("resetPasswordForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("resetSubmit");
+    const message = document.getElementById("resetMessage");
+    const password = document.getElementById("resetNewPassword").value;
+    const confirmation = document.getElementById("resetConfirmPassword").value;
+    if (password !== confirmation) {
+        message.textContent = "As senhas não coincidem.";
+        return;
+    }
+    button.disabled = true;
+    message.textContent = "";
+    try {
+        const result = await sonaraApi("/auth/reset-password", {
+            method: "POST",
+            body: JSON.stringify({ token: passwordResetToken, new_password: password })
+        });
+        passwordResetToken = "";
+        window.history.replaceState({}, document.title, window.location.pathname);
+        document.getElementById("resetPasswordForm").reset();
+        document.getElementById("resetPasswordForm").hidden = true;
+        document.getElementById("userAuthForm").hidden = false;
+        setAuthMode("login");
+        document.getElementById("authMessage").style.color = "#36C98F";
+        document.getElementById("authMessage").textContent = result.message || "Senha redefinida. Faça login com sua nova senha.";
+    } catch (error) {
+        message.style.color = "";
+        message.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
 });
 
 document.getElementById("userAuthForm").addEventListener("submit", async event => {
@@ -637,32 +1336,28 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
     const message = document.getElementById("authMessage");
     const email = document.getElementById("authEmail").value.trim();
     const password = document.getElementById("authPassword").value;
-    const fullName = document.getElementById("authName").value.trim();
     button.disabled = true;
     message.textContent = "";
     try {
-        if (authMode === "register") {
-            await sonaraApi("/auth/register", {
-                method: "POST",
-                body: JSON.stringify({ email, full_name: fullName, password })
-            });
-        }
         const tokenResult = await sonaraApi("/auth/login", {
             method: "POST",
             body: JSON.stringify({ email, password })
         });
         sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
         sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
-        document.getElementById("userAccountButton").textContent =
-            sonaraCurrentUser.full_name.trim().charAt(0).toUpperCase();
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
+        updatePersonalNavigation();
+        updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
         document.getElementById("userAuthForm").reset();
-        openAuthModal();
-        showToast(authMode === "register" ? "Conta criada com sucesso!" : "Login realizado com sucesso!");
+        closeAuthModal();
+        showToast("Login realizado com sucesso!");
+        // Se o comprador voltou da InfinitePay deslogado, confirma o pagamento
+        // imediatamente após autenticar a conta correta.
+        await handlePaymentReturn();
     } catch (error) {
         if (error instanceof TypeError) {
             message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
-        } else if (error.status === 409) {
-            message.textContent = "Este e-mail já possui uma conta. Tente entrar.";
         } else if (error.status === 401) {
             message.textContent = "E-mail ou senha inválidos.";
         } else {
@@ -676,10 +1371,78 @@ document.getElementById("userAuthForm").addEventListener("submit", async event =
 document.getElementById("authLogout").addEventListener("click", () => {
     sessionStorage.removeItem(SONARA_USER_TOKEN);
     sonaraCurrentUser = null;
-    document.getElementById("userAccountButton").textContent = "S";
-    document.getElementById("userAccountButton").setAttribute("aria-label", "Entrar ou acessar minha conta");
+    favorites = new Set();
+    personalDownloadHistory = [];
+    renderAll();
+    updateDownloadAccessButton();
+    updatePersonalNavigation();
     closeAuthModal();
     showToast("Você saiu da sua conta.");
 });
 
+
+document.getElementById("sonaraRegistrationForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = document.getElementById("registerSubmit");
+    const message = document.getElementById("registerMessage");
+    const values = Object.fromEntries(new FormData(form).entries());
+    message.textContent = "";
+    if (values.password !== values.password_confirm) {
+        message.textContent = "As senhas não coincidem.";
+        document.getElementById("registerPasswordConfirm").focus();
+        return;
+    }
+    if (!values.full_name.trim().includes(" ")) {
+        message.textContent = "Informe seu nome e sobrenome.";
+        document.getElementById("registerFullName").focus();
+        return;
+    }
+    button.disabled = true;
+    button.innerHTML = '<i data-lucide="loader-circle"></i> Criando conta...';
+    lucide.createIcons();
+    try {
+        await sonaraApi("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({
+                full_name: values.full_name.trim(),
+                email: values.email.trim(),
+                password: values.password,
+            })
+        });
+        const tokenResult = await sonaraApi("/auth/login", {
+            method: "POST",
+            body: JSON.stringify({ email: values.email.trim(), password: values.password })
+        });
+        sessionStorage.setItem(SONARA_USER_TOKEN, tokenResult.access_token);
+        sonaraCurrentUser = await sonaraApi("/auth/me", { method: "GET" }, tokenResult.access_token);
+        applySonaraLanguage(sonaraCurrentUser.language || "pt");
+        updatePersonalNavigation();
+        updateDownloadAccessButton();
+        await Promise.all([loadUserFavorites(), loadUserDownloads()]);
+        form.reset();
+        navigate("subscription");
+        showToast("Conta criada! Continue para o acesso vitalício SONARA.");
+        // Também cobre o retorno do checkout quando a conta foi criada após voltar.
+        await handlePaymentReturn();
+    } catch (error) {
+        if (error instanceof TypeError) {
+            message.textContent = "Não foi possível conectar à SONARA. Verifique se o backend está iniciado.";
+        } else if (error.status === 409) {
+            message.textContent = "Este e-mail já possui uma conta.";
+        } else {
+            message.textContent = error.message;
+        }
+    } finally {
+        button.disabled = false;
+        button.innerHTML = 'Criar minha conta <i data-lucide="arrow-right"></i>';
+        lucide.createIcons();
+    }
+});
+
+if (passwordResetToken) {
+    openAuthModal();
+    showResetPassword();
+}
+updateLifetimePlanUI();
 restoreSonaraUserSession();

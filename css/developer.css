@@ -84,7 +84,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .status-pill.active,.status-pill.published,.status-pill.received{color:var(--green);border-color:#36c98f30;background:#36c98f0b}
 .status-pill.inactive,.status-pill.unpublished{color:var(--muted)}
 .status-pill.pending{color:var(--amber);border-color:#f5bf6730;background:#f5bf670b}
-.table-action{border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:9px;padding:7px 9px}
+.user-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.table-action{border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:9px;padding:7px 9px}
 .table-action:hover{border-color:var(--blue);color:var(--white)}
 .table-action.danger{border-color:rgba(255,123,134,.35);color:var(--danger)}.table-action.danger:hover{border-color:var(--danger);background:rgba(255,123,134,.08);color:var(--danger)}
 .table-foot{margin-top:10px;color:var(--muted);font-size:10px}
@@ -157,3 +157,33 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(255,255
 .preview-editor-controls label { margin-top: 16px; }
 .preview-editor-controls label strong { color: #EAF2FF; font-variant-numeric: tabular-nums; }
 .preview-window { min-width: 130px; text-align: center; }
+
+
+/* Visible Google Drive shortcut in the developer dashboard header */
+.dashboard-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.drive-shortcut-button{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 16px;border:1px solid rgba(130,168,255,.42);border-radius:10px;background:linear-gradient(110deg,rgba(83,126,210,.27),rgba(50,79,133,.2));color:#eaf1ff;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(36,73,142,.14)}
+.drive-shortcut-button:hover{border-color:rgba(151,182,255,.75);background:rgba(93,139,231,.24);transform:translateY(-1px)}
+.drive-shortcut-button svg{width:16px;height:16px;color:#9fbdff}
+@media(max-width:720px){.dashboard-header-actions{width:100%;justify-content:flex-start}.drive-shortcut-button,.refresh-button{flex:1}}
+
+
+/* Persistent Google Drive connection action in the developer sidebar */
+.nav-drive-link{
+  margin-top:9px!important;
+  border:1px solid rgba(130,168,255,.38)!important;
+  background:linear-gradient(105deg,rgba(91,139,235,.2),rgba(54,87,151,.12))!important;
+  color:#e8f0ff!important;
+  font-weight:800!important;
+}
+.nav-drive-link svg{color:#9fbdff!important}
+.nav-drive-link:hover{border-color:rgba(159,189,255,.72)!important;background:rgba(91,139,235,.28)!important}
+.nav-drive-link:disabled{opacity:.6;cursor:wait}
+
+
+/* Progresso real da importação em lote do Google Drive */
+.drive-progress{display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px 14px;border:1px solid rgba(96,165,250,.25);border-radius:12px;background:rgba(59,130,246,.07)}
+.drive-progress[hidden]{display:none}
+.drive-progress-track{height:9px;flex:1;overflow:hidden;border-radius:99px;background:rgba(148,163,184,.2)}
+.drive-progress-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#60a5fa);transition:width .35s ease}
+.drive-progress strong{min-width:42px;text-align:right;color:#60a5fa;font-variant-numeric:tabular-nums}
+#driveStatusMessage{white-space:pre-line}

@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Track
+from app.dependencies import get_current_user
+from app.models import Track, User
 
 router = APIRouter(tags=["Catálogo de áudio"])
 
@@ -34,6 +35,22 @@ def public_track_catalog(db: Session = Depends(get_db)):
         "stems": [{"name": p.stem.removesuffix(".mp3"), "url": f"/api/v1/tracks/{track.id}/clips/{p.name}"} for p in sorted((Path(track.stems_path).parent / "previews").glob("*.mp3"))] if track.stems_path and (Path(track.stems_path).parent / "previews").is_dir() else [],
     } for track in tracks]}
 
+
+
+@router.get("/catalog/homepage-features")
+def public_homepage_features(db: Session = Depends(get_db)):
+    from app.models import HomepageFeatureSelection
+    selection = db.get(HomepageFeatureSelection, 1)
+    if not selection:
+        return {"launches": [], "most_downloaded": [], "configured": False}
+    try:
+        return {
+            "launches": json.loads(selection.launches_json or "[]"),
+            "most_downloaded": json.loads(selection.most_downloaded_json or "[]"),
+            "configured": True,
+        }
+    except (TypeError, json.JSONDecodeError):
+        return {"launches": [], "most_downloaded": [], "configured": False}
 
 
 @router.get("/tracks/{track_id}/clips/{clip_name}")
@@ -84,20 +101,37 @@ def stream_track_mix(track_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tracks/{track_id}/download")
-def download_track_multitrack(track_id: int, db: Session = Depends(get_db)):
+def download_track_multitrack(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "user":
+        raise HTTPException(status_code=403, detail="Download disponível apenas para contas de clientes.")
+    if not user.lifetime_access:
+        raise HTTPException(status_code=403, detail="O acesso vitalício SONARA é necessário para baixar multitracks.")
     track = db.get(Track, track_id)
-    if not track or not track.is_published or not track.stems_path:
-        raise HTTPException(status_code=404, detail="Multitrack não encontrado.")
-    stems_dir = Path(track.stems_path).resolve()
-    archive_path = (stems_dir.parent / "source.zip").resolve()
-    if archive_path.parent != stems_dir.parent or not archive_path.is_file():
-        raise HTTPException(status_code=404, detail="Pacote ZIP original indisponível.")
-    safe_title = "".join(char if char.isalnum() or char in "-_ " else "" for char in track.title).strip() or f"SONARA-{track.id}"
+    if not track or not track.is_published:
+        raise HTTPException(status_code=404, detail="Multitrack não encontrada no catálogo.")
+    if not track.stems_path:
+        raise HTTPException(status_code=404, detail="Arquivo ZIP indisponível para esta multitrack.")
+
+    uploads_root = (Path(__file__).resolve().parents[3] / "uploads" / "tracks").resolve()
+    track_dir = Path(track.stems_path).resolve().parent
+    try:
+        track_dir.relative_to(uploads_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Arquivo ZIP indisponível.")
+    archive_path = (track_dir / "source.zip").resolve()
+    if archive_path.parent != track_dir or not archive_path.is_file() or archive_path.stat().st_size == 0:
+        raise HTTPException(status_code=404, detail="O arquivo ZIP desta multitrack não está disponível.")
+
+    safe_title = "".join(char if char.isalnum() or char in " -_." else "_" for char in track.title).strip(" ._")
+    filename = (safe_title or f"multitrack-{track.id}") + ".zip"
     return FileResponse(
         archive_path,
         media_type="application/zip",
-        filename=f"{safe_title}-Multitrack.zip",
-        content_disposition_type="attachment",
+        filename=filename,
     )
 
 

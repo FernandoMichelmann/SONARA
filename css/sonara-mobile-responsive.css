@@ -1,0 +1,110 @@
+/* SONARA — responsive client experience */
+*,*::before,*::after{box-sizing:border-box}
+html{width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;scroll-padding-bottom:150px}
+body{width:100%;min-width:320px;overflow-x:hidden}
+img,video,canvas,svg{max-width:100%}
+button,input,select,textarea{font:inherit}
+button,a,input[type=button],input[type=submit]{touch-action:manipulation}
+.app{width:100%;min-height:100dvh;overflow-x:clip}
+.main{min-width:0;width:100%}
+.content{width:100%;min-width:0;margin-inline:auto}
+.page{min-width:0}
+.music-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr))}
+.table-wrap,.track-table-wrap,.downloads-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{min-width:600px}
+input,select,textarea{max-width:100%;min-width:0}
+.multitrack-overlay,.auth-overlay{padding:clamp(10px,3vw,24px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.multitrack-dialog,.auth-dialog{width:min(100%,760px);max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
+.multitrack-dialog{padding:clamp(16px,3vw,30px)}
+.stem-row{min-width:0}
+.stem-row>*{min-width:0}
+.mobile-nav{z-index:45;position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-around;align-items:stretch;gap:3px;padding:7px max(8px,env(safe-area-inset-left)) calc(7px + env(safe-area-inset-bottom));}
+.mobile-nav button{flex:1;min-width:0;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:5px 2px;font-size:10px;white-space:nowrap}
+.mobile-nav button i,.mobile-nav button svg{width:19px;height:19px}
+@media(max-width:900px){
+ .sidebar{display:none!important}
+ .main{margin-left:0!important;width:100%;padding-bottom:calc(150px + env(safe-area-inset-bottom))}
+ .topbar{position:sticky;top:0;z-index:35;width:100%;height:auto;min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px}
+ .topbar-left{flex:1;min-width:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+ .home-wordmark-logo{width:112px;max-width:35vw;height:auto}
+ .featured-nav{display:none!important}
+ .topbar .search{order:3;flex:1 0 100%;width:100%;max-width:none;min-width:0}
+ .topbar .search input{width:100%;min-width:0;font-size:14px}
+ .top-right{flex-shrink:0;display:flex;align-items:center;gap:7px}
+ .sonara-header-account button{min-height:38px;padding:0 11px;font-size:11px}
+ .sonara-welcome-copy{max-width:100px;overflow:hidden}
+ .content{padding:22px 20px calc(155px + env(safe-area-inset-bottom))}
+ .hero.hero-banner-only{height:clamp(210px,45vw,340px)}
+ .music-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+ .plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .player{left:0!important;right:0!important;bottom:calc(62px + env(safe-area-inset-bottom));min-height:76px;display:flex;align-items:center;gap:12px;padding:9px 14px}
+ .player-song{flex:0 1 32%;min-width:0;max-width:32%;gap:9px}
+ .player-song>div:last-child{min-width:0;overflow:hidden}
+ .player-song h4,.player-song p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .player-cover{flex:0 0 42px;width:42px;height:42px}
+ .player-controls{flex:1;min-width:0;max-width:none}
+ .player-volume{display:none}
+ .mobile-nav{display:flex}
+ .page-title{font-size:clamp(25px,5vw,36px)}
+ .section{margin-bottom:32px}
+}
+@media(max-width:600px){
+ .topbar{gap:8px;padding:9px 12px}
+ .topbar-left{gap:8px}
+ .home-wordmark-logo{width:98px}
+ .top-right{gap:5px}
+ .sonara-header-account button{min-height:36px;padding:0 9px;font-size:10px}
+ .sonara-welcome-top{max-width:145px}
+ .sonara-welcome-copy{max-width:76px}
+ .content{padding:17px 13px calc(150px + env(safe-area-inset-bottom))}
+ .hero.hero-banner-only{height:clamp(190px,58vw,285px);border-radius:13px}
+ .hero-banner-viewport,.hero-banner-card{border-radius:10px}
+ .featured-rail-heading,.originals-heading,.section-heading{align-items:center;gap:10px}
+ .featured-rail-heading h1,.originals-heading h2,.section-heading h2{font-size:17px}
+ .featured-horizontal-rail,.originals-poster-rail{gap:10px;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+ .featured-horizontal-rail>* ,.originals-poster-rail>*{scroll-snap-align:start}
+ .music-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .music-card{min-width:0;padding:8px;border-radius:12px}
+ .music-card h3{font-size:11px}
+ .music-card>p{font-size:9px}
+ .cover-play{opacity:1;transform:none}
+ .plan-grid{grid-template-columns:1fr}
+ .plan-card{padding:20px}
+ .player{bottom:calc(60px + env(safe-area-inset-bottom));min-height:68px;padding:8px 10px;gap:8px}
+ .player-song{flex-basis:37%;max-width:37%;gap:7px}
+ .player-cover{width:36px;height:36px;flex-basis:36px}
+ .player-song h4{font-size:10px}
+ .player-song p{font-size:9px}
+ .player-controls{max-width:none}
+ .player-controls .controls{gap:7px}
+ .player-controls .controls button{min-width:30px;min-height:30px}
+ .player-controls .controls .play{width:34px;height:34px}
+ .timeline{font-size:8px;gap:5px}
+ .progress{min-width:0}
+ .mobile-nav{min-height:60px}
+ .mobile-nav button{font-size:9px}
+ .auth-dialog{width:100%;padding:22px 17px;border-radius:18px}
+ .multitrack-dialog{width:100%;max-height:calc(100dvh - 16px);padding:17px 12px;border-radius:17px}
+ .multitrack-heading{gap:10px}
+ .multitrack-heading h2{font-size:19px}
+ .multitrack-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+ .multitrack-toolbar .primary-button,.multitrack-download{flex:1;min-width:0;justify-content:center;padding:10px 8px;font-size:10px}
+ .multitrack-toolbar>span{flex-basis:100%;margin:0}
+ .stem-row{grid-template-columns:24px minmax(0,1fr) auto;gap:7px;padding:10px 7px}
+ .stem-volume{grid-column:2/4;width:100%}
+ .stem-play{padding:8px 7px;font-size:9px}
+ .settings-grid,.register-grid,.form-grid{grid-template-columns:1fr!important}
+ .settings-card,.register-card{min-width:0;padding:17px}
+ .playlist-create-form{display:flex;flex-direction:column;gap:10px}
+ .playlist-create-form>*{width:100%;min-width:0}
+ .downloads-notice,.empty-state{overflow-wrap:anywhere}
+}
+@media(max-width:380px){
+ .home-wordmark-logo{width:86px}
+ .sonara-header-account button{padding:0 7px}
+ .content{padding-inline:10px}
+ .player-song{flex-basis:34%;max-width:34%}
+ .player-controls .controls button:not(.play){display:none}
+ .mobile-nav button{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.featured-horizontal-rail,.originals-poster-rail{scroll-behavior:auto}}

@@ -1152,3 +1152,9 @@
 @media (prefers-reduced-motion: reduce) {
     .hero-banner-track { animation: none; transform: none; }
 }
+
+
+/* Password recovery */
+.auth-text-link{display:block;margin:13px auto 0;padding:3px;border:0;background:transparent;color:#8BB5FF;font-size:10px;font-weight:600}
+.auth-text-link:hover{color:#fff;text-decoration:underline}
+#forgotPasswordForm[hidden],#resetPasswordForm[hidden]{display:none!important}

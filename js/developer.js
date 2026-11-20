@@ -1,6 +1,7 @@
 (() => {
-  const API_BASE = (window.SONARA_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+  const API_BASE = (window.SONARA_API_BASE_URL || "").replace(/\/$/, "");
   const TOKEN_KEY = "sonaraDeveloperAccessToken";
+  const ACTIVE_TAB_KEY = "sonaraDeveloperActiveTab";
   const $ = id => document.getElementById(id);
   const loginCard = $("loginCard");
   const dashboardCard = $("dashboardCard");
@@ -8,6 +9,7 @@
   const loginMessage = $("formMessage");
   const loginButton = $("submitButton");
   const passwordInput = $("developerPassword");
+  const driveCallbackState = new URLSearchParams(window.location.search).get("drive");
   let identity = null;
   let userQuery = "";
   let refreshInProgress = false;
@@ -19,6 +21,12 @@
   let previewSourceDuration = 0;
 
   if (window.lucide) window.lucide.createIcons();
+
+  // Protege o painel contra submits nativos que poderiam recarregar a página.
+  // Os handlers específicos dos formulários continuam executando normalmente.
+  document.addEventListener("submit", event => {
+    if (event.target instanceof HTMLFormElement) event.preventDefault();
+  }, true);
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -50,11 +58,18 @@
   }
 
   async function request(path, options = {}, token = sessionStorage.getItem(TOKEN_KEY) || "") {
+    if (!API_BASE) throw new Error("Backend da SONARA não configurado. Configure o endereço público de testes.");
     const headers = { ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     if (options.body && !isFormData && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    const response = await fetch(API_BASE + path, { ...options, headers });
+    const response = await fetch(API_BASE + path, {
+      ...options,
+      headers,
+      // Dados administrativos nunca devem vir de cache: a biblioteca precisa refletir
+      // imediatamente uma importação recém-confirmada pelo backend.
+      cache: options.cache || "no-store"
+    });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.detail || data.message || "Não foi possível concluir a operação.");
@@ -68,9 +83,26 @@
     identity = user || identity;
     loginCard.hidden = true;
     dashboardCard.hidden = false;
-    $("developerIdentity").textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
+    const developerIdentity = $("developerIdentity");
+    if (developerIdentity) developerIdentity.textContent = identity?.name || identity?.email || "Sessão administrativa validada.";
     $("sidebarIdentity").textContent = identity?.email || "Sessão validada";
     if (window.lucide) window.lucide.createIcons();
+    const savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY);
+    const availableTabs = ["overview", "users", "tracks", "drive", "telegram", "revenue"];
+    if (driveCallbackState === "connected" || driveCallbackState === "error") {
+      setActiveTab("drive");
+    } else {
+      setActiveTab(availableTabs.includes(savedTab) ? savedTab : "overview");
+    }
+    loadDriveStatus().finally(() => {
+      if (driveCallbackState === "error") {
+        setMessage($("driveStatusMessage"), "O Google retornou um erro na autorização. Confira o log do backend para identificar a causa.", "error");
+      }
+    });
+    loadTelegramStatus();
+    if (driveCallbackState === "connected") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }
 
   function showLogin() {
@@ -79,6 +111,7 @@
   }
 
   function setActiveTab(tab) {
+    sessionStorage.setItem(ACTIVE_TAB_KEY, tab);
     document.querySelectorAll(".nav-item[data-tab]").forEach(button => {
       button.classList.toggle("active", button.dataset.tab === tab);
     });
@@ -89,6 +122,8 @@
       overview: ["Visão geral", "Acompanhe os principais números da plataforma."],
       users: ["Usuários", "Acompanhe as contas que se cadastraram na SONARA."],
       tracks: ["Biblioteca de tracks", "Envie arquivos e controle a publicação no catálogo."],
+      drive: ["Importação pelo Google Drive", "Conecte seu Google Drive e importe pastas de multitracks em lote."],
+      telegram: ["Importação pelo Telegram", "Conecte sua conta, escolha um grupo e importe arquivos ZIP/RAR."],
       revenue: ["Receitas", "Acompanhe os lançamentos financeiros registrados."]
     };
     $("pageTitle").textContent = labels[tab][0];
@@ -99,26 +134,43 @@
   async function loadUsers() {
     const params = new URLSearchParams({ q: userQuery, limit: "200" });
     const data = await request("/developer/users?" + params.toString());
+    $("overviewUsers").textContent = Number(data.total ?? data.items.length).toLocaleString("pt-BR");
     $("navUserCount").textContent = data.total ?? data.items.length;
-    $("overviewUsers").textContent = data.total ?? data.items.length;
     $("usersCount").textContent = (data.total ?? data.items.length) + " usuário(s) encontrado(s).";
     const rows = data.items.map(user => `
       <tr>
         <td><div class="cell-primary">${escapeHtml(user.full_name)}</div><div class="cell-secondary">${escapeHtml(user.email)}</div></td>
         <td>${escapeHtml(formatDate(user.created_at))}</td>
         <td><span class="status-pill ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Ativo" : "Desativado"}</span></td>
-        <td><button class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button></td>
+        <td><div class="user-actions"><button type="button" class="table-action" data-user-status="${user.id}" data-next-active="${user.is_active ? "false" : "true"}">${user.is_active ? "Desativar" : "Reativar"}</button><button type="button" class="table-action danger" data-user-delete="${user.id}" data-user-name="${escapeHtml(user.full_name)}">Excluir</button></div></td>
       </tr>`).join("");
     $("usersTable").innerHTML = rows || '<tr><td colspan="4" class="empty-cell">Nenhum usuário encontrado.</td></tr>';
   }
 
-  async function loadTracks() {
-    const results = await Promise.all([request("/developer/tracks"), request("/developer/track-categories")]);
-    const tracks = results[0].items || [];
-    renderCategoryOptions(results[1].items || []);
-    $("overviewTracks").textContent = tracks.length;
-    const published = tracks.filter(track => track.is_published).length;
-    $("publishedTracks").textContent = published + " publicada(s) no catálogo";
+  async function loadTracks(extraTracks = []) {
+    // Prioriza a resposta da própria importação. Assim, a música aparece mesmo
+    // se a consulta subsequente da biblioteca demorar ou falhar temporariamente.
+    let tracks = [];
+    try {
+      const tracksData = await request("/developer/tracks", { cache: "no-store" });
+      tracks = tracksData.items || [];
+    } catch (error) {
+      if (!extraTracks.length) throw error;
+      console.warn("Consulta da biblioteca indisponível; exibindo as tracks confirmadas pela importação.", error);
+    }
+    const merged = new Map();
+    [...tracks, ...extraTracks].forEach(track => {
+      if (track && track.id != null) merged.set(String(track.id), track);
+    });
+    tracks = [...merged.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    try {
+      const categoriesData = await request("/developer/track-categories", { cache: "no-store" });
+      renderCategoryOptions(categoriesData.items || []);
+    } catch (error) {
+      console.warn("Não foi possível atualizar as categorias; a biblioteca de tracks foi carregada.", error);
+    }
+    // O indicador representa todas as tracks cadastradas, inclusive rascunhos recém-importados.
+    $("overviewTracks").textContent = tracks.length.toLocaleString("pt-BR");
     const rows = tracks.map(track => {
       const tags = (track.categories || []).map(tag => '<span class="tag-pill">' + escapeHtml(tag) + '</span>').join(" ");
       return '<tr>' +
@@ -128,12 +180,14 @@
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
         '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
         '<td>' +
-          '<button class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
-          (track.preview_ready ? '<button class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
-          '<button class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
+          '<button type="button" class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
+          '<button type="button" class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
+          (track.preview_ready ? '<button type="button" class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
+          '<button type="button" class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
         '</td></tr>';
     }).join("");
     $("tracksTable").innerHTML = rows || '<tr><td colspan="6" class="empty-cell">Nenhuma track enviada ainda.</td></tr>';
+    return tracks;
   }
 
   function renderCategoryOptions(categories) {
@@ -161,11 +215,10 @@
       request("/developer/revenue-summary"),
       request("/developer/revenues?limit=200")
     ]);
+    $("overviewRevenue").textContent = formatMoney(summary.received_total);
     $("revenueReceived").textContent = formatMoney(summary.received_total);
     $("revenuePending").textContent = formatMoney(summary.pending_total);
     $("revenueEntries").textContent = summary.entries_count ?? (data.items || []).length;
-    $("overviewRevenue").textContent = formatMoney(summary.received_total);
-    $("overviewPending").textContent = formatMoney(summary.pending_total);
     const rows = (data.items || []).map(entry => `
       <tr>
         <td><div class="cell-primary">${escapeHtml(entry.description)}</div></td>
@@ -177,12 +230,70 @@
     $("revenueTable").innerHTML = rows || '<tr><td colspan="5" class="empty-cell">Nenhum lançamento financeiro registrado.</td></tr>';
   }
 
+
+  let homepageFeatureTracks = [];
+  let homepageFeatureSelection = { launches: [], most_downloaded: [] };
+
+  function renderHomepageFeatureOptions() {
+    const renderGroup = (targetId, key, limit) => {
+      const container = $(targetId);
+      const selected = new Set(homepageFeatureSelection[key].map(Number));
+      container.innerHTML = homepageFeatureTracks.map(track => {
+        const id = Number(track.id);
+        return '<label class="homepage-feature-option"><input type="checkbox" data-home-feature="' + key + '" value="' + id + '" ' + (selected.has(id) ? "checked" : "") + '><span>' + escapeHtml(track.title) + '<small>' + escapeHtml(track.artist || "Artista não informado") + '</small></span></label>';
+      }).join("") || '<span class="muted">Nenhuma track publicada disponível.</span>';
+      container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
+        const checked = [...container.querySelectorAll("input:checked")];
+        if (checked.length > limit) {
+          input.checked = false;
+          setMessage($("homepageFeatureMessage"), "Selecione no máximo " + limit + " tracks nesta seção.", "error");
+          return;
+        }
+        homepageFeatureSelection[key] = checked.map(item => Number(item.value));
+        setMessage($("homepageFeatureMessage"), "");
+      }));
+    };
+    renderGroup("launchesFeatureOptions", "launches", 12);
+    renderGroup("mostDownloadedFeatureOptions", "most_downloaded", 14);
+  }
+
+  async function loadHomepageFeatures() {
+    const [tracksData, selection] = await Promise.all([
+      request("/developer/tracks"),
+      request("/developer/homepage-features")
+    ]);
+    homepageFeatureTracks = (tracksData.items || []).filter(track => track.is_published && track.cover_url);
+    homepageFeatureSelection = {
+      launches: selection.launches || [],
+      most_downloaded: selection.most_downloaded || []
+    };
+    renderHomepageFeatureOptions();
+  }
+
+  async function saveHomepageFeatures() {
+    const button = $("saveHomepageFeatures");
+    button.disabled = true;
+    try {
+      const saved = await request("/developer/homepage-features", {
+        method: "PUT",
+        body: JSON.stringify(homepageFeatureSelection)
+      });
+      homepageFeatureSelection = { launches: saved.launches, most_downloaded: saved.most_downloaded };
+      setMessage($("homepageFeatureMessage"), "Destaques salvos com sucesso.", "success");
+    } catch (error) {
+      setMessage($("homepageFeatureMessage"), error.message || "Não foi possível salvar os destaques.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+
   async function refreshAll() {
     if (refreshInProgress) return;
     refreshInProgress = true;
     $("refreshButton").disabled = true;
     setGlobalMessage("Atualizando dados...");
-    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue()]);
+    const results = await Promise.allSettled([loadUsers(), loadTracks(), loadRevenue(), loadHomepageFeatures()]);
     const failed = results.filter(result => result.status === "rejected");
     if (failed.length) {
       setGlobalMessage("Alguns dados não puderam ser carregados. " + failed.map(result => result.reason?.message || "Erro desconhecido").join(" "), "error");
@@ -195,14 +306,31 @@
 
   async function validateSession() {
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (!token) return;
+    if (!token) {
+      showLogin();
+      return;
+    }
+
     try {
       identity = await request("/developer/me", { method: "GET" }, token);
       showDashboard(identity);
       await refreshAll();
-    } catch {
-      sessionStorage.removeItem(TOKEN_KEY);
-      showLogin();
+    } catch (error) {
+      // Só encerra a sessão quando a API confirma que o token não é mais válido.
+      // Falhas de rede, indisponibilidade ou erros 5xx não podem expulsar o admin.
+      if (error.status === 401 || error.status === 403) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin();
+        setMessage(loginMessage, "Sua sessão administrativa expirou. Entre novamente.", "error");
+        return;
+      }
+
+      showDashboard(identity || { name: "Sessão administrativa", email: "Conexão temporariamente indisponível" });
+      setGlobalMessage(
+        "Não foi possível validar a sessão agora. Seu acesso foi preservado; verifique o backend e tente atualizar os dados. " +
+        (error.message || ""),
+        "error"
+      );
     }
   }
 
@@ -247,6 +375,7 @@
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
   $("refreshButton").addEventListener("click", refreshAll);
+  $("saveHomepageFeatures").addEventListener("click", saveHomepageFeatures);
   $("logoutButton").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
     identity = null;
@@ -265,6 +394,23 @@
   });
 
   $("usersTable").addEventListener("click", async event => {
+    const deleteButton = event.target.closest("[data-user-delete]");
+    if (deleteButton) {
+      const userId = deleteButton.dataset.userDelete;
+      const userName = deleteButton.dataset.userName || "este usuário";
+      if (!window.confirm('Excluir permanentemente a conta de "' + userName + '"? Os dados da conta serão apagados e esta ação não pode ser desfeita.')) return;
+      deleteButton.disabled = true;
+      try {
+        await request("/developer/users/" + userId, { method: "DELETE" });
+        setGlobalMessage("Usuário e dados da conta excluídos permanentemente.", "success");
+        await loadUsers();
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível excluir o usuário.", "error");
+        deleteButton.disabled = false;
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-user-status]");
     if (!button) return;
     button.disabled = true;
@@ -421,6 +567,56 @@
     audio.load();
   }
 
+  async function openTrackMetadataEditor(track) {
+    $("trackMetadataEditor").hidden = false;
+    $("editTrackTitle").value = track.title || "";
+    $("editTrackArtist").value = track.artist || "";
+    $("editTrackCover").value = "";
+    $("trackMetadataForm").dataset.trackId = String(track.id);
+    setMessage($("trackMetadataMessage"), "Edite o nome e, se desejar, escolha uma nova capa. Os stems importados serão mantidos.");
+    $("trackMetadataEditor").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  $("cancelTrackMetadata").addEventListener("click", () => {
+    $("trackMetadataEditor").hidden = true;
+    $("trackMetadataForm").reset();
+  });
+
+  $("trackMetadataForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const trackId = form.dataset.trackId;
+    if (!trackId) return;
+    const button = $("saveTrackMetadata");
+    const body = new FormData();
+    body.set("title", $("editTrackTitle").value.trim());
+    body.set("artist", $("editTrackArtist").value.trim());
+    const cover = $("editTrackCover").files[0];
+    if (cover) body.set("cover", cover);
+    button.disabled = true;
+    setMessage($("trackMetadataMessage"), "Salvando informações da música...");
+    try {
+      await request("/developer/tracks/" + trackId, { method: "PATCH", body });
+      setMessage($("trackMetadataMessage"), "Nome e capa salvos com sucesso.", "success");
+      await loadTracks();
+      $("trackMetadataEditor").hidden = true;
+      const refreshed = await request("/developer/tracks");
+      const savedTrack = (refreshed.items || []).find(track => String(track.id) === String(trackId));
+      if (savedTrack) {
+        previewPublishAfter = Boolean(savedTrack.is_published);
+        $("previewPublishToggle").checked = previewPublishAfter;
+        await openPreviewEditor(savedTrack);
+        setGlobalMessage("Nome e capa salvos. Agora escolha o trecho de áudio da prévia.", "success");
+      } else {
+        setGlobalMessage("Informações salvas. Abra a configuração de prévia na lista de tracks.", "success");
+      }
+    } catch (error) {
+      setMessage($("trackMetadataMessage"), error.message || "Não foi possível salvar os dados da música.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   $("previewSourceAudio").addEventListener("loadedmetadata", () => {
     const audio = $("previewSourceAudio");
     previewSourceDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
@@ -502,6 +698,38 @@
     }
   });
 
+  $("deleteAllTracksButton").addEventListener("click", async () => {
+    const confirmed = window.confirm("ATENÇÃO: esta ação excluirá TODAS as tracks, publicadas ou não, importadas pelo Drive ou enviadas manualmente, incluindo os arquivos de áudio e capas. Usuários, pagamentos e receitas serão preservados. Deseja continuar?");
+    if (!confirmed) return;
+    const confirmationText = window.prompt('Para confirmar a exclusão definitiva de todas as tracks, digite exatamente: APAGAR TODAS');
+    if (confirmationText !== "APAGAR TODAS") {
+      setGlobalMessage("Exclusão cancelada. Nenhuma track foi apagada.", "error");
+      return;
+    }
+    const button = $("deleteAllTracksButton");
+    button.disabled = true;
+    button.textContent = "Excluindo tracks...";
+    try {
+      const result = await request("/developer/tracks", { method: "DELETE" });
+      if (pendingPreviewTrack) {
+        $("previewSourceAudio").pause();
+        $("previewSourceAudio").removeAttribute("src");
+        $("previewSourceAudio").load();
+        if (previewSourceObjectUrl) URL.revokeObjectURL(previewSourceObjectUrl);
+        previewSourceObjectUrl = null;
+        pendingPreviewTrack = null;
+        $("previewEditor").hidden = true;
+      }
+      setGlobalMessage(result.message + " Total excluído: " + result.deleted + ". Pastas removidas: " + result.files_deleted + ". Capas removidas: " + result.covers_deleted + ".", "success");
+      await Promise.all([loadTracks(), loadHomepageFeatures()]);
+    } catch (error) {
+      setGlobalMessage(error.message || "Não foi possível excluir todas as tracks.", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Excluir todas as tracks";
+    }
+  });
+
   $("tracksTable").addEventListener("click", async event => {
     const deleteButton = event.target.closest("[data-track-delete]");
     if (deleteButton) {
@@ -526,6 +754,22 @@
       } catch (error) {
         setGlobalMessage(error.message || "Não foi possível excluir a track.", "error");
         deleteButton.disabled = false;
+      }
+      return;
+    }
+
+    const editButton = event.target.closest("[data-track-edit]");
+    if (editButton) {
+      editButton.disabled = true;
+      try {
+        const data = await request("/developer/tracks");
+        const track = (data.items || []).find(item => String(item.id) === editButton.dataset.trackEdit);
+        if (!track) throw new Error("Multitrack não encontrada na biblioteca.");
+        await openTrackMetadataEditor(track);
+      } catch (error) {
+        setGlobalMessage(error.message || "Não foi possível abrir a edição da música.", "error");
+      } finally {
+        editButton.disabled = false;
       }
       return;
     }
@@ -589,6 +833,648 @@
       await loadRevenue();
     } catch (error) {
       setMessage(message, error.message || "Não foi possível registrar o lançamento.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+
+  function extractDriveFolderId(value) {
+    const input = String(value || "").trim();
+    const match = input.match(/(?:folders\/|[?&]id=)([A-Za-z0-9_-]+)/);
+    return match ? match[1] : (/^[A-Za-z0-9_-]{10,}$/.test(input) ? input : "");
+  }
+
+  async function loadDriveStatus() {
+    try {
+      const status = await request("/developer/drive/status");
+      const message = $("driveStatusMessage");
+      if (!status.configured) {
+        setMessage(message, "Integração criada. Falta configurar as credenciais OAuth do Google no backend.", "error");
+      } else if (status.connected) {
+        setMessage(message, "Google Drive conectado" + (status.email ? " (" + status.email + ")" : "") + ".", "success");
+      } else {
+        setMessage(message, "Credenciais configuradas. Conecte sua conta Google para continuar.");
+      }
+      $("driveConnectButton").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("openDriveTab").querySelector("span").textContent = status.connected ? "Google Drive conectado" : "Vincular Google Drive";
+      $("driveDisconnectButton").hidden = !status.connected;
+      if (window.lucide) window.lucide.createIcons();
+      $("driveScanButton").disabled = !status.connected;
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  }
+
+  async function beginDriveConnection() {
+    setActiveTab("drive");
+    const buttons = [$("driveConnectButton"), $("openDriveTab")];
+    buttons.forEach(button => { if (button) button.disabled = true; });
+    setMessage($("driveStatusMessage"), "Abrindo a autorização segura do Google Drive...");
+    try {
+      const result = await request("/developer/drive/connect");
+      if (!result.authorization_url) throw new Error("O servidor não retornou o link de autorização do Google.");
+      window.location.assign(result.authorization_url);
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível iniciar a conexão com o Google Drive.", "error");
+      buttons.forEach(button => { if (button) button.disabled = false; });
+    }
+  }
+
+  $("driveConnectButton").addEventListener("click", beginDriveConnection);
+  $("openDriveTab").addEventListener("click", beginDriveConnection);
+
+  $("driveDisconnectButton").addEventListener("click", async () => {
+    try {
+      await request("/developer/drive/connection", { method: "DELETE" });
+      $("driveFolderResults").innerHTML = "";
+      setMessage($("driveStatusMessage"), "Google Drive desconectado.");
+      await loadDriveStatus();
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    }
+  });
+
+  $("driveScanButton").addEventListener("click", async () => {
+    const folderId = extractDriveFolderId($("driveRootFolder").value);
+    if (!folderId) {
+      setMessage($("driveStatusMessage"), "Cole o link ou ID de uma pasta válida do Google Drive.", "error");
+      return;
+    }
+    const button = $("driveScanButton");
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Analisando...";
+    $("driveImportButton").disabled = true;
+    $("driveFolderResults").innerHTML = "";
+    setMessage($("driveStatusMessage"), "Analisando a pasta do Google Drive. Buscando músicas e arquivos de áudio...");
+    try {
+      const result = await request("/developer/drive/folders?parent_id=" + encodeURIComponent(folderId));
+      const folders = Array.isArray(result.folders) ? result.folders : [];
+      $("driveFolderResults").innerHTML = folders.map(folder => {
+        const isZip = folder.item_type === "zip";
+        const isRar = folder.item_type === "rar";
+        const hasAudio = Number(folder.audio_count) > 0;
+        const hasArchives = isRar || Number(folder.archive_count) > 0;
+        const isArchive = isZip || isRar;
+        const disabled = folder.already_imported || (!isArchive && !hasAudio && !hasArchives);
+        const detail = isZip ? "ZIP · extração automática" :
+          isRar ? "RAR · extração automática" :
+          hasArchives ? "Contém arquivo(s) compactado(s)" :
+          hasAudio ? Number(folder.audio_count) + " arquivo(s) de áudio" : "Sem áudio compatível";
+        return '<label class="check-field drive-folder-row ' + (folder.already_imported ? "is-imported" : "") + '" style="padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
+          '<input type="checkbox" data-drive-folder="' + escapeHtml(folder.id) + '" ' + (disabled ? "disabled" : "") + '>' +
+          '<span class="drive-folder-copy"><strong>' + ((isZip || isRar) ? "🗜️ " : "📁 ") + escapeHtml(folder.name) +
+          (folder.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importada</span>' : '') +
+          '</strong><small>' + detail + '</small></span></label>';
+      }).join("") || '<p class="muted">Nenhuma pasta ou arquivo compactado com áudio foi encontrado dentro da pasta selecionada.</p>';
+      const selectableFolders = folders.filter(folder => !folder.already_imported &&
+        (folder.item_type === "zip" || folder.item_type === "rar" ||
+          Number(folder.audio_count) > 0 || Number(folder.archive_count) > 0));
+      $("driveSelectAllButton").hidden = selectableFolders.length === 0;
+      $("driveSelectAllButton").disabled = selectableFolders.length === 0;
+      $("driveSelectAllButton").textContent = "Marcar todas";
+      $("driveImportButton").disabled = true;
+      if (!folders.length) {
+        setMessage($("driveStatusMessage"), "A pasta foi acessada, mas nenhuma subpasta com áudio ou arquivo ZIP foi encontrada. Confira se as músicas estão diretamente dentro dela ou em subpastas.", "error");
+      } else {
+        setMessage($("driveStatusMessage"), (result.total ?? folders.length) + " item(ns) encontrado(s) em “" + (result.parent || "pasta selecionada") + "”. Selecione as músicas ou arquivos compactados que deseja importar.", "success");
+      }
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel || "Analisar pastas";
+    }
+  });
+
+  $("driveFolderResults").addEventListener("change", () => {
+    const selectable = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:not(:disabled)")];
+    const selected = selectable.filter(input => input.checked).length;
+    $("driveImportButton").disabled = selected === 0;
+    const selectAllButton = $("driveSelectAllButton");
+    if (selectAllButton && selectable.length) {
+      selectAllButton.textContent = selected === selectable.length ? "Desmarcar todas" : "Marcar todas";
+    }
+  });
+
+  $("driveSelectAllButton").addEventListener("click", () => {
+    const selectable = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:not(:disabled)")];
+    const shouldSelect = selectable.some(input => !input.checked);
+    selectable.forEach(input => { input.checked = shouldSelect; });
+    $("driveImportButton").disabled = !shouldSelect;
+    $("driveSelectAllButton").textContent = shouldSelect ? "Desmarcar todas" : "Marcar todas";
+  });
+
+  $("driveImportButton").addEventListener("click", async event => {
+    // Impede qualquer submit/navegação acidental do formulário administrativo.
+    event.preventDefault();
+    event.stopPropagation();
+
+    const folderIds = [...$("driveFolderResults").querySelectorAll("input[data-drive-folder]:checked")].map(input => input.dataset.driveFolder);
+    if (!folderIds.length) {
+      setMessage($("driveStatusMessage"), "Selecione pelo menos um arquivo ZIP ou uma pasta antes de importar.", "error");
+      return;
+    }
+
+    const button = $("driveImportButton");
+    const originalLabel = button.textContent;
+    const jobId = (window.crypto?.randomUUID?.() || ("sonara-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
+    let progressTimer = null;
+    let progressStopped = false;
+    const renderProgress = data => {
+      const total = Number(data.total || 0);
+      const completed = Number(data.completed || 0);
+      const percent = total ? Math.min(100, Math.round((completed + Number(data.item_percent || 0) / 100) / total * 100)) : 0;
+      const details = `${completed} de ${total || "…"} item(ns) processado(s) · ${data.imported || 0} importada(s) · ${data.skipped || 0} ignorada(s) · ${data.errors || 0} erro(s)`;
+      setMessage($("driveStatusMessage"), `Importação em andamento: ${percent}%\n${details}\nAgora: ${data.current || "Preparando..."}`);
+      const bar = $("driveProgressBar");
+      const fill = $("driveProgressFill");
+      const label = $("driveProgressLabel");
+      if (bar && fill && label) {
+        bar.hidden = false;
+        fill.style.width = percent + "%";
+        label.textContent = percent + "%";
+      }
+    };
+    button.disabled = true;
+    button.textContent = "Importando... aguarde";
+    $("driveProgressBar").hidden = false;
+    $("driveProgressFill").style.width = "0%";
+    $("driveProgressLabel").textContent = "0%";
+    setMessage($("driveStatusMessage"), "Preparando importação. Não feche esta página.");
+    progressTimer = window.setInterval(async () => {
+      if (progressStopped) return;
+      try {
+        const state = await request("/developer/drive/import-progress/" + encodeURIComponent(jobId));
+        renderProgress(state);
+      } catch (error) {
+        // A consulta pode ocorrer antes de o servidor registrar o trabalho.
+      }
+    }, 1000);
+
+    try {
+      const result = await request("/developer/drive/import", {
+        method: "POST",
+        body: JSON.stringify({ folder_ids: folderIds, job_id: jobId })
+      });
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
+      const finalProgress = await request("/developer/drive/import-progress/" + encodeURIComponent(jobId)).catch(() => null);
+      if (finalProgress) renderProgress(finalProgress);
+      const imported = result.imported || [];
+      const skipped = result.skipped || [];
+      const errors = result.errors || [];
+      let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
+      if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
+      if (errors.length) summary += " " + errors.length + " item(ns) tiveram erro.";
+      if (!imported.length && !skipped.length && !errors.length) {
+        summary = "A importação terminou, mas o servidor não retornou itens processados.";
+      }
+      setMessage($("driveStatusMessage"), summary, errors.length ? "error" : "success");
+      if (errors.length) {
+        $("driveFolderResults").insertAdjacentHTML("beforeend",
+          errors.map(item => '<p class="inline-message error"><strong>' + escapeHtml(item.item_name || "Arquivo sem identificação") + ':</strong> ' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      const trackToFinalize = imported[0] || skipped.find(item => item.id);
+      const confirmedTracks = imported.map(item => item.track).filter(Boolean);
+
+      // Sempre atualiza a biblioteca com TODAS as tracks confirmadas pelo Drive.
+      // A resposta da importação é mesclada com a consulta do banco para evitar
+      // que uma resposta temporariamente desatualizada esconda as músicas novas.
+      if (!errors.length) setActiveTab("tracks");
+      $("trackMetadataEditor").hidden = true;
+      $("previewEditor").hidden = true;
+      const tracks = await loadTracks(confirmedTracks);
+      if (errors.length) {
+        setMessage($("driveStatusMessage"),
+          summary + "\\nConfira abaixo o nome de cada arquivo que falhou e o motivo. As tracks importadas foram preservadas e atualizadas na biblioteca.",
+          "error");
+        return;
+      }
+      if (trackToFinalize) {
+        const importedTrack = tracks.find(track => String(track.id) === String(trackToFinalize.id));
+        if (importedTrack && imported.length) {
+          await openTrackMetadataEditor(importedTrack);
+          setGlobalMessage(
+            imported.length + " multitrack(s) importada(s). Todas foram carregadas na tabela Tracks; finalize os dados de cada música e configure as prévias.",
+            "success"
+          );
+        } else if (importedTrack) {
+          await openTrackMetadataEditor(importedTrack);
+          setGlobalMessage("Esta multitrack já estava importada. Você pode continuar a edição do nome, capa e prévia.", "success");
+        } else {
+          setGlobalMessage("A importação foi concluída, mas a track selecionada não apareceu na biblioteca. Confira o resultado da importação e o backend.", "error");
+        }
+      } else if (imported.length) {
+        setGlobalMessage(imported.length + " multitrack(s) importada(s) e exibida(s) na tabela Tracks.", "success");
+      } else {
+        setGlobalMessage("Biblioteca atualizada. Nenhuma nova track foi adicionada nesta operação.", errors.length ? "error" : "success");
+      }
+      $("tracksTable").closest(".table-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      setMessage($("driveStatusMessage"), error.message || "Não foi possível importar os arquivos selecionados.", "error");
+    } finally {
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
+      button.disabled = false;
+      button.textContent = originalLabel || "Importar músicas selecionadas";
+    }
+  });
+
+
+  // Indexação completa e seleção virtualizada dos arquivos do Telegram.
+  let telegramNextOffset = 0;
+  let telegramFilesLoaded = false;
+  let telegramFilesData = [];
+  let telegramFilteredFiles = [];
+  let telegramSelectedIds = new Set();
+  let telegramSearchTerm = "";
+  let telegramRenderFrame = null;
+  const TELEGRAM_PAGE_SIZE = 500;
+  const TELEGRAM_ROW_HEIGHT = 92;
+  const TELEGRAM_VISIBLE_ROWS = 70;
+
+  function renderTelegramFiles() {
+    const container = $("telegramFileResults");
+    const query = telegramSearchTerm.trim().toLocaleLowerCase("pt-BR");
+    telegramFilteredFiles = query
+      ? telegramFilesData.filter(file => String(file.name || "").toLocaleLowerCase("pt-BR").includes(query))
+      : telegramFilesData;
+    const start = Math.max(0, Math.floor(container.scrollTop / TELEGRAM_ROW_HEIGHT) - 8);
+    const end = Math.min(telegramFilteredFiles.length, start + TELEGRAM_VISIBLE_ROWS);
+    const visible = telegramFilteredFiles.slice(start, end);
+    const rows = visible.map(file => {
+      const size = file.size >= 1024 * 1024 * 1024
+        ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
+        : (file.size / (1024 * 1024)).toFixed(1) + " MB";
+      const selected = telegramSelectedIds.has(Number(file.message_id));
+      return '<label class="check-field telegram-file-row ' + (file.already_imported ? "is-imported" : "") +
+        '" style="height:84px;min-height:84px;box-sizing:border-box;overflow:hidden;padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;display:flex;gap:12px;align-items:center">' +
+        '<input type="checkbox" data-telegram-message="' + escapeHtml(file.message_id) + '" ' +
+        (selected ? "checked " : "") + (file.already_imported ? "disabled" : "") + '>' +
+        '<span style="display:grid;gap:4px;min-width:0;overflow:hidden"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🗜️ ' + escapeHtml(file.name) +
+        (file.already_imported ? '<span class="imported-status"><span aria-hidden="true">✓</span> Importado</span>' : '') +
+        (file.possible_duplicate ? '<span class="imported-status" style="background:rgba(217,148,45,.12);color:#b7791f">Possível repetido · confira a versão</span>' : '') +
+        '</strong><small>' + escapeHtml(file.extension) + " · " + size +
+        (file.date ? " · " + escapeHtml(formatDate(file.date)) : "") + '</small></span></label>';
+    }).join("");
+    const top = start * TELEGRAM_ROW_HEIGHT;
+    const bottom = Math.max(0, (telegramFilteredFiles.length - end) * TELEGRAM_ROW_HEIGHT);
+    container.innerHTML = visible.length
+      ? '<div style="height:' + top + 'px" aria-hidden="true"></div>' + rows +
+        '<div style="height:' + bottom + 'px" aria-hidden="true"></div>'
+      : '<p class="muted" style="padding:16px">Nenhum arquivo corresponde à busca.</p>';
+    updateTelegramSelection();
+    const summary = $("telegramIndexSummary");
+    if (summary) {
+      const available = telegramFilesData.filter(file => !file.already_imported).length;
+      const imported = telegramFilesData.length - available;
+      summary.textContent = telegramFilesData.length.toLocaleString("pt-BR") + " arquivos únicos · " +
+        available.toLocaleString("pt-BR") + " disponíveis · " + imported.toLocaleString("pt-BR") +
+        " já importados · exibindo " + telegramFilteredFiles.length.toLocaleString("pt-BR") + " resultado(s) da busca.";
+    }
+  }
+
+  function updateTelegramSelection() {
+    const container = $("telegramFileResults");
+    container.querySelectorAll('input[data-telegram-message]').forEach(input => {
+      input.checked = telegramSelectedIds.has(Number(input.dataset.telegramMessage));
+    });
+    const selected = telegramSelectedIds.size;
+    $("telegramImportButton").disabled = selected === 0;
+    $("telegramSelectAllButton").hidden = !telegramFilteredFiles.some(file => !file.already_imported);
+    $("telegramSelectAllButton").textContent = selected ? selected + " selecionado(s) · marcar até 30" : "Marcar até 30";
+  }
+
+  async function loadTelegramStatus() {
+    try {
+      const status = await request("/developer/telegram/status");
+      const connected = Boolean(status.connected);
+      $("telegramBrowser").hidden = !connected;
+      $("telegramSendCodeButton").hidden = connected;
+      $("telegramDisconnectButton").hidden = !connected;
+      $("telegramPhone").disabled = connected;
+      if (connected) {
+        setMessage($("telegramStatusMessage"),
+          "Telegram conectado" + (status.account ? " como " + status.account : "") + ".",
+          "success");
+        await loadTelegramGroups();
+      } else {
+        setMessage($("telegramStatusMessage"),
+          status.configured
+            ? "Conecte sua conta do Telegram para consultar os grupos."
+            : "Configure as credenciais da API do Telegram no backend para conectar sua conta.",
+          status.configured ? "" : "error");
+      }
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    }
+  }
+
+  async function loadTelegramGroups() {
+    const button = $("telegramLoadGroupsButton");
+    const select = $("telegramGroupSelect");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Carregando grupos...";
+    }
+    try {
+      const data = await request("/developer/telegram/groups");
+      const groups = Array.isArray(data.items) ? data.items : [];
+      const previous = select.value;
+      select.innerHTML = '<option value="">Selecione um grupo</option>' + groups.map(group => {
+        const members = group.members
+          ? " · " + Number(group.members).toLocaleString("pt-BR") + " membros"
+          : "";
+        return '<option value="' + escapeHtml(group.id) + '">' +
+          escapeHtml(group.title) + escapeHtml(members) + '</option>';
+      }).join("");
+      if (groups.some(group => String(group.id) === previous)) select.value = previous;
+      $("telegramScanButton").disabled = !select.value;
+      setMessage($("telegramStatusMessage"),
+        groups.length + " grupo(s) encontrado(s).",
+        "success");
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Atualizar grupos";
+      }
+    }
+  }
+
+  async function loadAllIndexedTelegramFiles(chatId) {
+    telegramFilesData = [];
+    telegramNextOffset = 0;
+    telegramFilesLoaded = false;
+    const container = $("telegramFileResults");
+    container.scrollTop = 0;
+    container.innerHTML = "";
+    while (true) {
+      const params = new URLSearchParams({ chat_id: chatId, limit: String(TELEGRAM_PAGE_SIZE) });
+      if (telegramNextOffset) params.set("offset_id", String(telegramNextOffset));
+      const data = await request("/developer/telegram/files?" + params.toString());
+      telegramFilesData.push(...(data.items || []));
+      telegramNextOffset = data.next_offset_id || 0;
+      const total = Number(data.total || telegramFilesData.length);
+      setMessage($("telegramImportMessage"),
+        "Carregando catálogo indexado: " + telegramFilesData.length.toLocaleString("pt-BR") +
+        " de " + total.toLocaleString("pt-BR") + " arquivos únicos...");
+      $("telegramProgressBar").hidden = false;
+      const percent = total ? Math.min(100, Math.round(telegramFilesData.length / total * 100)) : 100;
+      $("telegramProgressFill").style.width = percent + "%";
+      $("telegramProgressLabel").textContent = percent + "%";
+      if (!telegramNextOffset) break;
+    }
+    telegramFilesLoaded = true;
+    telegramSearchTerm = $("telegramFileSearch").value || "";
+    renderTelegramFiles();
+    $("telegramProgressBar").hidden = true;
+    setMessage($("telegramImportMessage"),
+      telegramFilesData.length.toLocaleString("pt-BR") +
+      " arquivos únicos carregados. Cópias exatas foram removidas da lista; possíveis versões continuam disponíveis para conferência.",
+      "success");
+  }
+
+  async function scanTelegramFiles() {
+    const chatId = $("telegramGroupSelect").value;
+    if (!chatId) return;
+    const button = $("telegramScanButton");
+    button.disabled = true;
+    button.textContent = "Indexando histórico...";
+    telegramSelectedIds.clear();
+    telegramFilesData = [];
+    telegramSearchTerm = "";
+    $("telegramFileSearch").value = "";
+    $("telegramFileResults").innerHTML = "";
+    $("telegramProgressBar").hidden = false;
+    $("telegramProgressFill").style.width = "0%";
+    $("telegramProgressLabel").textContent = "Preparando...";
+    try {
+      await request("/developer/telegram/index?chat_id=" + encodeURIComponent(chatId), { method: "POST" });
+      let state;
+      do {
+        await new Promise(resolve => window.setTimeout(resolve, 1200));
+        state = await request("/developer/telegram/index/status?chat_id=" + encodeURIComponent(chatId));
+        const found = Number(state.found || state.total || 0);
+        setMessage($("telegramImportMessage"),
+          (state.status === "processing" || state.status === "queued" ? "Indexando histórico do grupo..." : "Preparando catálogo...") +
+          " " + found.toLocaleString("pt-BR") + " arquivos encontrados · " +
+          Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " cópias exatas ignoradas.");
+        $("telegramProgressLabel").textContent = found.toLocaleString("pt-BR") + " encontrados";
+        if (state.status === "failed") throw new Error(state.current || "Falha ao indexar o grupo.");
+      } while (state.status === "processing" || state.status === "queued");
+      await loadAllIndexedTelegramFiles(chatId);
+      $("telegramProgressFill").style.width = "100%";
+      $("telegramProgressLabel").textContent = "100%";
+      setMessage($("telegramImportMessage"),
+        Number(state.total || telegramFilesData.length).toLocaleString("pt-BR") + " arquivos indexados · " +
+        Number(state.exact_duplicates || 0).toLocaleString("pt-BR") + " duplicados exatos ignorados · " +
+        Number(state.possible_duplicates || 0).toLocaleString("pt-BR") + " possíveis repetidos sinalizados.",
+        "success");
+    } catch (error) {
+      setMessage($("telegramImportMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Atualizar índice do grupo";
+    }
+  }
+
+  $("telegramSendCodeButton").addEventListener("click", async () => {
+    const phone = $("telegramPhone").value.trim();
+    if (!phone) {
+      setMessage($("telegramStatusMessage"), "Informe seu número com código do país, por exemplo +55 41 99999-9999.", "error");
+      return;
+    }
+    const button = $("telegramSendCodeButton");
+    button.disabled = true;
+    try {
+      await request("/developer/telegram/auth/start", { method: "POST", body: JSON.stringify({ phone }) });
+      $("telegramCodeFields").hidden = false;
+      setMessage($("telegramStatusMessage"), "Código enviado pelo Telegram. Digite o código recebido e, se solicitado, sua senha 2FA.", "success");
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("telegramVerifyButton").addEventListener("click", async () => {
+    const code = $("telegramCode").value.trim();
+    const password = $("telegramPassword").value;
+    if (!code) {
+      setMessage($("telegramStatusMessage"), "Informe o código recebido no Telegram.", "error");
+      return;
+    }
+    const button = $("telegramVerifyButton");
+    button.disabled = true;
+    try {
+      const result = await request("/developer/telegram/auth/verify", {
+        method: "POST", body: JSON.stringify({ code, password: password || null })
+      });
+      $("telegramCodeFields").hidden = true;
+      $("telegramBrowser").hidden = false;
+      $("telegramSendCodeButton").hidden = true;
+      $("telegramDisconnectButton").hidden = false;
+      setMessage($("telegramStatusMessage"), "Telegram conectado como " + (result.account || "sua conta") + ".", "success");
+      await loadTelegramGroups();
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
+      if (error.status === 428) $("telegramPassword").focus();
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("telegramLoadGroupsButton").addEventListener("click", loadTelegramGroups);
+  $("telegramGroupSelect").addEventListener("change", () => {
+    $("telegramScanButton").disabled = !$("telegramGroupSelect").value;
+    $("telegramFileResults").innerHTML = "";
+    $("telegramFileSearch").value = "";
+    $("telegramIndexSummary").textContent = "Selecione um grupo e clique em Buscar ZIP e RAR.";
+    telegramFilesData = [];
+    telegramSelectedIds.clear();
+    telegramFilteredFiles = [];
+    $("telegramLoadMoreButton").hidden = true;
+    $("telegramImportButton").disabled = true;
+  });
+  $("telegramScanButton").addEventListener("click", scanTelegramFiles);
+  $("telegramLoadMoreButton").hidden = true;
+  $("telegramFileSearch").addEventListener("input", () => {
+    telegramSearchTerm = $("telegramFileSearch").value || "";
+    $("telegramFileResults").scrollTop = 0;
+    renderTelegramFiles();
+  });
+  $("telegramFileResults").addEventListener("scroll", () => {
+    if (telegramRenderFrame) window.cancelAnimationFrame(telegramRenderFrame);
+    telegramRenderFrame = window.requestAnimationFrame(renderTelegramFiles);
+  });
+  $("telegramFileResults").addEventListener("change", event => {
+    if (!event.target.matches('input[data-telegram-message]')) return;
+    const id = Number(event.target.dataset.telegramMessage);
+    if (event.target.checked) {
+      if (telegramSelectedIds.size >= 30) {
+        event.target.checked = false;
+        setMessage($("telegramImportMessage"), "A importação aceita até 30 arquivos por operação. Importe esse lote e depois selecione o próximo.", "error");
+        return;
+      }
+      telegramSelectedIds.add(id);
+    } else {
+      telegramSelectedIds.delete(id);
+    }
+    updateTelegramSelection();
+  });
+  $("telegramSelectAllButton").addEventListener("click", () => {
+    const visibleAvailable = telegramFilteredFiles.filter(file => !file.already_imported);
+    const ids = visibleAvailable.slice(0, 30).map(file => Number(file.message_id));
+    if (ids.length && ids.every(id => telegramSelectedIds.has(id))) {
+      ids.forEach(id => telegramSelectedIds.delete(id));
+    } else {
+      ids.forEach(id => { if (telegramSelectedIds.size < 30) telegramSelectedIds.add(id); });
+    }
+    renderTelegramFiles();
+  });
+  $("telegramImportButton").addEventListener("click", async () => {
+    const chatId = Number($("telegramGroupSelect").value);
+    const messageIds = [...telegramSelectedIds].slice(0, 30);
+    if (!chatId || !messageIds.length) return;
+
+    const button = $("telegramImportButton");
+    const jobId = window.crypto?.randomUUID?.() || ("sonara-telegram-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+    let progressTimer = null;
+    let progressStopped = false;
+
+    const renderTelegramProgress = data => {
+      const total = Number(data.total || messageIds.length || 0);
+      const completed = Number(data.completed || 0);
+      const itemPercent = Number(data.item_percent || 0);
+      const percent = total
+        ? Math.min(100, Math.round((completed + itemPercent / 100) / total * 100))
+        : 0;
+      const details = completed + " de " + (total || messageIds.length) +
+        " arquivo(s) processado(s) · " + (data.imported || 0) + " importado(s) · " +
+        (data.skipped || 0) + " ignorado(s) · " + (data.errors || 0) + " erro(s)";
+      setMessage($("telegramImportMessage"),
+        "Importação em andamento: " + percent + "%\n" + details +
+        "\nAgora: " + (data.current || "Preparando..."));
+      $("telegramProgressBar").hidden = false;
+      $("telegramProgressFill").style.width = percent + "%";
+      $("telegramProgressLabel").textContent = percent + "%";
+    };
+
+    button.disabled = true;
+    button.textContent = "Importando... aguarde";
+    $("telegramProgressBar").hidden = false;
+    $("telegramProgressFill").style.width = "0%";
+    $("telegramProgressLabel").textContent = "0%";
+    setMessage($("telegramImportMessage"), "Conectando ao Telegram e preparando a importação. Não feche esta página.");
+
+    progressTimer = window.setInterval(async () => {
+      if (progressStopped) return;
+      try {
+        const state = await request("/developer/telegram/import-progress/" + encodeURIComponent(jobId));
+        renderTelegramProgress(state);
+      } catch (error) {
+        // A primeira consulta pode acontecer antes de o servidor registrar o trabalho.
+      }
+    }, 800);
+
+    try {
+      const result = await request("/developer/telegram/import", {
+        method: "POST",
+        body: JSON.stringify({ chat_id: chatId, message_ids: messageIds, job_id: jobId })
+      });
+      const finalProgress = await request("/developer/telegram/import-progress/" + encodeURIComponent(jobId)).catch(() => null);
+      if (finalProgress) renderTelegramProgress(finalProgress);
+
+      const imported = result.imported || [];
+      const skipped = result.skipped || [];
+      const errors = result.errors || [];
+      let summary = imported.length + " multitrack(s) importada(s) como rascunho.";
+      if (skipped.length) summary += " " + skipped.length + " já existia(m) e foi(ram) ignorada(s).";
+      if (errors.length) summary += " " + errors.length + " arquivo(s) tiveram erro.";
+      if (!imported.length && !skipped.length && !errors.length) summary = "A importação terminou, mas nenhum arquivo foi processado.";
+      setMessage($("telegramImportMessage"), summary, errors.length ? "error" : "success");
+      if (errors.length) {
+        $("telegramImportMessage").insertAdjacentHTML("afterend",
+          errors.map(item => '<p class="inline-message error"><strong>' + escapeHtml(item.name) + ':</strong> ' + escapeHtml(item.message) + '</p>').join(""));
+      }
+      if (imported.length) {
+        $("telegramProgressFill").style.width = "100%";
+        $("telegramProgressLabel").textContent = "100%";
+      }
+      await scanTelegramFiles();
+      if (imported.length) {
+        await loadTracks();
+        setActiveTab("tracks");
+        setGlobalMessage(imported.length + " multitrack(s) do Telegram adicionada(s) à biblioteca como rascunho. Finalize nome, capa e prévia antes de publicar.", "success");
+      }
+    } catch (error) {
+      setMessage($("telegramImportMessage"), error.message, "error");
+    } finally {
+      progressStopped = true;
+      if (progressTimer) window.clearInterval(progressTimer);
+      button.disabled = false;
+      button.textContent = "Importar selecionados";
+      updateTelegramSelection();
+    }
+  });
+
+  $("telegramDisconnectButton").addEventListener("click", async () => {
+    const button = $("telegramDisconnectButton");
+    button.disabled = true;
+    try {
+      await request("/developer/telegram/connection", { method: "DELETE" });
+      $("telegramBrowser").hidden = true;
+      $("telegramCodeFields").hidden = true;
+      $("telegramSendCodeButton").hidden = false;
+      $("telegramFileResults").innerHTML = "";
+      setMessage($("telegramStatusMessage"), "Telegram desconectado.");
+      await loadTelegramStatus();
+    } catch (error) {
+      setMessage($("telegramStatusMessage"), error.message, "error");
     } finally {
       button.disabled = false;
     }

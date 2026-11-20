@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "SONARA — Multitracks",
+  "short_name": "SONARA",
+  "description": "Sua plataforma de multitracks para músicos e equipes.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#080A0F",
+  "theme_color": "#080A0F",
+  "icons": [
+    {
+      "src": "assets/sonara-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
