@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/sonara-developer-redesign.css?v=3">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="js/sonara-config.js?v=20261107-admin-login-recovery-1"></script>
-  <script src="js/developer.js?v=20261108-telegram-full-index-1" defer></script>
+  <script src="js/developer.js?v=20261120-track-metadata-editor-1" defer></script>
     <link rel="icon" type="image/svg+xml" href="assets/sonara-icon.svg?v=1">
     <link rel="stylesheet" href="css/sonara-brand.css?v=1">
     <link rel="stylesheet" href="css/sonara-developer-mobile.css?v=20261107-1">
@@ -127,8 +127,18 @@
             <div class="preview-editor-heading"><span class="preview-kicker">FINALIZAÇÃO DA MULTITRACK</span><h3>Nome e capa da música</h3><p>Os instrumentos já foram importados. Ajuste os dados da música e depois configure a prévia de áudio.</p></div>
             <form id="trackMetadataForm" class="upload-form">
               <div class="form-grid">
-                <div class="form-field"><label for="editTrackTitle">Nome da música *</label><input id="editTrackTitle" maxlength="180" required></div>
+                <div class="form-field"><label for="editTrackTitle">Nome da track *</label><input id="editTrackTitle" maxlength="180" required></div>
                 <div class="form-field"><label for="editTrackArtist">Artista</label><input id="editTrackArtist" maxlength="180"></div>
+                <div class="form-field"><label for="editTrackKey">Tom musical</label><select id="editTrackKey"><option value="">Selecione o tom</option><option>C</option><option>C#</option><option>Db</option><option>D</option><option>D#</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>Gb</option><option>G</option><option>G#</option><option>Ab</option><option>A</option><option>A#</option><option>Bb</option><option>B</option><option>Am</option><option>Bm</option><option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option><option>Gm</option></select></div>
+                <div class="form-field"><label for="editTrackBpm">BPM</label><input id="editTrackBpm" type="number" min="1" max="400" placeholder="Ex.: 72"></div>
+                <div class="form-field"><label for="editTrackTimeSignature">Compasso / célula</label><select id="editTrackTimeSignature"><option>4/4</option><option>6/8</option><option>3/4</option><option>2/4</option><option>12/8</option><option>5/4</option><option>7/8</option><option>Outro</option></select></div>
+              </div>
+              <div class="category-manager" style="margin-top:18px">
+                <div class="category-heading"><strong>Categorias e tags</strong><small>Marque quantas categorias fizerem sentido para esta música.</small></div>
+                <div class="category-options" id="editTrackCategoryOptions"><span class="muted">Carregando categorias...</span></div>
+                <div class="category-create"><input id="editNewTrackCategory" type="text" maxlength="60" placeholder="Criar nova categoria"><button type="button" class="table-action" id="addEditTrackCategory">Adicionar categoria</button></div>
+              </div>
+              <div class="form-grid" style="margin-top:18px">
                 <div class="form-field" style="grid-column:1/-1"><label for="editTrackCover">Capa da música</label><input id="editTrackCover" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"><small>JPG, PNG ou WEBP · máximo 12 MB. Se não escolher outra imagem, a capa atual será mantida.</small></div>
               </div>
               <div class="track-step-actions">
