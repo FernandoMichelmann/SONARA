@@ -111,3 +111,8 @@ tbody tr:hover td{background:rgba(133,173,255,.04)}
 .drive-folder-row.is-imported,.telegram-file-row.is-imported{border-color:rgba(141,227,209,.16)!important;background:linear-gradient(110deg,rgba(81,176,153,.055),rgba(255,255,255,.015));opacity:.78;cursor:not-allowed}
 .drive-folder-row.is-imported input,.telegram-file-row.is-imported input{opacity:.45;cursor:not-allowed}
 .drive-folder-row:not(.is-imported):hover,.telegram-file-row:not(.is-imported):hover{border-color:rgba(133,173,255,.4)!important;background:rgba(133,173,255,.055)}
+
+
+/* Ação principal para editar os metadados de cada multitrack. */
+.edit-info-action{border-color:rgba(133,173,255,.55);background:rgba(80,130,220,.16);color:#edf4ff;font-weight:700}
+.edit-info-action:hover{background:rgba(80,130,220,.28);border-color:rgba(133,173,255,.8)}
