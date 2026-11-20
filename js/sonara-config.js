@@ -1,27 +1,35 @@
 /* SONARA API endpoint configuration.
  *
  * Local development:
- *   Live Server (localhost/127.0.0.1) uses the local FastAPI backend.
+ *   localhost/127.0.0.1 uses the local FastAPI backend.
+ *
+ * LAN development:
+ *   When the frontend is opened through the Mac's private network IP,
+ *   use that same host for the API on port 8000.
  *
  * Public GitHub Pages:
- *   Do NOT point visitors to 127.0.0.1: that address is each visitor's own
- *   computer. Set PUBLIC_API to the deployed HTTPS backend URL once the API
- *   has been hosted (example format: https://your-api.example.com/api/v1).
+ *   A public HTTPS backend must be configured separately before Pages can
+ *   use the API. Never point public visitors to a private LAN address.
  */
 (() => {
   const hostname = window.location.hostname;
   const isLocalPage = ["localhost", "127.0.0.1"].includes(hostname);
+  const isPrivateLanHost =
+    /^192\.168\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
 
-  // TODO: Replace with the actual public backend URL after backend deployment.
+  // TODO: Set this only after deploying a public HTTPS API.
   const PUBLIC_API = "";
   const localApi = "http://127.0.0.1:8000/api/v1";
+  const lanApi = `http://${hostname}:8000/api/v1`;
 
   const apiBase = PUBLIC_API.trim()
     ? PUBLIC_API.trim().replace(/\/$/, "")
-    : (isLocalPage ? localApi : "");
+    : (isLocalPage ? localApi : (isPrivateLanHost ? lanApi : ""));
 
   window.SONARA_API_BASE_URL = apiBase;
   window.SONARA_API_MODE = apiBase
-    ? (isLocalPage ? "local" : "public")
+    ? (isLocalPage ? "local" : (isPrivateLanHost ? "lan" : "public"))
     : "not-configured";
 })();
