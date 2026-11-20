@@ -571,11 +571,68 @@
     $("trackMetadataEditor").hidden = false;
     $("editTrackTitle").value = track.title || "";
     $("editTrackArtist").value = track.artist || "";
+    $("editTrackKey").value = track.musical_key || "";
+    $("editTrackBpm").value = track.bpm ?? "";
+    $("editTrackTimeSignature").value = track.time_signature || "4/4";
     $("editTrackCover").value = "";
     $("trackMetadataForm").dataset.trackId = String(track.id);
-    setMessage($("trackMetadataMessage"), "Edite o nome e, se desejar, escolha uma nova capa. Os stems importados serão mantidos.");
+
+    const categoriesBox = $("editTrackCategoryOptions");
+    categoriesBox.innerHTML = '<span class="muted">Carregando categorias...</span>';
+    try {
+      const data = await request("/developer/track-categories");
+      const available = data.items || [];
+      const selected = new Set(track.categories || []);
+      categoriesBox.innerHTML = available.map(category =>
+        '<label class="category-option"><input type="checkbox" value="' + escapeHtml(category.name) + '" ' +
+        (selected.has(category.name) ? "checked" : "") + '><span>' + escapeHtml(category.name) + '</span></label>'
+      ).join("") || '<span class="muted">Nenhuma categoria cadastrada.</span>';
+    } catch (error) {
+      categoriesBox.innerHTML = '<span class="muted">Não foi possível carregar as categorias.</span>';
+      setMessage($("trackMetadataMessage"), error.message || "Não foi possível carregar as categorias.", "error");
+    }
+    setMessage($("trackMetadataMessage"), "Atualize os dados musicais, categorias e capa. Os stems importados serão mantidos.");
     $("trackMetadataEditor").scrollIntoView({ behavior: "smooth", block: "center" });
   }
+
+  $("addEditTrackCategory").addEventListener("click", async () => {
+    const input = $("editNewTrackCategory");
+    const name = input.value.trim();
+    if (!name) {
+      setMessage($("trackMetadataMessage"), "Digite o nome da nova categoria.", "error");
+      return;
+    }
+    const button = $("addEditTrackCategory");
+    button.disabled = true;
+    try {
+      const created = await request("/developer/track-categories", {
+        method: "POST",
+        body: JSON.stringify({ name })
+      });
+      const box = $("editTrackCategoryOptions");
+      const existing = [...box.querySelectorAll("input")].find(item => item.value.toLowerCase() === created.name.toLowerCase());
+      if (!existing) {
+        const label = document.createElement("label");
+        label.className = "category-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = created.name;
+        checkbox.checked = true;
+        const span = document.createElement("span");
+        span.textContent = created.name;
+        label.append(checkbox, span);
+        box.append(label);
+      } else {
+        existing.checked = true;
+      }
+      input.value = "";
+      setMessage($("trackMetadataMessage"), "Categoria adicionada e selecionada.", "success");
+    } catch (error) {
+      setMessage($("trackMetadataMessage"), error.message || "Não foi possível adicionar a categoria.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   $("cancelTrackMetadata").addEventListener("click", () => {
     $("trackMetadataEditor").hidden = true;
@@ -591,6 +648,12 @@
     const body = new FormData();
     body.set("title", $("editTrackTitle").value.trim());
     body.set("artist", $("editTrackArtist").value.trim());
+    body.set("musical_key", $("editTrackKey").value);
+    const bpmValue = $("editTrackBpm").value.trim();
+    if (bpmValue) body.set("bpm", bpmValue);
+    body.set("time_signature", $("editTrackTimeSignature").value);
+    const selectedCategories = [...$("editTrackCategoryOptions").querySelectorAll("input:checked")].map(input => input.value);
+    body.set("categories", JSON.stringify(selectedCategories));
     const cover = $("editTrackCover").files[0];
     if (cover) body.set("cover", cover);
     button.disabled = true;
