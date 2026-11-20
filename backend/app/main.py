@@ -83,8 +83,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0",
               description="API oficial da plataforma SONARA.", lifespan=lifespan)
-# Keep the production GitHub Pages frontend authorized even when backend/.env
-# contains a custom CORS_ORIGINS value. Preserve all additional configured origins.
+# Keep GitHub Pages authorized and allow the frontend served by the Mac on
+# private IPv4 networks (Live Server default port 5500).
 configured_origins = [
     origin.strip().rstrip("/")
     for origin in settings.cors_origins.split(",")
@@ -96,6 +96,7 @@ allowed_origins = list(dict.fromkeys(configured_origins + required_origins))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):5500$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
