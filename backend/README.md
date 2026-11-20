@@ -37,13 +37,29 @@ A recuperação de senha envia o link diretamente pelo servidor SONARA usando SM
 
 ## Iniciar a API
 
+### Uso em um único computador
+
+Na pasta `backend`, com o ambiente virtual ativado:
+
 ```bash
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Documentação: http://127.0.0.1:8000/docs  
-Saúde: http://127.0.0.1:8000/health  
-Painel: abra `developer.html` pelo Live Server. A interface local usa `http://127.0.0.1:8000/api/v1`.
+### Uso por mais de um computador na mesma rede local
+
+Inicie **uma única instância** da API no computador que hospeda o backend:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+O endereço `0.0.0.0` faz a API escutar nas interfaces de rede do computador. Nos outros computadores, use o IP local do computador servidor, por exemplo `http://192.168.0.183:8000/docs`. O frontend de cada computador também precisa apontar para esse mesmo IP na configuração da API.
+
+**Importante:** os computadores devem acessar a mesma instância da API e o mesmo banco de dados no computador servidor. Não inicie uma API separada em cada estação. O endereço `0.0.0.0` é para escuta na rede local; não exponha a porta 8000 diretamente à internet. O comando sem `--reload` é recomendado para operação compartilhada, pois evita reinicializações automáticas durante o uso.
+
+Documentação: `http://127.0.0.1:8000/docs` (ou o IP local do servidor seguido de `/docs`)  
+Saúde: `http://127.0.0.1:8000/health`  
+Painel: abra `developer.html` pelo Live Server.
 
 ## Endpoints principais
 
