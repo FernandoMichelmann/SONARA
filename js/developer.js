@@ -180,7 +180,7 @@
         '<td>' + (track.stems || []).length + ' arquivo(s)<div class="cell-secondary">' + escapeHtml(track.original_filename) + '</div></td>' +
         '<td><span class="status-pill ' + (track.is_published ? "published" : "unpublished") + '">' + (track.is_published ? "Publicada" : "Rascunho") + '</span><div class="cell-secondary">' + (track.preview_ready ? "Prévia de 30s pronta" : "Prévia ainda não configurada") + '</div></td>' +
         '<td>' +
-          '<button type="button" class="table-action" data-track-edit="' + track.id + '">Editar nome/capa</button> ' +
+          '<button type="button" class="table-action edit-info-action" data-track-edit="' + track.id + '">Editar informações</button> ' +
           '<button type="button" class="table-action" data-track-preview="' + track.id + '"> ' + (track.preview_ready ? "Editar prévia" : "Configurar prévia") + '</button> ' +
           (track.preview_ready ? '<button type="button" class="table-action" data-track-publish="' + track.id + '" data-next-published="' + (track.is_published ? "false" : "true") + '">' + (track.is_published ? "Retirar do site" : "Publicar") + '</button>' : '') +
           '<button type="button" class="table-action danger" data-track-delete="' + track.id + '">Excluir track</button>' +
@@ -660,19 +660,11 @@
     setMessage($("trackMetadataMessage"), "Salvando informações da música...");
     try {
       await request("/developer/tracks/" + trackId, { method: "PATCH", body });
-      setMessage($("trackMetadataMessage"), "Nome e capa salvos com sucesso.", "success");
-      await loadTracks();
+      setMessage($("trackMetadataMessage"), "Informações da música salvas com sucesso.", "success");
       $("trackMetadataEditor").hidden = true;
-      const refreshed = await request("/developer/tracks");
-      const savedTrack = (refreshed.items || []).find(track => String(track.id) === String(trackId));
-      if (savedTrack) {
-        previewPublishAfter = Boolean(savedTrack.is_published);
-        $("previewPublishToggle").checked = previewPublishAfter;
-        await openPreviewEditor(savedTrack);
-        setGlobalMessage("Nome e capa salvos. Agora escolha o trecho de áudio da prévia.", "success");
-      } else {
-        setGlobalMessage("Informações salvas. Abra a configuração de prévia na lista de tracks.", "success");
-      }
+      $("trackMetadataForm").reset();
+      await loadTracks();
+      setGlobalMessage("Informações atualizadas. Se desejar, configure a prévia no botão separado da lista.", "success");
     } catch (error) {
       setMessage($("trackMetadataMessage"), error.message || "Não foi possível salvar os dados da música.", "error");
     } finally {
